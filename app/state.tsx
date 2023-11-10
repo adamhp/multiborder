@@ -1,6 +1,6 @@
 import { ImagePickerAsset } from 'expo-image-picker';
 import { MutableRefObject, Ref, RefObject } from 'react';
-import { View } from 'react-native';
+import { PixelRatio, View } from 'react-native';
 import ViewShot from 'react-native-view-shot';
 import { atom } from 'recoil';
 
@@ -14,7 +14,22 @@ export const imagesPostState = atom<ImagePickerAsset[]>({
   default: [],
 });
 
-export const imagesRefs = atom<Function[]>({
-  key: 'imagesRefs',
-  default: [],
+export const captureFunctionsState = atom<Record<string, Function>>({
+  key: 'captureFunctions',
+  default: {},
+});
+
+export type Settings = {
+  desiredAspectRatio: number;
+  desiredSize: number;
+  borderSize: number;
+};
+
+export const settingsState = atom<Settings>({
+  key: 'settings',
+  default: {
+    desiredAspectRatio: 4 / 5,
+    desiredSize: 200,
+    borderSize: 5,
+  },
 });

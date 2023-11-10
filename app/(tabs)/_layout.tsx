@@ -1,8 +1,8 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Link, Tabs } from 'expo-router';
 import { Pressable, View, useColorScheme, Text } from 'react-native';
-import { useRecoilValue } from 'recoil';
-import { imagesState } from '../state';
+import { useRecoilState, useRecoilValue } from 'recoil';
+import { imagesState, settingsState } from '../state';
 import clsx from 'clsx';
 
 /**
@@ -38,34 +38,27 @@ function TabBarLabel(props: { text: string; isDisabled?: boolean }) {
 }
 
 export default function TabLayout() {
+  const [settings, setSettings] = useRecoilState(settingsState);
   const images = useRecoilValue(imagesState);
   return (
     <Tabs>
       <Tabs.Screen
         name='index'
+        listeners={{
+          tabPress: (e) => {
+            setSettings((settings) => ({
+              ...settings,
+              desiredSize: 200,
+            }));
+          },
+        }}
         options={{
+          headerShown: false,
           title: images.length === 0 ? 'Select' : 'Preview',
           tabBarLabel: ({ focused }) => (
             <TabBarLabel text={images.length === 0 ? 'Select' : 'Preview'} />
           ),
           tabBarIcon: ({ color }) => <TabBarIcon name='photo' color={color} />,
-          headerRight: () => (
-            <Link href='/modal' asChild>
-              <Pressable>
-                {({ pressed }) => (
-                  <FontAwesome
-                    name='info-circle'
-                    size={24}
-                    style={{
-                      color: 'white',
-                      marginRight: 15,
-                      opacity: pressed ? 0.5 : 1,
-                    }}
-                  />
-                )}
-              </Pressable>
-            </Link>
-          ),
         }}
       />
       <Tabs.Screen
@@ -79,6 +72,7 @@ export default function TabLayout() {
           },
         }}
         options={{
+          headerShown: false,
           title: 'Edit',
           tabBarLabel: ({ focused }) => (
             <TabBarLabel text='Edit' isDisabled={images.length === 0} />
@@ -101,6 +95,7 @@ export default function TabLayout() {
           },
         }}
         options={{
+          headerShown: false,
           title: 'Export',
           tabBarLabel: ({ focused }) => (
             <TabBarLabel text='Export' isDisabled={images.length === 0} />
@@ -112,8 +107,33 @@ export default function TabLayout() {
               isDisabled={images.length === 0}
             />
           ),
+          headerRight: () => (
+            <Link href='/modal' asChild>
+              <Pressable>
+                {({ pressed }) => (
+                  <FontAwesome
+                    name='info-circle'
+                    size={24}
+                    style={{
+                      color: 'white',
+                      marginRight: 15,
+                      opacity: pressed ? 0.5 : 1,
+                    }}
+                  />
+                )}
+              </Pressable>
+            </Link>
+          ),
         }}
       />
     </Tabs>
+  );
+}
+
+export function PageContainer({ children }: { children: React.ReactNode }) {
+  return (
+    <View className='relative flex-1 flex-col items-center justify-center p-2 mt-10'>
+      {children}
+    </View>
   );
 }

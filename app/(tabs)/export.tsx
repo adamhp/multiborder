@@ -1,40 +1,79 @@
-import { Button, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Button,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
-import EditScreenInfo from '../../components/EditScreenInfo';
 import { useRecoilValue } from 'recoil';
-import { imagesRefs } from '../state';
+import { captureFunctionsState, imagesState } from '../state';
+import { TouchableHighlight } from 'react-native-gesture-handler';
+import Toast from 'react-native-toast-message';
+import { FontAwesome } from '@expo/vector-icons';
+import { PageContainer } from './_layout';
+import { useState } from 'react';
 
-export default function TabTwoScreen() {
-  const imagesRefsState = useRecoilValue(imagesRefs);
+export default function ExportScreen() {
+  const captureFunctions = useRecoilValue(captureFunctionsState);
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Export</Text>
-      <Button
-        onPress={() => {
-          imagesRefsState.map((func) => {
-            func();
-          });
-        }}
-        title='Save'
-      />
-      <EditScreenInfo path='app/(tabs)/export.tsx' />
-    </View>
+    <PageContainer>
+      <SizeActions captureFunctions={captureFunctions} size={1024} />
+      <SizeActions captureFunctions={captureFunctions} size={2048} />
+      <SizeActions captureFunctions={captureFunctions} size={4096} />
+      <SizeActions captureFunctions={captureFunctions} size='original' />
+    </PageContainer>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  separator: {
-    marginVertical: 30,
-    height: 1,
-    width: '80%',
-  },
-});
+function SizeActions({
+  size = 1024,
+  captureFunctions,
+}: {
+  size: number | string;
+  captureFunctions: Record<string, Function>;
+}) {
+  const [loading, setLoading] = useState(false);
+  return (
+    <View className='flex flex-row w-full justify-evenly items-center m-2'>
+      <View className='w-40 h-16 border-2 border-zinc-700 rounded-lg flex items-center justify-center p-2'>
+        <Text className='text-white font-space'>
+          {size === 'original' ? 'Original' : `${size}px`}
+        </Text>
+      </View>
+      <TouchableHighlight
+        className='w-16 h-16 bg-zinc-700 rounded-lg flex items-center justify-center p-2'
+        onPress={() => {
+          setLoading(true);
+          Promise.all(
+            Object.entries(captureFunctions).map(
+              ([k, func]: [k: string, func: Function]) => {
+                func(size);
+              },
+            ),
+          )
+            .then(() => {
+              Toast.show({
+                type: 'success',
+                text1: 'Saved images!',
+              });
+            })
+            .catch((e) => {
+              console.error(e);
+              Toast.show({
+                type: 'error',
+                text1: 'Failed to save images...',
+              });
+            });
+          setLoading(false);
+        }}
+      >
+        {loading ? (
+          <ActivityIndicator />
+        ) : (
+          <FontAwesome name='download' size={20} color='white' />
+        )}
+      </TouchableHighlight>
+    </View>
+  );
+}
