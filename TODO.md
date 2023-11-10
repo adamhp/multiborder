@@ -1,0 +1,1 @@
+- Switch size before saving so that save results in high quality
