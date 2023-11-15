@@ -5,7 +5,8 @@ import { Image, Pressable, PressableProps, Text, View } from 'react-native';
 import ViewShot from 'react-native-view-shot';
 import { useRecoilState } from 'recoil';
 import { captureFunctionsState, settingsState } from '../lib/state';
-import { captureImage, getShortenedFileName } from '../lib/util';
+import { captureImage, getShortenedFileName, pixelRatio } from '../lib/util';
+import clsx from 'clsx';
 
 function ImageButton(props: PressableProps) {
   return (
@@ -28,17 +29,19 @@ function ImageLabel({ children }: { children: React.ReactNode }) {
 
 export function ImageThumbnail({
   item,
-  removeImage
+  removeImage,
+  className
 }: {
   item: ImagePicker.ImagePickerAsset;
   removeImage: (image: ImagePicker.ImagePickerAsset) => void;
+  className?: string;
 }) {
   const aspectRatio = item.width / item.height;
   const maxHeight = 200;
   const height = Math.min(maxHeight, 160 / aspectRatio);
   const width = height * aspectRatio;
   return (
-    <View className="items-center flex flex-col mt-2 relative mx-4">
+    <View className={clsx('items-center flex flex-col relative', className)}>
       <ImageLabel>{getShortenedFileName(item.fileName)}</ImageLabel>
       <ImageButton onPress={() => removeImage(item)} />
       <Image
@@ -57,11 +60,11 @@ export function ImageThumbnail({
 export function ImageThumbnailPost({
   item,
   borderSize = 5,
-  removeImage
+  className
 }: {
   item: ImagePicker.ImagePickerAsset;
   borderSize?: number;
-  removeImage: (image: ImagePicker.ImagePickerAsset) => void;
+  className?: string;
 }) {
   const [settings, setSettings] = useRecoilState(settingsState);
   const [captureFunctions, setCaptureFunctions] = useRecoilState(
@@ -79,13 +82,13 @@ export function ImageThumbnailPost({
   const containerWidth = settings.desiredSize * settings.desiredAspectRatio;
 
   // Set image size based on container size and original aspect ratio
-  let height = containerHeight - 2 * borderSize;
+  let height = containerHeight - 2 * (borderSize / pixelRatio);
   let width = height * aspectRatio;
 
   // If original aspect ratio causes width to be greater than container,
   // use width as long edge and adjust height to match
-  if (width > containerWidth - 2 * borderSize) {
-    width = containerWidth - 2 * borderSize;
+  if (width > containerWidth - 2 * (borderSize / pixelRatio)) {
+    width = containerWidth - 2 * (borderSize / pixelRatio);
     height = width / aspectRatio;
   }
 
@@ -107,7 +110,7 @@ export function ImageThumbnailPost({
   }, [settings]);
 
   return (
-    <View className="items-center flex flex-col mt-2 relative mx-4">
+    <View className={clsx('items-center flex flex-col relative', className)}>
       <Text className="text-xs text-zinc-500 font-space">
         {getShortenedFileName(item.fileName)}
       </Text>

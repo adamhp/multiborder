@@ -1,17 +1,19 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as ImagePicker from 'expo-image-picker';
-import { useState } from 'react';
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, PixelRatio, Pressable, View } from 'react-native';
 import { FlatList } from 'react-native-gesture-handler';
 import { useRecoilState } from 'recoil';
-import { imagesState } from '../../lib/state';
-import { PageContainer } from './_layout';
 import {
   ImageThumbnail,
   ImageThumbnailPost
 } from '../../components/ImageThumbnail';
+import { imagesState, settingsState } from '../../lib/state';
+import { PageContainer } from './_layout';
+import { pixelRatio } from '../../lib/util';
 
 export default function SelectScreen() {
+  const [settings, setSettings] = useRecoilState(settingsState);
   const [images, setImages] = useRecoilState(imagesState);
   const [loading, setLoading] = useState<boolean>(false);
 
@@ -41,6 +43,8 @@ export default function SelectScreen() {
     setImages((state) => [...state.filter((i) => i.uri !== image.uri)]);
   };
 
+  useEffect(() => {}, [settings]);
+
   return (
     <PageContainer>
       <ImagesContainer>
@@ -50,8 +54,11 @@ export default function SelectScreen() {
           <FlatList
             horizontal
             data={images}
+            contentContainerStyle={{ alignItems: 'center' }}
             renderItem={({ item, index }) => (
-              <ImageThumbnail item={item} removeImage={removeImage} />
+              <View key={item.uri} className="mx-4">
+                <ImageThumbnail item={item} removeImage={removeImage} />
+              </View>
             )}
           />
         )}
@@ -60,8 +67,14 @@ export default function SelectScreen() {
         <FlatList
           horizontal
           data={images}
+          contentContainerStyle={{ alignItems: 'center' }}
           renderItem={({ item, index }) => (
-            <ImageThumbnailPost item={item} removeImage={removeImage} />
+            <View key={item.uri} className="mx-4">
+              <ImageThumbnailPost
+                borderSize={settings.borderSize}
+                item={item}
+              />
+            </View>
           )}
         />
       </ImagesContainer>

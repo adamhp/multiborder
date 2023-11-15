@@ -72,6 +72,10 @@ export default function TabLayout() {
             if (images.length === 0) {
               e.preventDefault();
             }
+            setSettings((settings) => ({
+              ...settings,
+              desiredSize: 320
+            }));
           }
         }}
         options={{
