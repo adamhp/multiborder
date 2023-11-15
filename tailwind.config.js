@@ -4,9 +4,9 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        space: ['SpaceMono'],
-      },
-    },
+        space: ['SpaceMono']
+      }
+    }
   },
-  plugins: [],
+  plugins: []
 };

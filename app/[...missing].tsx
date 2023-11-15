@@ -1,5 +1,5 @@
 import { Link, Stack } from 'expo-router';
-import { StyleSheet, View, Text } from 'react-native';
+import { Text, View } from 'react-native';
 import i18n from '../assets/locales';
 
 export default function NotFoundScreen() {
@@ -7,7 +7,7 @@ export default function NotFoundScreen() {
     <>
       <Stack.Screen options={{ title: 'Oops!' }} />
       <View>
-        <Link href='/'>
+        <Link href="/">
           <Text>{i18n.t('home')}</Text>
         </Link>
       </View>

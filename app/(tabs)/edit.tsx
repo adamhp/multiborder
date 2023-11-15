@@ -1,6 +1,6 @@
-import { StyleSheet, Text, View } from 'react-native';
-import { PageContainer } from './_layout';
+import { Text, View } from 'react-native';
 import i18n from '../../assets/locales';
+import { PageContainer } from './_layout';
 
 export default function EditScreen() {
   return (

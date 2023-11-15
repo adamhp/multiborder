@@ -1,10 +1,10 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { Link, Tabs } from 'expo-router';
-import { Pressable, View, useColorScheme, Text } from 'react-native';
-import { useRecoilState, useRecoilValue } from 'recoil';
-import { imagesState, settingsState } from '../state';
 import clsx from 'clsx';
+import { Link, Tabs } from 'expo-router';
+import { Pressable, Text, View } from 'react-native';
+import { useRecoilState, useRecoilValue } from 'recoil';
 import i18n from '../../assets/locales';
+import { imagesState, settingsState } from '../state';
 
 /**
  * You can explore the built-in icon families and icons on the web at https://icons.expo.fyi/
@@ -30,7 +30,7 @@ function TabBarLabel(props: { text: string; isDisabled?: boolean }) {
     <Text
       className={clsx('text-xs font-space', {
         'text-zinc-800': props.isDisabled,
-        'text-zinc-200': !props.isDisabled,
+        'text-zinc-200': !props.isDisabled
       })}
     >
       {props.text}
@@ -44,14 +44,14 @@ export default function TabLayout() {
   return (
     <Tabs>
       <Tabs.Screen
-        name='index'
+        name="index"
         listeners={{
           tabPress: (e) => {
             setSettings((settings) => ({
               ...settings,
-              desiredSize: 200,
+              desiredSize: 200
             }));
-          },
+          }
         }}
         options={{
           headerShown: false,
@@ -61,18 +61,18 @@ export default function TabLayout() {
               text={images.length === 0 ? i18n.t('select') : i18n.t('preview')}
             />
           ),
-          tabBarIcon: ({ color }) => <TabBarIcon name='photo' color={color} />,
+          tabBarIcon: ({ color }) => <TabBarIcon name="photo" color={color} />
         }}
       />
       <Tabs.Screen
-        name='edit'
+        name="edit"
         listeners={{
           tabPress: (e) => {
             // Prevent default action
             if (images.length === 0) {
               e.preventDefault();
             }
-          },
+          }
         }}
         options={{
           headerShown: false,
@@ -85,20 +85,20 @@ export default function TabLayout() {
           ),
           tabBarIcon: ({ color }) => (
             <TabBarIcon
-              name='pencil'
+              name="pencil"
               color={color}
               isDisabled={images.length === 0}
             />
-          ),
+          )
         }}
       />
       <Tabs.Screen
-        name='export'
+        name="export"
         listeners={{
           tabPress: (e) => {
             // Prevent default action
             if (images.length === 0) e.preventDefault();
-          },
+          }
         }}
         options={{
           headerShown: false,
@@ -111,28 +111,28 @@ export default function TabLayout() {
           ),
           tabBarIcon: ({ color }) => (
             <TabBarIcon
-              name='share'
+              name="share"
               color={color}
               isDisabled={images.length === 0}
             />
           ),
           headerRight: () => (
-            <Link href='/modal' asChild>
+            <Link href="/modal" asChild>
               <Pressable>
                 {({ pressed }) => (
                   <FontAwesome
-                    name='info-circle'
+                    name="info-circle"
                     size={24}
                     style={{
                       color: 'white',
                       marginRight: 15,
-                      opacity: pressed ? 0.5 : 1,
+                      opacity: pressed ? 0.5 : 1
                     }}
                   />
                 )}
               </Pressable>
             </Link>
-          ),
+          )
         }}
       />
     </Tabs>
@@ -141,7 +141,7 @@ export default function TabLayout() {
 
 export function PageContainer({ children }: { children: React.ReactNode }) {
   return (
-    <View className='bg-zinc-900 relative flex-1 flex-col items-center justify-center p-2 mt-10'>
+    <View className="bg-zinc-900 relative flex-1 flex-col items-center justify-center p-2 mt-10">
       {children}
     </View>
   );

@@ -8,20 +8,14 @@ import {
   Pressable,
   PressableProps,
   Text,
-  View,
-  useColorScheme,
+  View
 } from 'react-native';
 
 import { useEffect, useRef, useState } from 'react';
 import { FlatList } from 'react-native-gesture-handler';
 import ViewShot, { captureRef } from 'react-native-view-shot';
 import { useRecoilState } from 'recoil';
-import {
-  captureFunctionsState,
-  imagesPostState,
-  imagesState,
-  settingsState,
-} from '../state';
+import { captureFunctionsState, imagesState, settingsState } from '../state';
 import { PageContainer } from './_layout';
 
 export default function SelectScreen() {
@@ -36,7 +30,7 @@ export default function SelectScreen() {
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsMultipleSelection: true,
-      quality: 1,
+      quality: 1
     });
 
     if (!result.canceled) {
@@ -58,7 +52,7 @@ export default function SelectScreen() {
     <PageContainer>
       <ImagesContainer>
         {loading ? (
-          <ActivityIndicator size='large' />
+          <ActivityIndicator size="large" />
         ) : (
           <FlatList
             horizontal
@@ -95,31 +89,31 @@ type PickerButtonsProps = {
 
 function PickerButtons({ images, pickImage, clearImages }: PickerButtonsProps) {
   return (
-    <View className='flex-1 h-1/5 justify-center items-center'>
+    <View className="flex-1 h-1/5 justify-center items-center">
       {images.length === 0 ? (
         <Pressable
           accessible={true}
-          accessibilityLabel='Select images'
-          accessibilityHint='Opens photo roll to select images'
-          accessibilityRole='spinbutton'
-          className='rounded-full bg-zinc-700 w-20 h-20 flex justify-center items-center active:bg-zinc-800'
+          accessibilityLabel="Select images"
+          accessibilityHint="Opens photo roll to select images"
+          accessibilityRole="spinbutton"
+          className="rounded-full bg-zinc-700 w-20 h-20 flex justify-center items-center active:bg-zinc-800"
           onPress={pickImage}
         >
           {({ pressed }) => (
-            <FontAwesome name='plus-circle' size={40} color='white' />
+            <FontAwesome name="plus-circle" size={40} color="white" />
           )}
         </Pressable>
       ) : (
         <Pressable
           accessible={true}
-          accessibilityLabel='Clear images'
-          accessibilityHint='Clears all currently selected images'
-          accessibilityRole='button'
-          className='rounded-full bg-zinc-700 w-20 h-20 flex justify-center items-center active:bg-zinc-800'
+          accessibilityLabel="Clear images"
+          accessibilityHint="Clears all currently selected images"
+          accessibilityRole="button"
+          className="rounded-full bg-zinc-700 w-20 h-20 flex justify-center items-center active:bg-zinc-800"
           onPress={clearImages}
         >
           {({ pressed }) => (
-            <FontAwesome name='close' size={40} color='white' />
+            <FontAwesome name="close" size={40} color="white" />
           )}
         </Pressable>
       )}
@@ -128,10 +122,10 @@ function PickerButtons({ images, pickImage, clearImages }: PickerButtonsProps) {
 }
 
 function ImagesContainer({
-  children,
+  children
 }: React.ComponentPropsWithoutRef<typeof View>) {
   return (
-    <View className='flex h-2/5 justify-center items-center m-2 p-2'>
+    <View className="flex h-2/5 justify-center items-center m-2 p-2">
       {children}
     </View>
   );
@@ -141,16 +135,16 @@ function ImageButton(props: PressableProps) {
   return (
     <Pressable
       {...props}
-      className='absolute top-0 -right-4 z-10 rounded-full bg-zinc-700/50 w-8 h-8 flex justify-center items-center active:bg-zinc-800'
+      className="absolute top-0 -right-4 z-10 rounded-full bg-zinc-700/50 w-8 h-8 flex justify-center items-center active:bg-zinc-800"
     >
-      <FontAwesome name='close' size={20} color='rgb(244 244 245)' />
+      <FontAwesome name="close" size={20} color="rgb(244 244 245)" />
     </Pressable>
   );
 }
 
 function ImageLabel({ children }: { children: React.ReactNode }) {
   return (
-    <Text accessibilityRole='text' className='text-xs text-zinc-500 font-space'>
+    <Text accessibilityRole="text" className="text-xs text-zinc-500 font-space">
       {children}
     </Text>
   );
@@ -158,7 +152,7 @@ function ImageLabel({ children }: { children: React.ReactNode }) {
 
 export function ImageThumbnail({
   item,
-  removeImage,
+  removeImage
 }: {
   item: ImagePicker.ImagePickerAsset;
   removeImage: (image: ImagePicker.ImagePickerAsset) => void;
@@ -168,16 +162,16 @@ export function ImageThumbnail({
   const height = Math.min(maxHeight, 160 / aspectRatio);
   const width = height * aspectRatio;
   return (
-    <View className='items-center flex flex-col mt-2 relative mx-4'>
+    <View className="items-center flex flex-col mt-2 relative mx-4">
       <ImageLabel>{getShortenedFileName(item.fileName)}</ImageLabel>
       <ImageButton onPress={() => removeImage(item)} />
       <Image
-        accessibilityRole='image'
+        accessibilityRole="image"
         source={{ uri: item.uri }}
         style={{
           objectFit: 'contain',
           width: width,
-          height: height,
+          height: height
         }}
       />
     </View>
@@ -205,7 +199,7 @@ const pixelRatio = PixelRatio.get();
 const captureImage = ({
   desiredSize,
   desiredAspectRatio,
-  viewShotRef,
+  viewShotRef
 }: CaptureImageProps) => {
   let height = desiredSize;
   let width = height * desiredAspectRatio;
@@ -219,19 +213,19 @@ const captureImage = ({
     format: 'jpg',
     quality: 1.0,
     height: height / pixelRatio,
-    width: width / pixelRatio,
+    width: width / pixelRatio
   }).then(
     (uri) => {
       MediaLibrary.saveToLibraryAsync(uri);
     },
-    (error) => console.error('Oops, snapshot failed', error),
+    (error) => console.error('Oops, snapshot failed', error)
   );
 };
 
 export function ImageThumbnailPost({
   item,
   borderSize = 5,
-  removeImage,
+  removeImage
 }: {
   item: ImagePicker.ImagePickerAsset;
   borderSize?: number;
@@ -239,7 +233,7 @@ export function ImageThumbnailPost({
 }) {
   const [settings, setSettings] = useRecoilState(settingsState);
   const [captureFunctions, setCaptureFunctions] = useRecoilState(
-    captureFunctionsState,
+    captureFunctionsState
   );
   const viewShotRef = useRef<ViewShot>(null);
   const imageViewRef = useRef<View>(null);
@@ -273,42 +267,42 @@ export function ImageThumbnailPost({
         captureImage({
           desiredAspectRatio: settings.desiredAspectRatio,
           desiredSize,
-          viewShotRef,
+          viewShotRef
         });
         setSettings((state) => ({ ...state, desiredSize: 200 }));
-      },
+      }
     }));
   }, [settings]);
 
   return (
-    <View className='items-center flex flex-col mt-2 relative mx-4'>
-      <Text className='text-xs text-zinc-500 font-space'>
+    <View className="items-center flex flex-col mt-2 relative mx-4">
+      <Text className="text-xs text-zinc-500 font-space">
         {getShortenedFileName(item.fileName)}
       </Text>
       <ViewShot
         style={{
           width: containerWidth,
-          height: containerHeight,
+          height: containerHeight
         }}
         ref={viewShotRef}
       >
         <View
           ref={imageViewRef}
-          className='bg-white flex flex-col justify-center items-center'
+          className="bg-white flex flex-col justify-center items-center"
           style={{
             width: containerWidth,
-            height: containerHeight,
+            height: containerHeight
           }}
         >
           <Image
-            accessibilityRole='image'
+            accessibilityRole="image"
             ref={imageRef}
             source={{ uri: item.uri }}
             style={{
               resizeMode: 'contain',
               objectFit: 'contain',
               width: width,
-              height: height,
+              height: height
             }}
           />
         </View>

@@ -11,6 +11,7 @@ const i18n = new I18n({
     home: 'Home',
     settings: 'Settings',
     preview: 'Preview',
+    original: 'Original'
   },
   es: {
     welcome: 'Hola',
@@ -21,6 +22,7 @@ const i18n = new I18n({
     home: 'Inicio',
     settings: 'Configuración',
     preview: 'Vista previa',
+    original: 'Original'
   },
   fr: {
     welcome: 'Bonjour',
@@ -31,6 +33,7 @@ const i18n = new I18n({
     home: 'Accueil',
     settings: 'Paramètres',
     preview: 'Aperçu',
+    original: 'Original'
   },
   de: {
     welcome: 'Hallo',
@@ -41,6 +44,7 @@ const i18n = new I18n({
     home: 'Startseite',
     settings: 'Einstellungen',
     preview: 'Vorschau',
+    original: 'Original'
   },
   pt: {
     welcome: 'Olá',
@@ -51,6 +55,7 @@ const i18n = new I18n({
     home: 'Início',
     settings: 'Configurações',
     preview: 'Pré-visualização',
+    original: 'Original'
   },
   zh: {
     welcome: '你好',
@@ -61,6 +66,7 @@ const i18n = new I18n({
     home: '首页',
     settings: '设置',
     preview: '预览',
+    original: '原始'
   },
   ja: {
     welcome: 'こんにちは',
@@ -71,7 +77,8 @@ const i18n = new I18n({
     home: 'ホーム',
     settings: '設定',
     preview: 'プレビュー',
-  },
+    original: '元の'
+  }
 });
 
 i18n.locale = getLocales()[0].languageCode;
