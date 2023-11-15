@@ -4,6 +4,7 @@ import { Pressable, View, useColorScheme, Text } from 'react-native';
 import { useRecoilState, useRecoilValue } from 'recoil';
 import { imagesState, settingsState } from '../state';
 import clsx from 'clsx';
+import i18n from '../../assets/locales';
 
 /**
  * You can explore the built-in icon families and icons on the web at https://icons.expo.fyi/
@@ -54,9 +55,11 @@ export default function TabLayout() {
         }}
         options={{
           headerShown: false,
-          title: images.length === 0 ? 'Select' : 'Preview',
+          title: images.length === 0 ? i18n.t('select') : i18n.t('preview'),
           tabBarLabel: ({ focused }) => (
-            <TabBarLabel text={images.length === 0 ? 'Select' : 'Preview'} />
+            <TabBarLabel
+              text={images.length === 0 ? i18n.t('select') : i18n.t('preview')}
+            />
           ),
           tabBarIcon: ({ color }) => <TabBarIcon name='photo' color={color} />,
         }}
@@ -73,9 +76,12 @@ export default function TabLayout() {
         }}
         options={{
           headerShown: false,
-          title: 'Edit',
+          title: i18n.t('edit'),
           tabBarLabel: ({ focused }) => (
-            <TabBarLabel text='Edit' isDisabled={images.length === 0} />
+            <TabBarLabel
+              text={i18n.t('edit')}
+              isDisabled={images.length === 0}
+            />
           ),
           tabBarIcon: ({ color }) => (
             <TabBarIcon
@@ -96,9 +102,12 @@ export default function TabLayout() {
         }}
         options={{
           headerShown: false,
-          title: 'Export',
+          title: i18n.t('export'),
           tabBarLabel: ({ focused }) => (
-            <TabBarLabel text='Export' isDisabled={images.length === 0} />
+            <TabBarLabel
+              text={i18n.t('export')}
+              isDisabled={images.length === 0}
+            />
           ),
           tabBarIcon: ({ color }) => (
             <TabBarIcon
@@ -132,7 +141,7 @@ export default function TabLayout() {
 
 export function PageContainer({ children }: { children: React.ReactNode }) {
   return (
-    <View className='relative flex-1 flex-col items-center justify-center p-2 mt-10'>
+    <View className='bg-zinc-900 relative flex-1 flex-col items-center justify-center p-2 mt-10'>
       {children}
     </View>
   );

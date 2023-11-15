@@ -1,21 +1,18 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import {
-  DarkTheme,
-  DefaultTheme,
-  ThemeProvider,
-} from '@react-navigation/native';
+import { ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { SplashScreen, Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { styled } from 'nativewind';
 import { useEffect } from 'react';
-import { Text, View, useColorScheme } from 'react-native';
-import { RecoilRoot } from 'recoil';
+import { Text, View } from 'react-native';
 import Toast, {
   BaseToast,
   BaseToastProps,
   ErrorToast,
   ToastShowParams,
 } from 'react-native-toast-message';
-import { styled } from 'nativewind';
+import { RecoilRoot } from 'recoil';
 
 const StyledBaseToast = styled(BaseToast);
 
@@ -90,13 +87,24 @@ export default function RootLayout() {
   return <RootLayoutNav />;
 }
 
-function RootLayoutNav() {
-  const colorScheme = useColorScheme();
+const Theme = {
+  dark: true,
+  colors: {
+    primary: '#f59e0b',
+    background: '#18181b',
+    card: '#18181b',
+    text: '#f4f4f5',
+    border: '#92400e',
+    notification: '18181b',
+  },
+};
 
+function RootLayoutNav() {
   return (
     <>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <ThemeProvider value={Theme}>
         <RecoilRoot>
+          <StatusBar style='light' />
           <Stack>
             <Stack.Screen name='(tabs)' options={{ headerShown: false }} />
             <Stack.Screen
