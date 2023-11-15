@@ -4,7 +4,7 @@ import { ActivityIndicator, Text, View } from 'react-native';
 import { TouchableHighlight } from 'react-native-gesture-handler';
 import Toast from 'react-native-toast-message';
 import { useRecoilValue } from 'recoil';
-import { captureFunctionsState, imagesState } from '../state';
+import { captureFunctionsState, imagesState } from '../../lib/state';
 import { PageContainer } from './_layout';
 
 export default function ExportScreen() {
