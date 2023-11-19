@@ -131,8 +131,9 @@ export function ImageThumbnailPost({
       >
         <View
           ref={imageViewRef}
-          className="bg-white flex flex-col justify-center items-center"
+          className="flex flex-col justify-center items-center"
           style={{
+            backgroundColor: settings.borderColor,
             width: containerWidth,
             height: containerHeight
           }}

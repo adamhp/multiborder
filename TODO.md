@@ -1,2 +1,2 @@
-- Fix issue with different borders on preview vs edit page vs exported image
+- Make aspect ratio clickable/settable
 - Permissions
