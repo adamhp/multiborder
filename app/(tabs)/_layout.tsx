@@ -4,7 +4,11 @@ import { Link, Tabs } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 import { useRecoilState, useRecoilValue } from 'recoil';
 import i18n from '../../assets/locales';
-import { imagesState, settingsState } from '../../lib/state';
+import {
+  defaultDesiredSize,
+  imagesState,
+  settingsState
+} from '../../lib/state';
 
 /**
  * You can explore the built-in icon families and icons on the web at https://icons.expo.fyi/
@@ -49,7 +53,7 @@ export default function TabLayout() {
           tabPress: (e) => {
             setSettings((settings) => ({
               ...settings,
-              desiredSize: 200
+              desiredSize: defaultDesiredSize
             }));
           }
         }}

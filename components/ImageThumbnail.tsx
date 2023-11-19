@@ -4,8 +4,12 @@ import { useEffect, useRef } from 'react';
 import { Image, Pressable, PressableProps, Text, View } from 'react-native';
 import ViewShot from 'react-native-view-shot';
 import { useRecoilState } from 'recoil';
-import { captureFunctionsState, settingsState } from '../lib/state';
-import { captureImage, getShortenedFileName, pixelRatio } from '../lib/util';
+import {
+  captureFunctionsState,
+  defaultDesiredAspectRatio,
+  settingsState
+} from '../lib/state';
+import { captureImage, getShortenedFileName } from '../lib/util';
 import clsx from 'clsx';
 
 function ImageButton(props: PressableProps) {
@@ -81,14 +85,18 @@ export function ImageThumbnailPost({
   const containerHeight = settings.desiredSize;
   const containerWidth = settings.desiredSize * settings.desiredAspectRatio;
 
+  const weightedBorderSize = Math.ceil(
+    10 * borderSize * (settings.desiredSize / Math.max(item.width, item.height))
+  );
+
   // Set image size based on container size and original aspect ratio
-  let height = containerHeight - 2 * (borderSize / pixelRatio);
+  let height = containerHeight - 2 * weightedBorderSize;
   let width = height * aspectRatio;
 
   // If original aspect ratio causes width to be greater than container,
   // use width as long edge and adjust height to match
-  if (width > containerWidth - 2 * (borderSize / pixelRatio)) {
-    width = containerWidth - 2 * (borderSize / pixelRatio);
+  if (width > containerWidth - 2 * weightedBorderSize) {
+    width = containerWidth - 2 * weightedBorderSize;
     height = width / aspectRatio;
   }
 

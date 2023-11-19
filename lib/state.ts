@@ -22,11 +22,15 @@ export type Settings = {
   borderSize: number;
 };
 
+export const defaultDesiredSize = 200;
+export const defaultDesiredAspectRatio = 4 / 5;
+export const defaultBorderSize = 5;
+
 export const settingsState = atom<Settings>({
   key: 'settings',
   default: {
-    desiredAspectRatio: 4 / 5,
-    desiredSize: 200,
-    borderSize: 5
+    desiredAspectRatio: defaultDesiredSize,
+    desiredSize: defaultDesiredAspectRatio,
+    borderSize: defaultBorderSize
   }
 });

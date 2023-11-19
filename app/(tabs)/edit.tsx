@@ -42,7 +42,7 @@ export default function EditScreen() {
       <View className="flex flex-col h-1/3 rounded-lg bg-zinc-800 w-full px-4">
         <View className="flex flex-row items-center h-16">
           <View className="w-1/3">
-            <Text className="text-white text-lg">Border Size:</Text>
+            <Text className="text-white text-base">Border Size:</Text>
           </View>
           <View className="relative flex w-2/3 justify-center">
             <Text className="absolute text-center inset-x-0 -top-1.5 font-space mx-auto text-white -mb-3">

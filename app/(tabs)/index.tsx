@@ -1,7 +1,7 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, PixelRatio, Pressable, View } from 'react-native';
+import { ActivityIndicator, Pressable, View } from 'react-native';
 import { FlatList } from 'react-native-gesture-handler';
 import { useRecoilState } from 'recoil';
 import {
@@ -10,7 +10,6 @@ import {
 } from '../../components/ImageThumbnail';
 import { imagesState, settingsState } from '../../lib/state';
 import { PageContainer } from './_layout';
-import { pixelRatio } from '../../lib/util';
 
 export default function SelectScreen() {
   const [settings, setSettings] = useRecoilState(settingsState);
