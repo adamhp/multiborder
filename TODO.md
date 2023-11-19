@@ -1,1 +1,2 @@
+- Fix issue with different borders on preview vs edit page vs exported image
 - Permissions
