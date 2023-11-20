@@ -80,23 +80,30 @@ export function ImageThumbnailPost({
 
   // Get original aspect ratio
   const aspectRatio = item.width / item.height;
+  const desiredAspectRatio =
+    settings.desiredAspectRatio === -1
+      ? aspectRatio
+      : settings.desiredAspectRatio;
 
   // Set container size based on desired size and desired aspect ratio
   const containerHeight = settings.desiredSize;
-  const containerWidth = settings.desiredSize * settings.desiredAspectRatio;
+  const containerWidth = settings.desiredSize * desiredAspectRatio;
 
-  const weightedBorderSize = Math.ceil(
-    10 * borderSize * (settings.desiredSize / Math.max(item.width, item.height))
+  const borderX = Math.ceil(
+    20 * borderSize * (settings.desiredSize / item.width)
+  );
+  const borderY = Math.ceil(
+    20 * borderSize * (settings.desiredSize / item.height)
   );
 
   // Set image size based on container size and original aspect ratio
-  let height = containerHeight - 2 * weightedBorderSize;
+  let height = containerHeight;
   let width = height * aspectRatio;
 
   // If original aspect ratio causes width to be greater than container,
   // use width as long edge and adjust height to match
-  if (width > containerWidth - 2 * weightedBorderSize) {
-    width = containerWidth - 2 * weightedBorderSize;
+  if (width > containerWidth - 2) {
+    width = containerWidth;
     height = width / aspectRatio;
   }
 
@@ -108,7 +115,7 @@ export function ImageThumbnailPost({
           size === 'original' ? Math.max(item.height, item.width) : size;
         setSettings((state) => ({ ...state, desiredSize }));
         captureImage({
-          desiredAspectRatio: settings.desiredAspectRatio,
+          desiredAspectRatio,
           desiredSize,
           viewShotRef
         });
@@ -145,8 +152,8 @@ export function ImageThumbnailPost({
             style={{
               resizeMode: 'contain',
               objectFit: 'contain',
-              width: width,
-              height: height
+              width: width - borderX,
+              height: height - borderY
             }}
           />
         </View>

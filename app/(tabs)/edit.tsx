@@ -1,6 +1,7 @@
-import { ScrollView, View, Text } from 'react-native';
+import { ScrollView, View, Text, Pressable } from 'react-native';
 import { useRecoilState, useRecoilValue } from 'recoil';
 import { ImageThumbnailPost } from '../../components/ImageThumbnail';
+import { ImagesScrollView } from '../../components/ImageScrollView';
 import { imagesState, settingsState } from '../../lib/state';
 import { PageContainer } from './_layout';
 import { Slider } from '@miblanchard/react-native-slider';
@@ -10,13 +11,27 @@ import { FontAwesome } from '@expo/vector-icons';
 
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { TriangleColorPicker, fromHsv } from 'react-native-color-picker';
+import clsx from 'clsx';
 
-const aspectRatios = ['1:1', '4:5', '16:9'];
+type AspectRatio = {
+  number: number;
+  label: string | React.ReactNode;
+};
+const aspectRatios = [
+  { number: -1, label: <MaterialIcons name="crop-original" size={20} /> },
+  { number: 1, label: '1:1' },
+  { number: 2 / 3, label: '2:3' },
+  { number: 3 / 4, label: '3:4' },
+  { number: 4 / 5, label: '4:5' }
+];
+
 export default function EditScreen() {
   const [settings, setSettings] = useRecoilState(settingsState);
   const images = useRecoilValue(imagesState);
   const [borderSize, setBorderSize] = useState([settings.borderSize]);
-  const [aspectRatio, setAspectRatio] = useState(settings.desiredAspectRatio);
+  const [aspectRatio, setAspectRatioState] = useState(
+    settings.desiredAspectRatio
+  );
   const [borderColor, setBorderColorState] = useState(settings.borderColor);
 
   const setBorder = useDebounce(() => {
@@ -24,15 +39,21 @@ export default function EditScreen() {
       ...oldSettings,
       borderSize: borderSize[0]
     }));
-  }, 500);
+  }, 100);
 
   const setBorderColor = useDebounce(() => {
-    console.log('setting border color', borderColor);
     setSettings((oldSettings) => ({
       ...oldSettings,
       borderColor: borderColor
     }));
-  }, 500);
+  }, 100);
+
+  const setAspectRatio = useDebounce(() => {
+    setSettings((oldSettings) => ({
+      ...oldSettings,
+      desiredAspectRatio: aspectRatio
+    }));
+  }, 100);
 
   useEffect(() => {
     setBorder();
@@ -42,22 +63,22 @@ export default function EditScreen() {
     setBorderColor();
   }, [borderColor]);
 
+  useEffect(() => {
+    setAspectRatio();
+  }, [aspectRatio]);
+
   return (
     <PageContainer>
-      <ScrollView
-        horizontal={true}
-        decelerationRate={0}
-        snapToInterval={settings.desiredSize * settings.desiredAspectRatio + 32}
-        snapToAlignment={'center'}
+      <ImagesScrollView
         className="h-2/3"
-      >
-        {images.length > 0 &&
-          images.map((image) => (
-            <View key={image.uri} className="mx-4">
-              <ImageThumbnailPost borderSize={borderSize[0]} item={image} />
-            </View>
-          ))}
-      </ScrollView>
+        settings={settings}
+        images={images}
+        renderImage={(item) => (
+          <View key={item.uri} className="mx-4">
+            <ImageThumbnailPost borderSize={borderSize[0]} item={item} />
+          </View>
+        )}
+      />
       <View className="flex flex-col h-1/2 w-full p-4">
         <View className="flex flex-col h-full w-full rounded-lg bg-zinc-800 p-2 pr-6">
           <View className="flex flex-row items-center my-2">
@@ -96,16 +117,31 @@ export default function EditScreen() {
                 }}
               />
             </View>
-            <View className="relative flex flex-row w-4/5 justify-evenly ">
-              {aspectRatios.map((aspectRatio) => (
-                <View
-                  key={aspectRatio}
-                  className="bg-zinc-600 px-2 py-1 rounded-lg"
+            <View className="relative flex flex-row items-center w-4/5 justify-evenly ">
+              {aspectRatios.map((ar) => (
+                <Pressable
+                  key={String(ar.number.toFixed(2))}
+                  onPress={() => {
+                    setAspectRatioState(ar.number);
+                  }}
                 >
-                  <Text className="font-space text-zinc-200">
-                    {aspectRatio}
-                  </Text>
-                </View>
+                  {({ pressed }) => (
+                    <View
+                      className={clsx(
+                        {
+                          'bg-zinc-700 border-amber-900 border-2':
+                            ar.number === aspectRatio || pressed,
+                          'bg-zinc-600': ar.number !== aspectRatio
+                        },
+                        'px-2 py-1 rounded-lg w-11 h-8 text-sm items-center justify-center'
+                      )}
+                    >
+                      <Text className="font-space text-zinc-200">
+                        {ar.label}
+                      </Text>
+                    </View>
+                  )}
+                </Pressable>
               ))}
             </View>
           </View>

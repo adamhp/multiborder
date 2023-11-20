@@ -1,2 +1,2 @@
-- Make aspect ratio clickable/settable
-- Permissions
+- Figure out equivalent borders for original aspect ratio
+- Fix offsets for ScrollView

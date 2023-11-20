@@ -2,21 +2,39 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
-import { FlatList } from 'react-native-gesture-handler';
+import { FlatList, ScrollView } from 'react-native-gesture-handler';
 import { useRecoilState } from 'recoil';
 import {
   ImageThumbnail,
   ImageThumbnailPost
 } from '../../components/ImageThumbnail';
-import { imagesState, settingsState } from '../../lib/state';
+import { Settings, imagesState, settingsState } from '../../lib/state';
 import { PageContainer } from './_layout';
+import { ImagesScrollView } from '../../components/ImageScrollView';
 
+function alertNeedsPermissions() {
+  alert(
+    "Multiborder needs media library access to select photos and save edited photos. Please enable this permission in your device's settings."
+  );
+}
 export default function SelectScreen() {
+  const [status, requestPermission] = ImagePicker.useMediaLibraryPermissions();
   const [settings, setSettings] = useRecoilState(settingsState);
   const [images, setImages] = useRecoilState(imagesState);
   const [loading, setLoading] = useState<boolean>(false);
 
   const pickImage = async () => {
+    if (!status?.granted) {
+      if (status?.canAskAgain) {
+        const result = await requestPermission();
+        if (!result.granted) {
+          alertNeedsPermissions();
+        }
+      } else {
+        alertNeedsPermissions;
+      }
+    }
+
     setTimeout(() => {
       setLoading(true);
     }, 250);
@@ -50,31 +68,29 @@ export default function SelectScreen() {
         {loading ? (
           <ActivityIndicator size="large" />
         ) : (
-          <FlatList
-            horizontal
-            data={images}
-            contentContainerStyle={{ alignItems: 'center' }}
-            renderItem={({ item, index }) => (
-              <View key={item.uri} className="mx-4">
+          <ImagesScrollView
+            renderImage={(item) => (
+              <View key={item.uri} className="mx-3">
                 <ImageThumbnail item={item} removeImage={removeImage} />
               </View>
             )}
+            images={images}
+            settings={settings}
           />
         )}
       </ImagesContainer>
       <ImagesContainer>
-        <FlatList
-          horizontal
-          data={images}
-          contentContainerStyle={{ alignItems: 'center' }}
-          renderItem={({ item, index }) => (
-            <View key={item.uri} className="mx-4">
+        <ImagesScrollView
+          renderImage={(item) => (
+            <View key={item.uri} className="mx-3">
               <ImageThumbnailPost
                 borderSize={settings.borderSize}
                 item={item}
               />
             </View>
           )}
+          images={images}
+          settings={settings}
         />
       </ImagesContainer>
       <PickerButtons
