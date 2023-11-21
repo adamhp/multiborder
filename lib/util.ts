@@ -39,8 +39,8 @@ export const captureImage = ({
 
 export function getShortenedFileName(fileName: string | null | undefined) {
   return fileName !== undefined && fileName !== null
-    ? fileName.length > 12
-      ? `${fileName?.split('.')[0].substring(0, 10)}...`
+    ? fileName.length > 15
+      ? `${fileName?.split('.')[0].substring(0, 15)}...`
       : fileName?.split('.')[0]
     : 'Image';
 }

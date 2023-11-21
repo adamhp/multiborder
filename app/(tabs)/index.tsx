@@ -2,15 +2,14 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
-import { FlatList, ScrollView } from 'react-native-gesture-handler';
 import { useRecoilState } from 'recoil';
+import { ImagesScrollView } from '../../components/ImageScrollView';
 import {
   ImageThumbnail,
   ImageThumbnailPost
 } from '../../components/ImageThumbnail';
-import { Settings, imagesState, settingsState } from '../../lib/state';
+import { imagesState, loadSettings, settingsState } from '../../lib/state';
 import { PageContainer } from './_layout';
-import { ImagesScrollView } from '../../components/ImageScrollView';
 
 function alertNeedsPermissions() {
   alert(
@@ -22,6 +21,12 @@ export default function SelectScreen() {
   const [settings, setSettings] = useRecoilState(settingsState);
   const [images, setImages] = useRecoilState(imagesState);
   const [loading, setLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    loadSettings().then((settings) => {
+      setSettings(settings);
+    });
+  }, []);
 
   const pickImage = async () => {
     if (!status?.granted) {
@@ -75,7 +80,6 @@ export default function SelectScreen() {
               </View>
             )}
             images={images}
-            settings={settings}
           />
         )}
       </ImagesContainer>
@@ -90,7 +94,6 @@ export default function SelectScreen() {
             </View>
           )}
           images={images}
-          settings={settings}
         />
       </ImagesContainer>
       <PickerButtons

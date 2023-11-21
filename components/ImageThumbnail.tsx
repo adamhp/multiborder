@@ -1,16 +1,12 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import clsx from 'clsx';
 import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useRef } from 'react';
 import { Image, Pressable, PressableProps, Text, View } from 'react-native';
 import ViewShot from 'react-native-view-shot';
 import { useRecoilState } from 'recoil';
-import {
-  captureFunctionsState,
-  defaultDesiredAspectRatio,
-  settingsState
-} from '../lib/state';
+import { captureFunctionsState, settingsState } from '../lib/state';
 import { captureImage, getShortenedFileName } from '../lib/util';
-import clsx from 'clsx';
 
 function ImageButton(props: PressableProps) {
   return (
@@ -34,16 +30,17 @@ function ImageLabel({ children }: { children: React.ReactNode }) {
 export function ImageThumbnail({
   item,
   removeImage,
+  size = 200,
   className
 }: {
   item: ImagePicker.ImagePickerAsset;
   removeImage: (image: ImagePicker.ImagePickerAsset) => void;
+  size?: number;
   className?: string;
 }) {
   const aspectRatio = item.width / item.height;
-  const maxHeight = 200;
-  const height = Math.min(maxHeight, 160 / aspectRatio);
-  const width = height * aspectRatio;
+  let height = aspectRatio <= 1 ? size : size / aspectRatio;
+  let width = aspectRatio > 1 ? size : height * aspectRatio;
   return (
     <View className={clsx('items-center flex flex-col relative', className)}>
       <ImageLabel>{getShortenedFileName(item.fileName)}</ImageLabel>
@@ -85,16 +82,13 @@ export function ImageThumbnailPost({
       ? aspectRatio
       : settings.desiredAspectRatio;
 
+  const weightedBorderSize = Math.ceil(
+    10 * borderSize * (settings.desiredSize / Math.max(item.width, item.height))
+  );
+
   // Set container size based on desired size and desired aspect ratio
   const containerHeight = settings.desiredSize;
   const containerWidth = settings.desiredSize * desiredAspectRatio;
-
-  const borderX = Math.ceil(
-    20 * borderSize * (settings.desiredSize / item.width)
-  );
-  const borderY = Math.ceil(
-    20 * borderSize * (settings.desiredSize / item.height)
-  );
 
   // Set image size based on container size and original aspect ratio
   let height = containerHeight;
@@ -102,7 +96,7 @@ export function ImageThumbnailPost({
 
   // If original aspect ratio causes width to be greater than container,
   // use width as long edge and adjust height to match
-  if (width > containerWidth - 2) {
+  if (width > containerWidth) {
     width = containerWidth;
     height = width / aspectRatio;
   }
@@ -140,6 +134,7 @@ export function ImageThumbnailPost({
           ref={imageViewRef}
           className="flex flex-col justify-center items-center"
           style={{
+            padding: 2 * weightedBorderSize,
             backgroundColor: settings.borderColor,
             width: containerWidth,
             height: containerHeight
@@ -149,15 +144,22 @@ export function ImageThumbnailPost({
             accessibilityRole="image"
             ref={imageRef}
             source={{ uri: item.uri }}
+            className="border-collapse"
             style={{
               resizeMode: 'contain',
               objectFit: 'contain',
-              width: width - borderX,
-              height: height - borderY
+              width: '100%',
+              height: '100%'
             }}
           />
         </View>
       </ViewShot>
     </View>
   );
+}
+
+function solve(a: number, b: number, c: number) {
+  var result = (-1 * b + Math.sqrt(Math.pow(b, 2) - 4 * a * c)) / (2 * a);
+  var result2 = (-1 * b - Math.sqrt(Math.pow(b, 2) - 4 * a * c)) / (2 * a);
+  return result + '<br>' + result2;
 }

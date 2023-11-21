@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ImagePickerAsset } from 'expo-image-picker';
 import { atom } from 'recoil';
 
@@ -27,6 +28,22 @@ export const defaultDesiredSize = 200;
 export const defaultDesiredAspectRatio = 4 / 5;
 export const defaultBorderSize = 5;
 export const defaultBorderColor = '#fff';
+
+export const loadSettings = async (): Promise<Settings> => {
+  const desiredSize = defaultDesiredSize;
+  const desiredAspectRatio = await AsyncStorage.getItem(
+    'desiredAspectRatio'
+  ).then((n) =>
+    n !== null ? Number.parseFloat(n) : defaultDesiredAspectRatio
+  );
+  const borderSize = await AsyncStorage.getItem('borderSize').then((n) =>
+    n !== null ? Number.parseFloat(n) : defaultBorderSize
+  );
+  const borderColor = await AsyncStorage.getItem('borderColor').then((s) =>
+    s != null ? s : defaultBorderColor
+  );
+  return { desiredSize, desiredAspectRatio, borderSize, borderColor };
+};
 
 export const settingsState = atom<Settings>({
   key: 'settings',

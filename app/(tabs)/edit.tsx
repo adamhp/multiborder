@@ -1,52 +1,79 @@
-import { ScrollView, View, Text, Pressable } from 'react-native';
-import { useRecoilState, useRecoilValue } from 'recoil';
-import { ImageThumbnailPost } from '../../components/ImageThumbnail';
-import { ImagesScrollView } from '../../components/ImageScrollView';
-import { imagesState, settingsState } from '../../lib/state';
-import { PageContainer } from './_layout';
 import { Slider } from '@miblanchard/react-native-slider';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import {
+  Animated,
+  Dimensions,
+  Pressable,
+  Text,
+  TextInput,
+  View
+} from 'react-native';
+import { useRecoilState, useRecoilValue } from 'recoil';
+import { ImagesScrollView } from '../../components/ImageScrollView';
+import { ImageThumbnailPost } from '../../components/ImageThumbnail';
+import { imagesState, settingsState } from '../../lib/state';
 import { useDebounce } from '../../lib/util';
-import { FontAwesome } from '@expo/vector-icons';
+import { PageContainer } from './_layout';
 
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { TriangleColorPicker, fromHsv } from 'react-native-color-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import clsx from 'clsx';
+import { TriangleColorPicker, fromHsv } from 'react-native-color-picker';
 
 type AspectRatio = {
   number: number;
   label: string | React.ReactNode;
 };
-const aspectRatios = [
+
+const aspectRatios: AspectRatio[] = [
   { number: -1, label: <MaterialIcons name="crop-original" size={20} /> },
-  { number: 1, label: '1:1' },
   { number: 2 / 3, label: '2:3' },
   { number: 3 / 4, label: '3:4' },
-  { number: 4 / 5, label: '4:5' }
+  { number: 4 / 5, label: '4:5' },
+  { number: 1, label: '1:1' }
 ];
 
+const hex = /^#[0-9A-F]{6}$/i;
+const hexShort = /^#[0-9A-F]{3}$/i;
+
 export default function EditScreen() {
+  const windowWidth = Dimensions.get('window').width;
+  const windowHeight = Dimensions.get('window').height;
   const [settings, setSettings] = useRecoilState(settingsState);
   const images = useRecoilValue(imagesState);
-  const [borderSize, setBorderSize] = useState([settings.borderSize]);
+  const [borderSize, setBorderSizeState] = useState([settings.borderSize]);
   const [aspectRatio, setAspectRatioState] = useState(
     settings.desiredAspectRatio
   );
   const [borderColor, setBorderColorState] = useState(settings.borderColor);
+  const [colorFocused, setColorFocused] = useState(false);
+  const [colorTextInput, setColorTextInput] = useState('');
+  const translateYAnim = useRef(new Animated.Value(0)).current;
+  const translateXAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0)).current;
 
-  const setBorder = useDebounce(() => {
+  const setBorderSize = useDebounce(() => {
     setSettings((oldSettings) => ({
       ...oldSettings,
       borderSize: borderSize[0]
     }));
   }, 100);
 
+  const saveBorderSize = useDebounce(() => {
+    AsyncStorage.setItem('borderSize', borderSize[0].toString());
+  }, 2000);
+
   const setBorderColor = useDebounce(() => {
+    setColorTextInput(borderColor);
     setSettings((oldSettings) => ({
       ...oldSettings,
       borderColor: borderColor
     }));
   }, 100);
+
+  const saveBorderColor = useDebounce(() => {
+    AsyncStorage.setItem('borderColor', borderColor);
+  }, 2000);
 
   const setAspectRatio = useDebounce(() => {
     setSettings((oldSettings) => ({
@@ -55,23 +82,64 @@ export default function EditScreen() {
     }));
   }, 100);
 
+  const saveAspectRatio = useDebounce(() => {
+    AsyncStorage.setItem('desiredAspectRatio', aspectRatio.toString());
+  }, 2000);
+
   useEffect(() => {
-    setBorder();
+    setBorderSize();
+    saveBorderSize();
   }, [borderSize]);
 
   useEffect(() => {
     setBorderColor();
+    saveBorderColor();
   }, [borderColor]);
 
   useEffect(() => {
     setAspectRatio();
+    saveAspectRatio();
   }, [aspectRatio]);
+
+  useEffect(() => {
+    if (colorFocused) {
+      Animated.timing(translateXAnim, {
+        toValue: -windowWidth / 2 + 24,
+        duration: 200,
+        useNativeDriver: true
+      }).start();
+      Animated.timing(translateYAnim, {
+        toValue: -windowHeight / 2,
+        duration: 200,
+        useNativeDriver: true
+      }).start();
+      Animated.timing(scaleAnim, {
+        toValue: 1.5,
+        duration: 200,
+        useNativeDriver: true
+      }).start();
+    } else {
+      Animated.timing(translateXAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true
+      }).start();
+      Animated.timing(translateYAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true
+      }).start();
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true
+      }).start();
+    }
+  }, [colorFocused]);
 
   return (
     <PageContainer>
       <ImagesScrollView
-        className="h-2/3"
-        settings={settings}
         images={images}
         renderImage={(item) => (
           <View key={item.uri} className="mx-4">
@@ -103,7 +171,7 @@ export default function EditScreen() {
                 minimumTrackTintColor="#b45309"
                 thumbTintColor="#b45309"
                 value={borderSize}
-                onValueChange={setBorderSize}
+                onValueChange={setBorderSizeState}
               />
             </View>
           </View>
@@ -145,7 +213,7 @@ export default function EditScreen() {
               ))}
             </View>
           </View>
-          <View className="flex flex-row items-center h-3/5">
+          <View className="flex flex-row items-center h-3/5 relative">
             <View className="flex flex-row items-center w-1/5 justify-center">
               <MaterialIcons
                 name="color-lens"
@@ -155,16 +223,59 @@ export default function EditScreen() {
                 }}
               />
             </View>
-            <View className="flex flex-1 w-4/5 justify-center pt-2">
+            <View className="flex flex-1 w-4/5 pt-2 pr-6">
               <TriangleColorPicker
                 style={{ flex: 1 }}
-                color={borderColor}
                 defaultColor={borderColor}
                 hideControls
                 onColorChange={(color) => {
                   setBorderColorState(fromHsv(color));
                 }}
               />
+              <Animated.View
+                style={{
+                  transform: [
+                    {
+                      translateX: translateXAnim
+                    },
+                    {
+                      translateY: translateYAnim
+                    },
+                    { scale: scaleAnim }
+                  ]
+                }}
+              >
+                <TextInput
+                  autoComplete="off"
+                  caretHidden
+                  clearTextOnFocus
+                  inputMode="text"
+                  maxLength={7}
+                  defaultValue={borderColor}
+                  className="text-center text-zinc-100 font-space bg-zinc-500 rounded-md text-xs h-8 w-20 p-2 -pb-2 -mb-3 absolute bottom-0 -right-10"
+                  onFocus={() => {
+                    setColorTextInput('#');
+                    setColorFocused(true);
+                    console.log('color focused');
+                  }}
+                  onBlur={() => {
+                    setColorFocused(false);
+                    console.log('color blurred');
+                  }}
+                  onSubmitEditing={(e) => {
+                    let input = e.nativeEvent.text.startsWith('#')
+                      ? e.nativeEvent.text
+                      : '#' + e.nativeEvent.text;
+                    if (hex.test(input) || hexShort.test(input)) {
+                      setBorderColorState(input);
+                    }
+                  }}
+                  value={colorTextInput}
+                  onChangeText={(text) => {
+                    setColorTextInput(text);
+                  }}
+                />
+              </Animated.View>
             </View>
           </View>
         </View>

@@ -4,13 +4,10 @@ import { useFonts } from 'expo-font';
 import * as Linking from 'expo-linking';
 import { SplashScreen, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { styled } from 'nativewind';
 import { useEffect } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import Toast, { BaseToast, ToastShowParams } from 'react-native-toast-message';
+import Toast, { ToastShowParams } from 'react-native-toast-message';
 import { RecoilRoot } from 'recoil';
-
-const StyledBaseToast = styled(BaseToast);
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -27,15 +24,17 @@ SplashScreen.preventAutoHideAsync();
 
 const toastConfig = {
   success: ({ text1, props }: ToastShowParams) => (
-    <View className="w-[90vw] h-20 bg-zinc-700 p-4 rounded-lg shadow-lg flex flex-row justify-between items-center">
-      <Text className="text-lg text-white">{text1}</Text>
+    <View className="w-[90vw] h-20 bg-zinc-700 p-4 rounded-lg shadow-lg flex flex-row justify-between items-center mt-2">
+      <Text className="text-base text-zinc-100 font-space">{text1}</Text>
       <Pressable
         onPress={() => {
           Linking.openURL(`photos-redirect://`);
         }}
-        className="bg-zinc-900 w-24 rounded-lg px-3 py-2 flex flex-row items-center justify-between"
+        className="bg-zinc-900 w-24 rounded-lg px-4 py-2 flex flex-row items-center justify-between"
       >
-        <Text className="text-lg text-white mr-1">View</Text>
+        <Text className="text-base text-zinc-100 mr-1 font-space font-light">
+          View
+        </Text>
         <FontAwesome name="eye" size={20} color="white" />
       </Pressable>
     </View>
@@ -97,10 +96,6 @@ function RootLayoutNav() {
           <StatusBar style="light" />
           <Stack>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen
-              name="modal"
-              options={{ headerShown: false, presentation: 'modal' }}
-            />
           </Stack>
         </RecoilRoot>
       </ThemeProvider>
