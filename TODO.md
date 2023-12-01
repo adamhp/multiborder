@@ -1,2 +1,0 @@
-- Figure out equivalent borders for original aspect ratio
-- Fix offsets for ScrollView
