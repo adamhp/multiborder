@@ -14,7 +14,7 @@
       "backgroundColor": "#292524"
     },
     "assetBundlePatterns": ["**/*"],
-    "platforms": ["ios"],
+    "platforms": ["ios", "android"],
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
@@ -22,6 +22,12 @@
         "NSPhotoLibraryAddUsageDescription": "Allow $(PRODUCT_NAME) to save photos."
       },
       "bundleIdentifier": "com.adamhp.multiborder"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#292524"
+      }
     },
     "plugins": [
       "expo-router",
