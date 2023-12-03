@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Dimensions,
+  Platform,
   Pressable,
   Text,
   TextInput,
@@ -103,21 +104,39 @@ export default function EditScreen() {
 
   useEffect(() => {
     if (colorFocused) {
-      Animated.timing(translateXAnim, {
-        toValue: -windowWidth / 2 + 24,
-        duration: 200,
-        useNativeDriver: true
-      }).start();
-      Animated.timing(translateYAnim, {
-        toValue: -windowHeight / 2,
-        duration: 200,
-        useNativeDriver: true
-      }).start();
-      Animated.timing(scaleAnim, {
-        toValue: 1.5,
-        duration: 200,
-        useNativeDriver: true
-      }).start();
+      if (Platform.OS === 'ios') {
+        Animated.timing(translateXAnim, {
+          toValue: -windowWidth / 2 + 24,
+          duration: 200,
+          useNativeDriver: true
+        }).start();
+        Animated.timing(translateYAnim, {
+          toValue: -windowHeight / 2,
+          duration: 200,
+          useNativeDriver: true
+        }).start();
+        Animated.timing(scaleAnim, {
+          toValue: 1.5,
+          duration: 200,
+          useNativeDriver: true
+        }).start();
+      } else {
+        Animated.timing(translateXAnim, {
+          toValue: -windowWidth / 2 + 24,
+          duration: 200,
+          useNativeDriver: true
+        }).start();
+        Animated.timing(translateYAnim, {
+          toValue: -windowHeight / 10,
+          duration: 200,
+          useNativeDriver: true
+        }).start();
+        Animated.timing(scaleAnim, {
+          toValue: 1.5,
+          duration: 200,
+          useNativeDriver: true
+        }).start();
+      }
     } else {
       Animated.timing(translateXAnim, {
         toValue: 0,
@@ -201,10 +220,10 @@ export default function EditScreen() {
                             ar.number === aspectRatio || pressed,
                           'bg-zinc-600': ar.number !== aspectRatio
                         },
-                        'px-2 py-1 rounded-lg w-11 h-8 text-sm items-center justify-center'
+                        'mx-2 px-1 py-1 rounded-lg w-12 h-8 items-center justify-center'
                       )}
                     >
-                      <Text className="font-space text-zinc-200">
+                      <Text className="font-space text-zinc-200 text-sm">
                         {ar.label}
                       </Text>
                     </View>
@@ -252,15 +271,16 @@ export default function EditScreen() {
                   inputMode="text"
                   maxLength={7}
                   defaultValue={borderColor}
-                  className="text-center text-zinc-100 font-space bg-zinc-500 rounded-md text-xs h-8 w-20 p-2 -pb-2 -mb-3 absolute bottom-0 -right-10"
+                  className={clsx(
+                    { 'text-xs': !colorFocused, 'text-sm': colorFocused },
+                    'text-center text-zinc-100 font-space bg-zinc-500 rounded-md h-8 w-20 p-2 -pb-2 -mb-3 absolute bottom-0 -right-10'
+                  )}
                   onFocus={() => {
                     setColorTextInput('#');
                     setColorFocused(true);
-                    console.log('color focused');
                   }}
                   onBlur={() => {
                     setColorFocused(false);
-                    console.log('color blurred');
                   }}
                   onSubmitEditing={(e) => {
                     let input = e.nativeEvent.text.startsWith('#')

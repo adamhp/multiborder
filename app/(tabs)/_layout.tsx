@@ -4,6 +4,7 @@ import { Link, Tabs } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 import { useRecoilState, useRecoilValue } from 'recoil';
 import i18n from '../../assets/locales';
+import { Platform } from 'react-native';
 import {
   defaultDesiredSize,
   imagesState,
@@ -32,10 +33,14 @@ function TabBarIcon(props: {
 function TabBarLabel(props: { text: string; isDisabled?: boolean }) {
   return (
     <Text
-      className={clsx('text-xs font-space', {
-        'text-zinc-800': props.isDisabled,
-        'text-zinc-200': !props.isDisabled
-      })}
+      className={clsx(
+        'text-xs font-space',
+        { 'mb-2': Platform.OS === 'android' },
+        {
+          'text-zinc-800': props.isDisabled,
+          'text-zinc-200': !props.isDisabled
+        }
+      )}
     >
       {props.text}
     </Text>
@@ -46,7 +51,18 @@ export default function TabLayout() {
   const [settings, setSettings] = useRecoilState(settingsState);
   const images = useRecoilValue(imagesState);
   return (
-    <Tabs>
+    <Tabs
+      screenOptions={{
+        tabBarActiveTintColor: 'white',
+        tabBarInactiveTintColor: 'gray',
+        tabBarStyle: {
+          height: Platform.OS === 'ios' ? '10%' : '8.3%',
+          borderTopWidth: 1,
+          shadowColor: 'transparent',
+          elevation: 0
+        }
+      }}
+    >
       <Tabs.Screen
         name="index"
         listeners={{

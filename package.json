@@ -44,7 +44,8 @@
     "react-native-toast-message": "^2.1.7",
     "react-native-view-shot": "3.7.0",
     "react-native-web": "~0.19.6",
-    "recoil": "^0.7.7"
+    "recoil": "^0.7.7",
+    "expo-dev-client": "~2.4.12"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",

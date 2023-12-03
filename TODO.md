@@ -1,0 +1,1 @@
+- [ ] Fix text entry on color picker

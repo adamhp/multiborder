@@ -1,5 +1,6 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as ImagePicker from 'expo-image-picker';
+import * as MediaLibrary from 'expo-media-library';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 import { useRecoilState } from 'recoil';
@@ -17,7 +18,10 @@ function alertNeedsPermissions() {
   );
 }
 export default function SelectScreen() {
-  const [status, requestPermission] = ImagePicker.useMediaLibraryPermissions();
+  const [imagePickerPermission, requestImagePickerPermission] =
+    ImagePicker.useMediaLibraryPermissions();
+  const [mediaLibraryPermission, requestMediaLibraryPermission] =
+    MediaLibrary.usePermissions();
   const [settings, setSettings] = useRecoilState(settingsState);
   const [images, setImages] = useRecoilState(imagesState);
   const [loading, setLoading] = useState<boolean>(false);
@@ -29,9 +33,19 @@ export default function SelectScreen() {
   }, []);
 
   const pickImage = async () => {
-    if (!status?.granted) {
-      if (status?.canAskAgain) {
-        const result = await requestPermission();
+    if (!imagePickerPermission?.granted) {
+      if (imagePickerPermission?.canAskAgain) {
+        const result = await requestImagePickerPermission();
+        if (!result.granted) {
+          alertNeedsPermissions();
+        }
+      } else {
+        alertNeedsPermissions;
+      }
+    }
+    if (!mediaLibraryPermission?.granted) {
+      if (mediaLibraryPermission?.canAskAgain) {
+        const result = await requestMediaLibraryPermission();
         if (!result.granted) {
           alertNeedsPermissions();
         }

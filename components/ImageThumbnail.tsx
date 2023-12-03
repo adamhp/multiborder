@@ -2,11 +2,18 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import clsx from 'clsx';
 import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useRef } from 'react';
-import { Image, Pressable, PressableProps, Text, View } from 'react-native';
+import {
+  Dimensions,
+  Image,
+  Pressable,
+  PressableProps,
+  Text,
+  View
+} from 'react-native';
 import ViewShot from 'react-native-view-shot';
 import { useRecoilState } from 'recoil';
 import { captureFunctionsState, settingsState } from '../lib/state';
-import { captureImage, getShortenedFileName } from '../lib/util';
+import { captureImage, getShortenedFileName, pixelRatio } from '../lib/util';
 
 function ImageButton(props: PressableProps) {
   return (
@@ -67,6 +74,7 @@ export function ImageThumbnailPost({
   borderSize?: number;
   className?: string;
 }) {
+  const windowHeight = Dimensions.get('window').height;
   const [settings, setSettings] = useRecoilState(settingsState);
   const [captureFunctions, setCaptureFunctions] = useRecoilState(
     captureFunctionsState
@@ -82,13 +90,13 @@ export function ImageThumbnailPost({
       ? aspectRatio
       : settings.desiredAspectRatio;
 
-  const weightedBorderSize = Math.ceil(
-    10 * borderSize * (settings.desiredSize / Math.max(item.width, item.height))
-  );
-
   // Set container size based on desired size and desired aspect ratio
   const containerHeight = settings.desiredSize;
   const containerWidth = settings.desiredSize * desiredAspectRatio;
+
+  const weightedBorderSize = Math.ceil(
+    (borderSize * (settings.desiredSize / 200)) / 2
+  );
 
   // Set image size based on container size and original aspect ratio
   let height = containerHeight;
@@ -131,6 +139,7 @@ export function ImageThumbnailPost({
         ref={viewShotRef}
       >
         <View
+          id={`${item.uri}-view`}
           ref={imageViewRef}
           className="flex flex-col justify-center items-center"
           style={{
@@ -141,6 +150,7 @@ export function ImageThumbnailPost({
           }}
         >
           <Image
+            id={`${item.uri}-image`}
             accessibilityRole="image"
             ref={imageRef}
             source={{ uri: item.uri }}

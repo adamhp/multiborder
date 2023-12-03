@@ -10,7 +10,7 @@
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/images/splash.png",
-      "resizeMode": "contain",
+      "resizeMode": "cover",
       "backgroundColor": "#292524"
     },
     "assetBundlePatterns": ["**/*"],
@@ -24,10 +24,19 @@
       "bundleIdentifier": "com.adamhp.multiborder"
     },
     "android": {
+      "softwareKeyboardLayoutMode": "pan",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#292524"
-      }
+      },
+      "package": "com.adamhp.multiborder",
+      "permissions": [
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_EXTERNAL_STORAGE",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "MEDIA_LIBRARY"
+      ]
     },
     "plugins": [
       "expo-router",
@@ -41,7 +50,8 @@
         "expo-media-library",
         {
           "photosPermission": "Allow $(PRODUCT_NAME) to access your photos. $(PRODUCT_NAME) applies borders to multiple images. It requires access to the media library (photos) to load images, and add borders to them.",
-          "savePhotosPermission": "Allow $(PRODUCT_NAME) to save photos."
+          "savePhotosPermission": "Allow $(PRODUCT_NAME) to save photos.",
+          "isAccessMediaLocationEnabled": false
         }
       ],
       "expo-localization"

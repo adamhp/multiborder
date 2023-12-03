@@ -5,9 +5,10 @@ import * as Linking from 'expo-linking';
 import { SplashScreen, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Platform, Pressable, Text, View } from 'react-native';
 import Toast, { ToastShowParams } from 'react-native-toast-message';
 import { RecoilRoot } from 'recoil';
+import { pixelRatio } from '../lib/util';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -28,7 +29,11 @@ const toastConfig = {
       <Text className="text-base text-zinc-100 font-space">{text1}</Text>
       <Pressable
         onPress={() => {
-          Linking.openURL(`photos-redirect://`);
+          if (Platform.OS === 'ios') {
+            Linking.openURL(`photos-redirect://`);
+          } else {
+            Linking.openURL('content://media/internal/images/media');
+          }
         }}
         className="bg-zinc-900 w-24 rounded-lg px-4 py-2 flex flex-row items-center justify-between"
       >
@@ -47,12 +52,6 @@ const toastConfig = {
 };
 
 export default function RootLayout() {
-  useEffect(() => {
-    Toast.show({
-      type: 'success',
-      text1: `Saved x!`
-    });
-  }, []);
   const [loaded, error] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
     ...FontAwesome.font

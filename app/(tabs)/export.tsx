@@ -6,6 +6,7 @@ import Toast from 'react-native-toast-message';
 import { useRecoilValue } from 'recoil';
 import { captureFunctionsState, imagesState } from '../../lib/state';
 import { PageContainer } from './_layout';
+import { usePermissions } from 'expo-media-library';
 
 export default function ExportScreen() {
   const captureFunctions = useRecoilValue(captureFunctionsState);
@@ -26,6 +27,7 @@ function SizeActions({
   size: number | string;
   captureFunctions: Record<string, Function>;
 }) {
+  const [permissions, requestPermissions] = usePermissions();
   const images = useRecoilValue(imagesState);
   const [loading, setLoading] = useState(false);
   return (
@@ -38,6 +40,9 @@ function SizeActions({
       <TouchableHighlight
         className="w-16 h-16 bg-zinc-700 rounded-lg flex items-center justify-center p-2"
         onPress={() => {
+          if (!permissions?.granted && permissions?.canAskAgain) {
+            requestPermissions();
+          }
           setLoading(true);
           Promise.all(
             Object.entries(captureFunctions).map(
