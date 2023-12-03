@@ -10,6 +10,7 @@ web-build/
 android
 ios
 *.ipa
+build/
 
 # Native
 *.orig.*
