@@ -1,6 +1,14 @@
 import { FontAwesome } from '@expo/vector-icons';
-import { useState } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import {
+  ActivityIndicator,
+  Linking,
+  Text,
+  View,
+  Image,
+  Alert,
+  Pressable
+} from 'react-native';
 import { TouchableHighlight } from 'react-native-gesture-handler';
 import Toast from 'react-native-toast-message';
 import { useRecoilValue } from 'recoil';
@@ -10,12 +18,36 @@ import { usePermissions } from 'expo-media-library';
 
 export default function ExportScreen() {
   const captureFunctions = useRecoilValue(captureFunctionsState);
+  const handlePress = useCallback(async (url: string) => {
+    // Checking if the link is supported for links with custom URL scheme.
+    const supported = await Linking.canOpenURL(url);
+
+    if (supported) {
+      // Opening the link with some app, if the URL scheme is "http" the web link should be opened
+      // by some browser in the mobile
+      await Linking.openURL(url);
+    } else {
+      Alert.alert(`Don't know how to open this URL: ${url}`);
+    }
+  }, []);
+
   return (
     <PageContainer>
       <SizeActions captureFunctions={captureFunctions} size={1024} />
       <SizeActions captureFunctions={captureFunctions} size={2048} />
       <SizeActions captureFunctions={captureFunctions} size={4096} />
       <SizeActions captureFunctions={captureFunctions} size="original" />
+      <Pressable
+        onPress={() => {
+          handlePress('https://ko-fi.com/adamhp');
+        }}
+        className="mt-12 object-contain h-10 w-full"
+      >
+        <Image
+          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+          source={require('../../assets/images/kofi_button_dark.png')}
+        />
+      </Pressable>
     </PageContainer>
   );
 }
