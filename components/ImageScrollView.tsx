@@ -1,5 +1,5 @@
 import * as ImagePicker from 'expo-image-picker';
-import { ScrollView } from 'react-native-gesture-handler';
+import { ScrollView } from 'react-native';
 
 export const ImagesScrollView = ({
   images,

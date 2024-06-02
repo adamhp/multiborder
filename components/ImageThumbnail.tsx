@@ -1,7 +1,7 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import clsx from 'clsx';
 import * as ImagePicker from 'expo-image-picker';
-import { useEffect, useRef } from 'react';
+import { createRef, useEffect, useRef } from 'react';
 import {
   Dimensions,
   Image,
@@ -154,7 +154,6 @@ export function ImageThumbnailPost({
             accessibilityRole="image"
             ref={imageRef}
             source={{ uri: item.uri }}
-            className="border-collapse"
             style={{
               resizeMode: 'contain',
               objectFit: 'contain',

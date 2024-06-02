@@ -9,7 +9,7 @@ import {
   Alert,
   Pressable
 } from 'react-native';
-import { TouchableHighlight } from 'react-native-gesture-handler';
+import { TouchableHighlight } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { useRecoilValue } from 'recoil';
 import { captureFunctionsState, imagesState } from '../../lib/state';

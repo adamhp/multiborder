@@ -20,6 +20,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import clsx from 'clsx';
 import { TriangleColorPicker, fromHsv } from 'react-native-color-picker';
+import { ImagesContainer } from '.';
 
 type AspectRatio = {
   number: number;
@@ -157,16 +158,22 @@ export default function EditScreen() {
   }, [colorFocused]);
 
   return (
-    <PageContainer>
-      <ImagesScrollView
-        images={images}
-        renderImage={(item) => (
-          <View key={item.uri} className="mx-4">
-            <ImageThumbnailPost borderSize={borderSize[0]} item={item} />
-          </View>
-        )}
-      />
-      <View className="flex flex-col h-1/2 w-full p-4">
+    <View className="bg-zinc-900 flex-col justify-between h-full">
+      <View className="mt-12">
+        <ImagesScrollView
+          images={images}
+          className={images.length === 1 ? 'mx-auto' : undefined}
+          renderImage={(item) => (
+            <View
+              key={item.uri}
+              className={images.length === 1 ? 'mx-auto' : 'mx-1'}
+            >
+              <ImageThumbnailPost borderSize={borderSize[0]} item={item} />
+            </View>
+          )}
+        />
+      </View>
+      <View className="flex flex-col h-1/2 w-full p-1 py-8">
         <View className="flex flex-col h-full w-full rounded-lg bg-zinc-800 p-2 pr-6">
           <View className="flex flex-row items-center my-2">
             <View className="flex flex-row items-center justify-center w-1/5">
@@ -179,7 +186,7 @@ export default function EditScreen() {
               />
             </View>
             <View className="relative flex w-4/5 justify-center">
-              <Text className="absolute text-center inset-x-0 -top-1.5 font-space mx-auto text-white -mb-3">
+              <Text className="absolute text-center inset-x-0 -top-1.5 font-space mx-auto text-white">
                 {borderSize}
               </Text>
               <Slider
@@ -273,10 +280,9 @@ export default function EditScreen() {
                   defaultValue={borderColor}
                   className={clsx(
                     { 'text-xs': !colorFocused, 'text-sm': colorFocused },
-                    'text-center text-zinc-100 font-space bg-zinc-500 rounded-md h-8 w-20 p-2 -pb-2 -mb-3 absolute bottom-0 -right-10'
+                    'text-center text-zinc-100 font-space bg-zinc-500 rounded-md h-8 w-20 absolute bottom-0 -right-8'
                   )}
                   onFocus={() => {
-                    setColorTextInput('#');
                     setColorFocused(true);
                   }}
                   onBlur={() => {
@@ -300,6 +306,6 @@ export default function EditScreen() {
           </View>
         </View>
       </View>
-    </PageContainer>
+    </View>
   );
 }

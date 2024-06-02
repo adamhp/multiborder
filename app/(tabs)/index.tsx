@@ -9,8 +9,14 @@ import {
   ImageThumbnail,
   ImageThumbnailPost
 } from '../../components/ImageThumbnail';
-import { imagesState, loadSettings, settingsState } from '../../lib/state';
+import {
+  captureFunctionsState,
+  imagesState,
+  loadSettings,
+  settingsState
+} from '../../lib/state';
 import { PageContainer } from './_layout';
+import _ from 'lodash';
 
 function alertNeedsPermissions() {
   alert(
@@ -25,6 +31,9 @@ export default function SelectScreen() {
   const [settings, setSettings] = useRecoilState(settingsState);
   const [images, setImages] = useRecoilState(imagesState);
   const [loading, setLoading] = useState<boolean>(false);
+  const [captureFunctions, setCaptureFunctions] = useRecoilState(
+    captureFunctionsState
+  );
 
   useEffect(() => {
     loadSettings().then((settings) => {
@@ -72,10 +81,12 @@ export default function SelectScreen() {
   };
 
   const clearImages = async () => {
+    setCaptureFunctions({});
     setImages([]);
   };
 
   const removeImage = async (image: ImagePicker.ImagePickerAsset) => {
+    setCaptureFunctions((state) => _.omit(state, image.uri));
     setImages((state) => [...state.filter((i) => i.uri !== image.uri)]);
   };
 
@@ -100,7 +111,7 @@ export default function SelectScreen() {
       <ImagesContainer>
         <ImagesScrollView
           renderImage={(item) => (
-            <View key={item.uri} className="mx-3">
+            <View key={item.uri} className="mx-2">
               <ImageThumbnailPost
                 borderSize={settings.borderSize}
                 item={item}
@@ -159,7 +170,7 @@ function PickerButtons({ images, pickImage, clearImages }: PickerButtonsProps) {
   );
 }
 
-function ImagesContainer({
+export function ImagesContainer({
   children
 }: React.ComponentPropsWithoutRef<typeof View>) {
   return (

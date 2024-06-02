@@ -1,1 +1,2 @@
+- [ ] Fix layouts on various sized devices
 - [ ] Fix text entry on color picker
