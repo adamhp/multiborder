@@ -111,7 +111,7 @@ export default function SelectScreen() {
       <ImagesContainer>
         <ImagesScrollView
           renderImage={(item) => (
-            <View key={item.uri} className="mx-2">
+            <View key={item.uri} className="mx-3">
               <ImageThumbnailPost
                 borderSize={settings.borderSize}
                 item={item}

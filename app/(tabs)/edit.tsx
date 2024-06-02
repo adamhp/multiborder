@@ -21,6 +21,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import clsx from 'clsx';
 import { TriangleColorPicker, fromHsv } from 'react-native-color-picker';
 import { ImagesContainer } from '.';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type AspectRatio = {
   number: number;
@@ -158,154 +159,152 @@ export default function EditScreen() {
   }, [colorFocused]);
 
   return (
-    <View className="bg-zinc-900 flex-col justify-between h-full">
-      <View className="mt-12">
+    <SafeAreaView className="bg-zinc-900 flex-1 flex-col justify-between justify-items-end h-full">
+      <View className="flex flex-1 flex-row items-center">
         <ImagesScrollView
           images={images}
-          className={images.length === 1 ? 'mx-auto' : undefined}
           renderImage={(item) => (
-            <View
-              key={item.uri}
-              className={images.length === 1 ? 'mx-auto' : 'mx-1'}
-            >
+            <View className="mx-3" key={item.uri}>
               <ImageThumbnailPost borderSize={borderSize[0]} item={item} />
             </View>
           )}
         />
       </View>
-      <View className="flex flex-col h-1/2 w-full p-1 py-8">
-        <View className="flex flex-col h-full w-full rounded-lg bg-zinc-800 p-2 pr-6">
-          <View className="flex flex-row items-center my-2">
-            <View className="flex flex-row items-center justify-center w-1/5">
-              <MaterialIcons
-                name="crop-square"
-                size={24}
-                style={{
-                  color: '#bbb'
-                }}
-              />
-            </View>
-            <View className="relative flex w-4/5 justify-center">
-              <Text className="absolute text-center inset-x-0 -top-1.5 font-space mx-auto text-white">
-                {borderSize}
-              </Text>
-              <Slider
-                step={1}
-                trackClickable={true}
-                minimumValue={0}
-                maximumValue={32}
-                minimumTrackTintColor="#b45309"
-                thumbTintColor="#b45309"
-                value={borderSize}
-                onValueChange={setBorderSizeState}
-              />
-            </View>
-          </View>
-          <View className="flex flex-row items-center my-2">
-            <View className="flex flex-row items-center w-1/5 justify-center">
-              <MaterialIcons
-                name="aspect-ratio"
-                size={24}
-                style={{
-                  color: '#bbb'
-                }}
-              />
-            </View>
-            <View className="relative flex flex-row items-center w-4/5 justify-evenly ">
-              {aspectRatios.map((ar) => (
-                <Pressable
-                  key={String(ar.number.toFixed(2))}
-                  onPress={() => {
-                    setAspectRatioState(ar.number);
-                  }}
-                >
-                  {({ pressed }) => (
-                    <View
-                      className={clsx(
-                        {
-                          'bg-zinc-700 border-amber-900 border-2':
-                            ar.number === aspectRatio || pressed,
-                          'bg-zinc-600': ar.number !== aspectRatio
-                        },
-                        'mx-2 px-1 py-1 rounded-lg w-12 h-8 items-center justify-center'
-                      )}
-                    >
-                      <Text className="font-space text-zinc-200 text-sm">
-                        {ar.label}
-                      </Text>
-                    </View>
-                  )}
-                </Pressable>
-              ))}
-            </View>
-          </View>
-          <View className="flex flex-row items-center h-3/5 relative">
-            <View className="flex flex-row items-center w-1/5 justify-center">
-              <MaterialIcons
-                name="color-lens"
-                size={24}
-                style={{
-                  color: '#bbb'
-                }}
-              />
-            </View>
-            <View className="flex flex-1 w-4/5 pt-2 pr-6">
-              <TriangleColorPicker
-                style={{ flex: 1 }}
-                defaultColor={borderColor}
-                hideControls
-                onColorChange={(color) => {
-                  setBorderColorState(fromHsv(color));
-                }}
-              />
-              <Animated.View
-                style={{
-                  transform: [
-                    {
-                      translateX: translateXAnim
-                    },
-                    {
-                      translateY: translateYAnim
-                    },
-                    { scale: scaleAnim }
-                  ]
-                }}
-              >
-                <TextInput
-                  autoComplete="off"
-                  caretHidden
-                  clearTextOnFocus
-                  inputMode="text"
-                  maxLength={7}
-                  defaultValue={borderColor}
-                  className={clsx(
-                    { 'text-xs': !colorFocused, 'text-sm': colorFocused },
-                    'text-center text-zinc-100 font-space bg-zinc-500 rounded-md h-8 w-20 absolute bottom-0 -right-8'
-                  )}
-                  onFocus={() => {
-                    setColorFocused(true);
-                  }}
-                  onBlur={() => {
-                    setColorFocused(false);
-                  }}
-                  onSubmitEditing={(e) => {
-                    let input = e.nativeEvent.text.startsWith('#')
-                      ? e.nativeEvent.text
-                      : '#' + e.nativeEvent.text;
-                    if (hex.test(input) || hexShort.test(input)) {
-                      setBorderColorState(input);
-                    }
-                  }}
-                  value={colorTextInput}
-                  onChangeText={(text) => {
-                    setColorTextInput(text);
+      <View className="flex flex-auto flex-row items-center- max-h-[300px] w-full p-2">
+        <View className="flex flex-col">
+          <View className="flex flex-col h-full w-full rounded-lg bg-zinc-800 p-2 pr-6">
+            <View className="flex flex-row items-center my-2">
+              <View className="flex flex-row items-center justify-center w-1/5">
+                <MaterialIcons
+                  name="crop-square"
+                  size={24}
+                  style={{
+                    color: '#bbb'
                   }}
                 />
-              </Animated.View>
+              </View>
+              <View className="relative flex w-4/5 justify-center">
+                <Text className="absolute text-center inset-x-0 -top-1.5 font-space mx-auto text-white">
+                  {borderSize}
+                </Text>
+                <Slider
+                  step={1}
+                  trackClickable={true}
+                  minimumValue={0}
+                  maximumValue={32}
+                  minimumTrackTintColor="#b45309"
+                  thumbTintColor="#b45309"
+                  value={borderSize}
+                  onValueChange={setBorderSizeState}
+                />
+              </View>
+            </View>
+            <View className="flex flex-row items-center my-2">
+              <View className="flex flex-row items-center w-1/5 justify-center">
+                <MaterialIcons
+                  name="aspect-ratio"
+                  size={24}
+                  style={{
+                    color: '#bbb'
+                  }}
+                />
+              </View>
+              <View className="relative flex flex-row items-center w-4/5 justify-evenly ">
+                {aspectRatios.map((ar) => (
+                  <Pressable
+                    key={String(ar.number.toFixed(2))}
+                    onPress={() => {
+                      setAspectRatioState(ar.number);
+                    }}
+                  >
+                    {({ pressed }) => (
+                      <View
+                        className={clsx(
+                          {
+                            'bg-zinc-700 border-amber-900 border-2':
+                              ar.number === aspectRatio || pressed,
+                            'bg-zinc-600': ar.number !== aspectRatio
+                          },
+                          'mx-2 px-1 py-1 rounded-lg w-12 h-8 items-center justify-center'
+                        )}
+                      >
+                        <Text className="font-space text-zinc-200 text-sm">
+                          {ar.label}
+                        </Text>
+                      </View>
+                    )}
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+            <View className="flex flex-row items-center h-3/5 relative">
+              <View className="flex flex-row items-center w-1/5 justify-center">
+                <MaterialIcons
+                  name="color-lens"
+                  size={24}
+                  style={{
+                    color: '#bbb'
+                  }}
+                />
+              </View>
+              <View className="flex flex-1 w-4/5 pt-2 pr-6">
+                <TriangleColorPicker
+                  style={{ flex: 1 }}
+                  defaultColor={borderColor}
+                  hideControls
+                  onColorChange={(color) => {
+                    setBorderColorState(fromHsv(color));
+                  }}
+                />
+                <Animated.View
+                  style={{
+                    transform: [
+                      {
+                        translateX: translateXAnim
+                      },
+                      {
+                        translateY: translateYAnim
+                      },
+                      { scale: scaleAnim }
+                    ]
+                  }}
+                >
+                  <TextInput
+                    autoComplete="off"
+                    caretHidden
+                    clearTextOnFocus
+                    inputMode="text"
+                    maxLength={7}
+                    defaultValue={borderColor}
+                    className={clsx(
+                      { 'text-xs': !colorFocused, 'text-sm': colorFocused },
+                      'text-center text-zinc-100 font-space bg-zinc-500 rounded-md h-8 w-20 absolute bottom-0 -right-8'
+                    )}
+                    onFocus={() => {
+                      setColorFocused(true);
+                    }}
+                    onBlur={() => {
+                      setColorFocused(false);
+                    }}
+                    onSubmitEditing={(e) => {
+                      let input = e.nativeEvent.text.startsWith('#')
+                        ? e.nativeEvent.text
+                        : '#' + e.nativeEvent.text;
+                      if (hex.test(input) || hexShort.test(input)) {
+                        setBorderColorState(input);
+                      }
+                    }}
+                    value={colorTextInput}
+                    onChangeText={(text) => {
+                      setColorTextInput(text);
+                    }}
+                  />
+                </Animated.View>
+              </View>
             </View>
           </View>
         </View>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }

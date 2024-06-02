@@ -23,7 +23,7 @@ function TabBarIcon(props: {
     <Pressable disabled={props.isDisabled}>
       <FontAwesome
         size={20}
-        style={{ opacity: props.isDisabled ? 0.25 : 1, marginBottom: -8 }}
+        style={{ opacity: props.isDisabled ? 0.25 : 1, marginBottom: -12 }}
         {...props}
       />
     </Pressable>
@@ -33,7 +33,7 @@ function TabBarIcon(props: {
 function TabBarLabel(props: { text: string; isDisabled?: boolean }) {
   return (
     <Text
-      className={clsx('text-xs font-space mb-2', {
+      className={clsx('text-xs font-space my-1', {
         'text-zinc-800': props.isDisabled,
         'text-zinc-200': !props.isDisabled
       })}
@@ -52,8 +52,8 @@ export default function TabLayout() {
         tabBarActiveTintColor: 'white',
         tabBarInactiveTintColor: 'gray',
         tabBarStyle: {
-          height: Platform.OS === 'ios' ? '10%' : '8.3%',
-          borderTopWidth: 1,
+          height: '10%',
+          borderTopWidth: 0.5,
           shadowColor: 'transparent',
           elevation: 0
         }
