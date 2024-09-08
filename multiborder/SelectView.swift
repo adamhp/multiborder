@@ -1,0 +1,79 @@
+//
+//  SelectView.swift
+//  multiborder
+//
+//  Created by Adam Pearce on 6/14/24.
+//
+
+import SwiftUI
+import PhotosUI
+
+struct SelectView: View {
+    
+    @EnvironmentObject private var data: DataModel
+    
+    var body: some View {
+        DefaultPage {
+            VStack(spacing: 0) {
+                Spacer()
+                ImageStack()
+                Spacer()
+                if data.attachments.isEmpty {
+                    PhotosPicker(
+                        selection: $data.selection,
+                        matching: .images,
+                        preferredItemEncoding: .current,
+                        photoLibrary: .shared()
+                    ) {
+                        SelectButton().animation(.easeInOut(duration: 0.5), value: data.selection.isEmpty)
+                    }
+                    .frame(height: 64)
+                } else {
+                    ClearButton(data: data)
+                        .frame(height: 64)
+                }
+            }
+        }
+    }
+}
+
+struct SelectButton: View {
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(.accent.opacity(0.2))
+                .frame(width: 64, height: 64)
+            Image(systemName: "plus")
+                .foregroundColor(.accent)
+                .font(.system(size: 32, weight: .semibold))
+        }
+    }
+}
+
+struct ClearButton: View {
+    
+    let data: DataModel
+    
+    @State var tap = false
+    
+    var body: some View {
+        ZStack {
+            Circle()
+                .foregroundColor(.gray.opacity(0.25))
+                .frame(width: 64, height: 64)
+            Image(systemName: "xmark")
+                .foregroundColor(.gray.opacity(0.5))
+                .font(.system(size: 32, weight: .semibold))
+        }
+        .onTapGesture {
+            data.removeCurrent()
+            tap = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                tap = false
+            }
+        }
+        .scaleEffect(tap ? 1.2 : 1)
+        .animation(.spring(response: 0.4, dampingFraction: 0.6), value: tap)
+        .sensoryFeedback(.success, trigger: tap)
+    }
+}
