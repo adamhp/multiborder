@@ -61,7 +61,6 @@ struct DesiredPaddingSlider: View {
                         .frame(width: 32, height: 32)
                 }
                 ColorPicker("", selection: $borderColorValue, supportsOpacity: false).labelsHidden().onChange(of: borderColorValue, {
-                    let _ = print("setting border color")
                     data.setDesiredBorderColor(value: borderColorValue)
                 })
                 .frame(maxWidth: 48)

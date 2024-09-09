@@ -1,7 +1,8 @@
 import SwiftUI
 import PhotosUI
+import Foundation
 
-@MainActor final class DataModel: ObservableObject {
+@MainActor final class DataModel: NSObject, ObservableObject  {
     @MainActor final class ImageAttachment: ObservableObject, Identifiable {
         
         /// Statuses that indicate the app's progress in loading a selected photo.
@@ -16,6 +17,10 @@ import PhotosUI
             /// A status indicating that the photo has failed to load.
             case failed(Error)
             
+            case saved
+            
+            case saveFailed(Error)
+            
             /// Determines whether the photo has failed to load.
             var isFailed: Bool {
                 return switch self {
@@ -29,6 +34,9 @@ import PhotosUI
                     case .finished(_): return 0
                     case .loading: return 1
                     case .failed(_): return 2
+                    case .saveFailed(_): return 3
+                    case .saved: return 4
+                        
                 }
             }
         }
@@ -75,7 +83,6 @@ import PhotosUI
                     imageDescription = data.description
                     originalImageWidth = uiImage.size.width
                     originalImageHeight = uiImage.size.height
-                    let _ = print("loaded \(originalImageWidth) x \(originalImageHeight) image")
                     let size: Int64? = Int64(data.description.components(separatedBy: " ")[0])
                     let byteFormat = ByteCountFormatStyle(style: .memory,
                                                           allowedUnits: [.mb],
@@ -92,6 +99,8 @@ import PhotosUI
             }
         }
     }
+    
+    @Published var selectedTab = 0
     
     /// User settings
     @Published var desiredAspectRatio: Double = 4/5
@@ -122,11 +131,19 @@ import PhotosUI
     
     @Published var attachments = [ImageAttachment]()
     
+    @Published var saveSuccesses = 0
+    @Published var saveFailures = 0
+    @Published var saveResults = 0
+    @Published var failureMessage = ""
+    
     private var attachmentByIdentifier = [String: ImageAttachment]()
     
     public func clearSelection() {
         selection = []
         attachments = []
+        saveSuccesses = 0
+        saveFailures = 0
+        saveResults = 0
     }
     
     public func removeCurrent() {
@@ -175,7 +192,6 @@ import PhotosUI
                     renderer.scale = 1.0
                     if let result = renderer.uiImage {
                         rendered.append(Image(uiImage: result))
-                        let _ = print("result \(result)")
                     }
                 case .failed:
                     return
@@ -194,7 +210,7 @@ import PhotosUI
                     let renderer = ImageRenderer(content: ImageExportView(image: image, desiredWidth: size, desiredAspectRatio: aspectRatio, desiredPadding: desiredPadding * paddingScale, desiredBorderColor: desiredBorderColor))
                     renderer.scale = 1.0
                     if let result = renderer.uiImage {
-                        UIImageWriteToSavedPhotosAlbum(result, nil, nil, nil)
+                        UIImageWriteToSavedPhotosAlbum(result, self, #selector(image(_:didFinishSavingWithError:contextInfo:)), nil)
                     }
                 case .failed:
                     return
@@ -203,7 +219,19 @@ import PhotosUI
             }
         }
     }
+    
+    @objc func image(_ image: UIImage, didFinishSavingWithError error: Error?, contextInfo: UnsafeRawPointer) {
+        if let error = error {
+            self.saveFailures += 1
+            self.saveResults += 1
+            self.failureMessage = error.localizedDescription
+        } else {
+            self.saveSuccesses += 1
+            self.saveResults += 1
+        }
+    }
 }
+
 
 private extension PhotosPickerItem {
     var identifier: String {
@@ -231,7 +259,6 @@ struct ImageExportView: View {
     }
 }
 
-
 struct ImageView: View {
     
     let image: Image
@@ -244,5 +271,24 @@ struct ImageView: View {
                 .aspectRatio(contentMode: .fit)
                 .padding(desiredPadding)
         }
+    }
+}
+
+class WriteImageToFileResponder: NSObject {
+    typealias WriteImageToFileResponderCompletion = ((UIImage?, Error?) -> Void)?
+    var completion: WriteImageToFileResponderCompletion = nil
+    
+    override init() {
+        super.init()
+    }
+    
+    @objc func image(_ image: UIImage, didFinishSavingWithError error: Error?, contextInfo: UnsafeRawPointer) {
+        if (completion != nil) {
+            error == nil ? completion?(image, error) : completion?(nil, error)
+            completion = nil
+        }
+    }
+    func addCompletion(completion:WriteImageToFileResponderCompletion) {
+        self.completion = completion
     }
 }

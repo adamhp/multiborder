@@ -38,19 +38,20 @@ enum TabbedItems: Int, CaseIterable{
 struct MainView: View {
     
     @StateObject var data = DataModel()
-    @State var selectedTab = 0
     
     var body: some View {
             VStack {
                 
                 /// Tabbed views
-                TabView(selection: $selectedTab) {
+                TabView(selection: $data.selectedTab) {
                     SelectView()
                         .tag(0)
                     EditView()
                         .tag(1)
                     ExportView()
                         .tag(2)
+                }.onTapGesture {
+                    // Do nothing, prevents navigation by clicking above the tab bar navigation buttons
                 }
                 
                 /// Tab navigation
@@ -58,11 +59,11 @@ struct MainView: View {
                     HStack {
                         ForEach((TabbedItems.allCases), id: \.self) {
                             item in Button {
-                                selectedTab = item.rawValue
+                                data.selectedTab = item.rawValue
                             } label: {
-                                CustomTabItem(imageName: item.iconName, title: item.title, isActive: (selectedTab == item.rawValue))
+                                CustomTabItem(imageName: item.iconName, title: item.title, isActive: (data.selectedTab == item.rawValue))
                             }
-                            .animation(.interactiveSpring, value: selectedTab)
+                            .animation(.interactiveSpring, value: data.selectedTab)
                         }
                         
                     }
@@ -88,6 +89,7 @@ extension MainView {
                     .foregroundColor(isActive ? .white : .gray)
             }
         }
+        .buttonStyle(BorderlessButtonStyle())
         .frame(width: isActive ? 148 : 48, height: 48)
         .background(isActive ? .accent.opacity(0.5) : .clear)
         .cornerRadius(16)

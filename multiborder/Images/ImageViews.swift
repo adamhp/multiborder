@@ -42,13 +42,8 @@ struct ImageContainerView: View {
                 .overlay(ImageAttachmentView(imageAttachment: imageAttachment))
                 .position(x: geo.frame(in: .local).midX, y: geo.frame(in: .local).midY)
                 .onAppear {
-                    let _ = print("desired aspect ratio: \(data.desiredAspectRatio)")
-                    let _ = print("image is \(imageAttachment.originalImageWidth) by \(imageAttachment.originalImageHeight)")
-                    if data.originalContainerWidth != 0 {
-                        return
-                    } else {
+                    if data.originalContainerWidth == 0 {
                         data.originalContainerWidth = geo.size.width
-                        let _ = print("orig width: \(geo.size.width)")
                     }
                 }
         }
