@@ -32,7 +32,7 @@ struct DesiredPaddingSlider: View {
     
     @EnvironmentObject private var data: DataModel
     @State private var desiredPaddingValue: Double = 0
-    @State private var borderColorValue = Color(.sRGB, red: 1.0, green: 1.0, blue: 1.0)
+    @State private var borderColorValue = Color.white
     @State private var isEditing: Bool = false
     
     var body: some View {

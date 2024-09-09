@@ -100,6 +100,7 @@ import Foundation
         }
     }
     
+    @Published var helpTextShown: Bool = false
     @Published var selectedTab = 0
     
     /// User settings

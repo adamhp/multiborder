@@ -41,7 +41,6 @@ struct MainView: View {
     
     var body: some View {
             VStack {
-                
                 /// Tabbed views
                 TabView(selection: $data.selectedTab) {
                     SelectView()
@@ -50,8 +49,6 @@ struct MainView: View {
                         .tag(1)
                     ExportView()
                         .tag(2)
-                }.onTapGesture {
-                    // Do nothing, prevents navigation by clicking above the tab bar navigation buttons
                 }
                 
                 /// Tab navigation
@@ -59,7 +56,27 @@ struct MainView: View {
                     HStack {
                         ForEach((TabbedItems.allCases), id: \.self) {
                             item in Button {
-                                data.selectedTab = item.rawValue
+                                switch item.title {
+                                    case "Select":
+                                        data.selectedTab = item.rawValue
+                                    case "Edit":
+                                        if data.selection.count > 0 {
+                                            data.selectedTab = item.rawValue
+                                        } else {
+                                            withAnimation {
+                                                data.helpTextShown = true
+                                            }
+                                        }
+                                    case "Export":
+                                        if data.selection.count > 0 {
+                                            data.selectedTab = item.rawValue
+                                            withAnimation {
+                                                data.helpTextShown = true
+                                            }
+                                        }
+                                    default:
+                                        data.selectedTab = item.rawValue
+                                }
                             } label: {
                                 CustomTabItem(imageName: item.iconName, title: item.title, isActive: (data.selectedTab == item.rawValue))
                             }
@@ -81,7 +98,7 @@ extension MainView {
     func CustomTabItem(imageName: String, title: String, isActive: Bool) -> some View {
         HStack {
             Image(systemName: imageName)
-                .foregroundColor(isActive ? .white : .gray)
+                .foregroundColor(isActive ? .white : .stone500)
                 .animation(.interactiveSpring, value: isActive)
             if isActive {
                 Text(title)
