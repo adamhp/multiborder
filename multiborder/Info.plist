@@ -6,8 +6,6 @@
 	<array>
 		<string>SpaceMono.ttf</string>
 	</array>
-	<key>UILaunchImageFile</key>
-	<string>SplashScreen.storyboard</string>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIImageName</key>

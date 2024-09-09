@@ -515,8 +515,8 @@
 				INFOPLIST_FILE = multiborder/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = multiborder;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.photography";
-				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "${PRODUCT_NAME} requires access to your photo library to save edited photos.";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "${PRODUCT_NAME} requires access to select photos to edit.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "multiborder requires access to your photo library to save edited photos.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "multiborder requires access to select photos to edit.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = SplashScreen.storyboard;
@@ -554,8 +554,8 @@
 				INFOPLIST_FILE = multiborder/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = multiborder;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.photography";
-				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "${PRODUCT_NAME} requires access to your photo library to save edited photos.";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "${PRODUCT_NAME} requires access to select photos to edit.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "multiborder requires access to your photo library to save edited photos.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "multiborder requires access to select photos to edit.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = SplashScreen.storyboard;
