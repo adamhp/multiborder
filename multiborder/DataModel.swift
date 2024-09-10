@@ -111,10 +111,9 @@ import Foundation
     @Published var selectedTab = 0
     @Published var desiredAspectRatio: Double = 4/5
     @Published var desiredPadding: CGFloat = 0
-    @Published var desiredBorderColor = Color(.sRGB, red: 1.0, green: 1.0, blue: 1.0)
+    @Published var desiredBorderColor = Color.white
     @Published var originalContainerWidth: CGFloat = 0
     @Published var currentIndex = 0
-    @Published var rendered = [UIImage]()
     @Published var selection = [PhotosPickerItem]() {
         didSet {
             // Update the attachments according to the current picker selection.
@@ -132,9 +131,39 @@ import Foundation
         }
     }
     
+    public func tryLoadDefaults() {
+        let desiredAspectRatio = UserDefaults.standard.double(forKey: "desiredAspectRatio")
+        if desiredAspectRatio != 0 {
+            setDesiredAspectRatio(desiredAspectRatio)
+        } else {
+            UserDefaults.standard.set(4/5, forKey: "desiredAspectRatio")
+        }
+        let desiredPadding = CGFloat(UserDefaults.standard.float(forKey: "desiredPadding"))
+        if desiredPadding != 0 {
+            setDesiredPadding(desiredPadding)
+        }
+        if !UserDefaults.standard.bool(forKey: "colorStored") {
+            UserDefaults.standard.set(true, forKey: "colorStored")
+            UserDefaults.standard.set(1.0, forKey: "colorR")
+            UserDefaults.standard.set(1.0, forKey: "colorG")
+            UserDefaults.standard.set(1.0, forKey: "colorB")
+        } else {
+            let desiredBorderColor = Color(.sRGB, red: UserDefaults.standard.double(forKey: "colorR"), green: UserDefaults.standard.double(forKey: "colorG"), blue: UserDefaults.standard.double(forKey: "colorB"))
+            setDesiredBorderColor(desiredBorderColor)
+        }
+    }
+    
     var attemptedSizeLabel: String = ""
     
     @Published var attachments = [ImageAttachment]()
+    
+    @Published var rendered:[String:[UIImage]] = [
+        "1024": [],
+        "2048": [],
+        "4096": [],
+        "Original": []
+    ]
+    
     @Published var saveSuccesses: [String:Int] = [
         "1024": 0,
         "2048": 0,
@@ -156,7 +185,11 @@ import Foundation
     
     @Published var error: Error? = nil {
         didSet {
-            self.hasError = true
+            if error != nil {
+                self.hasError = true
+            } else {
+                self.hasError = false
+            }
         }
     }
     
@@ -212,18 +245,25 @@ import Foundation
         return attachments[currentIndex]
     }
     
-    public func setDesiredPadding(value: CGFloat) {
+    public func setDesiredPadding(_ value: CGFloat) {
         desiredPadding = value
+        UserDefaults.standard.set(value, forKey: "desiredPadding")
         self.objectWillChange.send()
     }
     
-    public func setDesiredAspectRatio(value: Double) {
+    public func setDesiredAspectRatio(_ value: Double) {
         desiredAspectRatio = value
+        UserDefaults.standard.set(value, forKey: "desiredAspectRatio")
         self.objectWillChange.send()
     }
     
-    public func setDesiredBorderColor(value: Color) {
+    public func setDesiredBorderColor(_ value: Color) {
         desiredBorderColor = value
+        let components = UIColor(value).cgColor.components!
+        UserDefaults.standard.set(true, forKey:"colorStored")
+        UserDefaults.standard.set(components[0], forKey: "colorR")
+        UserDefaults.standard.set(components[1], forKey: "colorG")
+        UserDefaults.standard.set(components[2], forKey: "colorB")
         self.objectWillChange.send()
     }
     
@@ -233,7 +273,7 @@ import Foundation
                 case .finished(let image):
                     let renderer = prepareRenderer(image: image, imageAttachment: imageAttachment, size: size)
                     if let result = renderer.uiImage {
-                        rendered.append(result)
+                        rendered[size.label]!.append(result)
                     }
                 case .failed:
                     return
@@ -247,8 +287,8 @@ import Foundation
         UIImageWriteToSavedPhotosAlbum(image, self, #selector(handleImageResult(_:didFinishSavingWithError:contextInfo:)), nil)
     }
     
-    private func saveRenderedImages() {
-        for image in rendered {
+    private func saveRenderedImages(_ size: ExportSize) {
+        for image in rendered[size.label]! {
             saveImage(image)
         }
     }
@@ -256,7 +296,7 @@ import Foundation
     public func renderAndSave(_ size: ExportSize) async {
         self.attemptedSizeLabel = size.label
         renderImagesForSize(size)
-        saveRenderedImages()
+        saveRenderedImages(size)
     }
     
     private func prepareRenderer(image: Image, imageAttachment: ImageAttachment, size: ExportSize) -> ImageRenderer<ImageExportView> {

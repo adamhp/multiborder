@@ -11,12 +11,9 @@ struct ExportView: View {
     
     @EnvironmentObject private var data: DataModel
     
-    @State private var showSuccess = false
-    @State private var showFailure = false
-    
     func reset() {
-        showSuccess = false
         data.resetSizeResults()
+        data.error = nil
     }
     
     var body: some View {
@@ -32,61 +29,33 @@ struct ExportView: View {
                                 .foregroundColor(.stone100)
                                 .background(Color(.stone700))
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
-                            DownloadButton(size: size, showSuccess: $showSuccess, showFailure: $showFailure)
-//                            ShareButton(size: size.bytes)
+                            DownloadButton(size: size)
                         }
                     }
                 }
-                KofiButton()
+                
                 Spacer()
-                if data.selection.count > 0 {
-                    Button(role: .destructive) {
-                        data.clearSelection()
-                        reset()
-                        data.helpTextShown = false
-                        data.selectedTab = 0
-                    } label: {
-                        Text("Start Over")
+                VStack {
+                    KofiButton()
+                    if data.hasError {
+                        Text(data.error!.localizedDescription)
+                    } else if data.selection.count > 0 {
+                        Button {
+                            UIApplication.shared.open(URL(string: "photos-redirect://")!)
+                            reset()
+                        } label: {
+                            Text("Open Photos Library")
+                        }
+                        Button(role: .destructive) {
+                            data.clearSelection()
+                            reset()
+                            data.helpTextShown = false
+                            data.selectedTab = 0
+                        } label: {
+                            Text("Start Over")
+                        }
                     }
                 }
-            }
-            .alert(
-                "Success!",
-                isPresented: $showSuccess,
-                presenting: {}
-            ) { _ in
-                Button {
-                    UIApplication.shared.open(URL(string: "photos-redirect://")!)
-                    reset()
-                } label: {
-                    Text("Open Photos Library")
-                }
-                Button(role: .destructive) {
-                    data.clearSelection()
-                    reset()
-                    data.selectedTab = 0
-                } label: {
-                    Text("Start Over")
-                }
-                Button(role: .cancel) {
-                    reset()
-                } label: {
-                    Text("Dismiss")
-                }
-            } message: { _ in
-            }
-            .alert(
-                "Error",
-                isPresented: $showFailure,
-                presenting: {}
-            ) { _ in
-                Button(role: .cancel) {
-                    reset()
-                } label: {
-                    Text("Dismiss")
-                }
-            } message: { _ in
-                Text("\(data.hasError ? data.error!.localizedDescription : "Unknown error").")
             }
         }
     }
@@ -129,15 +98,9 @@ struct DownloadButton: View {
     let size: ExportSize
     
     @EnvironmentObject private var data: DataModel
-    @Binding var showSuccess: Bool
-    @Binding var showFailure: Bool
     
     var body: some View {
-        Button {
-            
-        } label: {
-            DownloadProgress(size: size, showSuccess: $showSuccess, showFailure: $showFailure)
-        }
+        DownloadProgress(size: size)
     }
 }
 
@@ -153,8 +116,6 @@ struct DownloadProgress: View {
     var size: ExportSize
     
     @EnvironmentObject var data: DataModel
-    @Binding var showSuccess: Bool
-    @Binding var showFailure: Bool
     @State var state: DownloadState = .none
     
     var body: some View {
@@ -176,11 +137,6 @@ struct DownloadProgress: View {
                         ProgressView()
                             .scaledToFit()
                             .padding(20)
-                            .onAppear(perform: {
-                                Task {
-                                    await data.renderAndSave(size)
-                                }
-                            })
                     }
                     .frame(width: 52, height: 52)
                     .foregroundColor(.stone400)
@@ -212,6 +168,15 @@ struct DownloadProgress: View {
                     .clipShape(RoundedRectangle(cornerRadius: 12))
             }
         }
+        .onTapGesture {
+            if state == .none {
+                state = .loading
+                Task {
+                    let _ = print("rendering and saving '\(size.label)'")
+                    await data.renderAndSave(size)
+                }
+            }
+        }
         .sensoryFeedback(.success, trigger: self.state == .success)
         .sensoryFeedback(.warning, trigger: self.state == .failure)
         .sensoryFeedback(.impact, trigger: self.state == .loading)
@@ -221,13 +186,12 @@ struct DownloadProgress: View {
             }
         })
         .onChange(of: data.saveResults[size.label], {
+            let _ = print("on change for data.saveResults[\(size.label)]")
             if data.saveResults[size.label] == data.attachments.count {
                 if data.saveFailures[size.label]! > 0 {
                     self.state = .failure
-                    showFailure = true
                 } else {
                     self.state = .success
-                    showSuccess = true
                 }
             }
         })

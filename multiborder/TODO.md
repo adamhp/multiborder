@@ -1,5 +1,6 @@
 #  TODO
-- Saving feedback is weird
+- Invert data model (instead of storing a bunch of dicts of results, just store a bunch of result objects or something)
+
 - Adjust to git flow for Xcode cloud
 - Handle rendering/saving cases where images aren't loaded (large images?)
 - Figure out ShareLink 

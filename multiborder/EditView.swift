@@ -31,9 +31,6 @@ struct EditView: View {
 struct DesiredPaddingSlider: View {
     
     @EnvironmentObject private var data: DataModel
-    @State private var desiredPaddingValue: Double = 0
-    @State private var borderColorValue = Color.white
-    @State private var isEditing: Bool = false
     
     var body: some View {
         GridRow {
@@ -41,29 +38,33 @@ struct DesiredPaddingSlider: View {
             HStack(spacing: 0) {
                 ZStack {
                     Slider(
-                        value: Binding(get: { self.desiredPaddingValue }, set: { newVal in
-                            withAnimation {
-                                self.desiredPaddingValue = newVal
-                            }
-                            data.setDesiredPadding(value: CGFloat(self.desiredPaddingValue))
-                        }),
+                        value: Binding(
+                            get: { data.desiredPadding },
+                            set: { newVal in
+                                withAnimation {
+                                    data.setDesiredPadding(CGFloat(newVal))
+                                }
+                            }),
                         in: 0...64,
                         step: 1
                     ) {
-                        Text("Padding")
                     }
-                    .sensoryFeedback(.selection, trigger: self.desiredPaddingValue)
+                    .sensoryFeedback(.selection, trigger: data.desiredPadding)
                     .frame(height: 32)
-                    Text("\(Int(desiredPaddingValue))").font(Font.custom("SpaceMono-Regular", size: 16))
-                        .contentTransition(.numericText(value: desiredPaddingValue))
+                    Text("\(Int(data.desiredPadding))").font(Font.custom("SpaceMono-Regular", size: 16))
+                        .contentTransition(.numericText(value: data.desiredPadding))
                         .padding(.leading, 8.0)
                         .padding(.bottom, 44)
                         .fixedSize()
                         .frame(width: 32, height: 32)
                 }
-                ColorPicker("", selection: $borderColorValue, supportsOpacity: false).labelsHidden().onChange(of: borderColorValue, {
-                    data.setDesiredBorderColor(value: borderColorValue)
-                })
+                ColorPicker("", 
+                    selection: Binding(
+                        get: { data.desiredBorderColor },
+                        set: { newVal in data.setDesiredBorderColor(newVal)}
+                    ),
+                    supportsOpacity: false)
+                .labelsHidden()
                 .frame(maxWidth: 48)
             }
         }
@@ -74,7 +75,6 @@ struct DesiredPaddingSlider: View {
 struct DesiredAspectRatioChooser: View {
     
     @EnvironmentObject private var data: DataModel
-    @State private var desiredAspectRatioValue: Double = 0
     @State var tapped = false
     
     var body: some View {
@@ -84,7 +84,7 @@ struct DesiredAspectRatioChooser: View {
                 
                 /// Original
                 Button {
-                    data.setDesiredAspectRatio(value: -1)
+                    data.setDesiredAspectRatio(-1)
                     tapped = true
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                         tapped = false
@@ -95,7 +95,7 @@ struct DesiredAspectRatioChooser: View {
                 .buttonStyle(AspectRatioButton(active: data.desiredAspectRatio == -1))
                 
                 Button {
-                    data.setDesiredAspectRatio(value: 2/3)
+                    data.setDesiredAspectRatio(2/3)
                     tapped = true
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                         tapped = false
@@ -106,7 +106,7 @@ struct DesiredAspectRatioChooser: View {
                 .buttonStyle(AspectRatioButton(active: data.desiredAspectRatio == 2/3))
                 
                 Button {
-                    data.setDesiredAspectRatio(value: 3/4)
+                    data.setDesiredAspectRatio(3/4)
                     tapped = true
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                         tapped = false
@@ -118,7 +118,7 @@ struct DesiredAspectRatioChooser: View {
                 .buttonStyle(AspectRatioButton(active: data.desiredAspectRatio == 3/4))
                 
                 Button {
-                    data.setDesiredAspectRatio(value: 4/5)
+                    data.setDesiredAspectRatio(4/5)
                     tapped = true
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                         tapped = false
@@ -129,7 +129,7 @@ struct DesiredAspectRatioChooser: View {
                 .buttonStyle(AspectRatioButton(active: data.desiredAspectRatio == 4/5))
                 
                 Button {
-                    data.setDesiredAspectRatio(value: 1.0)
+                    data.setDesiredAspectRatio(1.0)
                     tapped = true
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                         tapped = false

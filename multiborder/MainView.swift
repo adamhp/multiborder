@@ -119,6 +119,9 @@ struct MainView: View {
             startPoint: .top,
             endPoint: .bottom
         ))
+        .onAppear(perform: {
+            data.tryLoadDefaults()
+        })
         .environmentObject(data)
     }
 }
