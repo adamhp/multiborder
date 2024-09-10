@@ -14,7 +14,6 @@ struct SelectView: View {
     
     var body: some View {
         DefaultPage {
-            
             VStack(spacing: 0) {
                 Spacer()
                 ImageStack()
@@ -44,6 +43,7 @@ struct SelectView: View {
                         .frame(height: 64)
                 }
             }
+            .sensoryFeedback(.success, trigger: !data.selection.isEmpty)
             .onChange(of: data.helpTextShown, {
                 if data.helpTextShown {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {

@@ -17,11 +17,7 @@ struct DefaultPage<Content: View>: View {
     
     var body: some View {
         content
+            .padding(.bottom, 32)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(LinearGradient(
-                gradient: Gradient(colors: [Color(.stone800), Color(.stone900)]),
-                startPoint: .top,
-                endPoint: .bottom
-            ))
     }
 }

@@ -36,62 +36,91 @@ enum TabbedItems: Int, CaseIterable{
 }
 
 struct MainView: View {
-    
+
     @StateObject var data = DataModel()
     
     var body: some View {
-            VStack {
+        VStack(spacing: 0) {
                 /// Tabbed views
-                TabView(selection: $data.selectedTab) {
+            TabView(selection: $data.selectedTab) {
+                if data.attachments.count > 0 {
                     SelectView()
                         .tag(0)
+                        .contentShape(Rectangle())
                     EditView()
                         .tag(1)
+                        .disabled(data.selection.count == 0)
+                        .contentShape(Rectangle())
                     ExportView()
                         .tag(2)
+                        .disabled(data.selection.count == 0)
+                        .contentShape(Rectangle())
+                } else {
+                    SelectView()
+                        .tag(0)
+                        .contentShape(Rectangle())
+                        .gesture(DragGesture())
+                    EditView()
+                        .tag(1)
+                        .disabled(data.selection.count == 0)
+                        .contentShape(Rectangle())
+                        .gesture(DragGesture())
+                    ExportView()
+                        .tag(2)
+                        .disabled(data.selection.count == 0)
+                        .contentShape(Rectangle())
+                        .gesture(DragGesture())
                 }
-                
-                /// Tab navigation
-                VStack {
-                    HStack {
-                        ForEach((TabbedItems.allCases), id: \.self) {
-                            item in Button {
-                                switch item.title {
-                                    case "Select":
-                                        data.selectedTab = item.rawValue
-                                    case "Edit":
-                                        if data.selection.count > 0 {
-                                            data.selectedTab = item.rawValue
-                                        } else {
-                                            withAnimation {
-                                                data.helpTextShown = true
-                                            }
-                                        }
-                                    case "Export":
-                                        if data.selection.count > 0 {
-                                            data.selectedTab = item.rawValue
-                                            withAnimation {
-                                                data.helpTextShown = true
-                                            }
-                                        }
-                                    default:
-                                        data.selectedTab = item.rawValue
-                                }
-                            } label: {
-                                CustomTabItem(imageName: item.iconName, title: item.title, isActive: (data.selectedTab == item.rawValue))
-                            }
-                            .animation(.interactiveSpring, value: data.selectedTab)
-                        }
-                        
-                    }
-                }
-                .frame(height: 64)
-                .background(.accent.opacity(0.2))
-                .cornerRadius(20)
             }
-            .background(Color(.stone900))
-            .environmentObject(data)
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            .indexViewStyle(PageIndexViewStyle(backgroundDisplayMode: .never))
+            
+            /// Tab navigation
+            VStack {
+                HStack {
+                    ForEach((TabbedItems.allCases), id: \.self) {
+                        item in Button {
+                            switch item.title {
+                                case "Select":
+                                    data.selectedTab = item.rawValue
+                                case "Edit":
+                                    if data.selection.count > 0 {
+                                        data.selectedTab = item.rawValue
+                                    } else {
+                                        withAnimation {
+                                            data.helpTextShown = true
+                                        }
+                                    }
+                                case "Export":
+                                    if data.selection.count > 0 {
+                                        data.selectedTab = item.rawValue
+                                        withAnimation {
+                                            data.helpTextShown = true
+                                        }
+                                    }
+                                default:
+                                    data.selectedTab = item.rawValue
+                            }
+                        } label: {
+                            CustomTabItem(imageName: item.iconName, title: item.title, isActive: (data.selectedTab == item.rawValue))
+                        }
+                        .animation(.interactiveSpring, value: data.selectedTab)
+                    }
+                    
+                }
+            }
+            .frame(height: 64)
+            .background(.accent.opacity(0.2))
+            .cornerRadius(20)
         }
+        .colorScheme(.dark)
+        .background(LinearGradient(
+            gradient: Gradient(colors: [Color(.stone800), Color(.stone900)]),
+            startPoint: .top,
+            endPoint: .bottom
+        ))
+        .environmentObject(data)
+    }
 }
 
 extension MainView {
@@ -116,6 +145,5 @@ extension MainView {
 }
 
 #Preview {
-    MainView().colorScheme(.dark)
+    MainView()
 }
-

@@ -52,6 +52,7 @@ struct DesiredPaddingSlider: View {
                     ) {
                         Text("Padding")
                     }
+                    .sensoryFeedback(.selection, trigger: self.desiredPaddingValue)
                     .frame(height: 32)
                     Text("\(Int(desiredPaddingValue))").font(Font.custom("SpaceMono-Regular", size: 16))
                         .contentTransition(.numericText(value: desiredPaddingValue))
@@ -74,6 +75,7 @@ struct DesiredAspectRatioChooser: View {
     
     @EnvironmentObject private var data: DataModel
     @State private var desiredAspectRatioValue: Double = 0
+    @State var tapped = false
     
     var body: some View {
         GridRow {
@@ -83,6 +85,10 @@ struct DesiredAspectRatioChooser: View {
                 /// Original
                 Button {
                     data.setDesiredAspectRatio(value: -1)
+                    tapped = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        tapped = false
+                    }
                 } label: {
                     Image(systemName: "photo.artframe")
                 }
@@ -90,6 +96,10 @@ struct DesiredAspectRatioChooser: View {
                 
                 Button {
                     data.setDesiredAspectRatio(value: 2/3)
+                    tapped = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        tapped = false
+                    }
                 } label: {
                     Text("2:3").font(Font.custom("SpaceMono-Regular", size: 16))
                 }
@@ -97,6 +107,10 @@ struct DesiredAspectRatioChooser: View {
                 
                 Button {
                     data.setDesiredAspectRatio(value: 3/4)
+                    tapped = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        tapped = false
+                    }
                     
                 } label: {
                     Text("3:4").font(Font.custom("SpaceMono-Regular", size: 16))
@@ -105,6 +119,10 @@ struct DesiredAspectRatioChooser: View {
                 
                 Button {
                     data.setDesiredAspectRatio(value: 4/5)
+                    tapped = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        tapped = false
+                    }
                 } label: {
                     Text("4:5").font(Font.custom("SpaceMono-Regular", size: 16))
                 }
@@ -112,11 +130,16 @@ struct DesiredAspectRatioChooser: View {
                 
                 Button {
                     data.setDesiredAspectRatio(value: 1.0)
+                    tapped = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        tapped = false
+                    }
                 } label: {
                     Text("1:1").font(Font.custom("SpaceMono-Regular", size: 16))
                 }
                 .buttonStyle(AspectRatioButton(active: data.desiredAspectRatio == 1.0))
             }
+            .sensoryFeedback(.selection, trigger: tapped)
             .frame(height: 32)
         }
         .frame(height:32)
@@ -124,6 +147,7 @@ struct DesiredAspectRatioChooser: View {
 }
 
 struct AspectRatioButton: ButtonStyle {
+    
     var active = false
     
     init(active: Bool = false) {
@@ -138,6 +162,5 @@ struct AspectRatioButton: ButtonStyle {
                     .fill(active ? .stone800 : .stone600)
                     .frame(width: 48, height: 40))
             .frame(width: 48, height: 40)
-            .sensoryFeedback(.success, trigger: active)
     }
 }

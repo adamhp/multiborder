@@ -100,19 +100,21 @@ import Foundation
         }
     }
     
+    public final let supportedSizes: [ExportSize] = [
+        ExportSize(label: "1024", width: 1024.0),
+        ExportSize(label: "2048", width: 2048.0),
+        ExportSize(label: "4096", width: 4096.0),
+        ExportSize(label: "Original", width: nil)
+    ]
+    
     @Published var helpTextShown: Bool = false
     @Published var selectedTab = 0
-    
-    /// User settings
     @Published var desiredAspectRatio: Double = 4/5
     @Published var desiredPadding: CGFloat = 0
     @Published var desiredBorderColor = Color(.sRGB, red: 1.0, green: 1.0, blue: 1.0)
     @Published var originalContainerWidth: CGFloat = 0
-    
     @Published var currentIndex = 0
-    
-    @Published var rendered = [Image]()
-    
+    @Published var rendered = [UIImage]()
     @Published var selection = [PhotosPickerItem]() {
         didSet {
             // Update the attachments according to the current picker selection.
@@ -130,21 +132,63 @@ import Foundation
         }
     }
     
-    @Published var attachments = [ImageAttachment]()
+    var attemptedSizeLabel: String = ""
     
-    @Published var saveSuccesses = 0
-    @Published var saveFailures = 0
-    @Published var saveResults = 0
-    @Published var failureMessage = ""
+    @Published var attachments = [ImageAttachment]()
+    @Published var saveSuccesses: [String:Int] = [
+        "1024": 0,
+        "2048": 0,
+        "4096": 0,
+        "Original": 0
+    ]
+    @Published var saveFailures: [String:Int] = [
+        "1024": 0,
+        "2048": 0,
+        "4096": 0,
+        "Original": 0
+    ]
+    @Published var saveResults: [String:Int] = [
+        "1024": 0,
+        "2048": 0,
+        "4096": 0,
+        "Original": 0
+    ]
+    
+    @Published var error: Error? = nil {
+        didSet {
+            self.hasError = true
+        }
+    }
+    
+    @Published var hasError: Bool = false
     
     private var attachmentByIdentifier = [String: ImageAttachment]()
     
     public func clearSelection() {
         selection = []
         attachments = []
-        saveSuccesses = 0
-        saveFailures = 0
-        saveResults = 0
+        resetSizeResults()
+    }
+    
+    public func resetSizeResults() {
+        self.saveSuccesses = [
+            "1024": 0,
+            "2048": 0,
+            "4096": 0,
+            "Original": 0
+        ]
+        self.saveFailures = [
+            "1024": 0,
+            "2048": 0,
+            "4096": 0,
+            "Original": 0
+        ]
+        self.saveResults = [
+            "1024": 0,
+            "2048": 0,
+            "4096": 0,
+            "Original": 0
+        ]
     }
     
     public func removeCurrent() {
@@ -183,16 +227,13 @@ import Foundation
         self.objectWillChange.send()
     }
     
-    @MainActor public func render(size: Int) {
+    public func renderImagesForSize(_ size: ExportSize) {
         for imageAttachment in attachments {
             switch imageAttachment.imageStatus {
                 case .finished(let image):
-                    let paddingScale = originalContainerWidth / (size != 0 ? CGFloat(size) : 1.0)
-                    let aspectRatio: CGFloat = desiredAspectRatio == -1 ? (imageAttachment.originalImageWidth / imageAttachment.originalImageHeight) : desiredAspectRatio
-                    let renderer = ImageRenderer(content: ImageExportView(image: image, desiredWidth: size, desiredAspectRatio: aspectRatio, desiredPadding: desiredPadding * paddingScale, desiredBorderColor: desiredBorderColor))
-                    renderer.scale = 1.0
+                    let renderer = prepareRenderer(image: image, imageAttachment: imageAttachment, size: size)
                     if let result = renderer.uiImage {
-                        rendered.append(Image(uiImage: result))
+                        rendered.append(result)
                     }
                 case .failed:
                     return
@@ -202,33 +243,40 @@ import Foundation
         }
     }
     
-    @MainActor public func renderAndSave(size: Int) {
-        for imageAttachment in attachments {
-            switch imageAttachment.imageStatus {
-                case .finished(let image):
-                    let paddingScale = (size != 0 ? CGFloat(size) : 1.0) / originalContainerWidth
-                    let aspectRatio: CGFloat = desiredAspectRatio == -1 ? (imageAttachment.originalImageWidth / imageAttachment.originalImageHeight) : desiredAspectRatio
-                    let renderer = ImageRenderer(content: ImageExportView(image: image, desiredWidth: size, desiredAspectRatio: aspectRatio, desiredPadding: desiredPadding * paddingScale, desiredBorderColor: desiredBorderColor))
-                    renderer.scale = 1.0
-                    if let result = renderer.uiImage {
-                        UIImageWriteToSavedPhotosAlbum(result, self, #selector(image(_:didFinishSavingWithError:contextInfo:)), nil)
-                    }
-                case .failed:
-                    return
-                default:
-                    return
-            }
+    private func saveImage(_ image: UIImage) {
+        UIImageWriteToSavedPhotosAlbum(image, self, #selector(handleImageResult(_:didFinishSavingWithError:contextInfo:)), nil)
+    }
+    
+    private func saveRenderedImages() {
+        for image in rendered {
+            saveImage(image)
         }
     }
     
-    @objc func image(_ image: UIImage, didFinishSavingWithError error: Error?, contextInfo: UnsafeRawPointer) {
+    public func renderAndSave(_ size: ExportSize) async {
+        self.attemptedSizeLabel = size.label
+        renderImagesForSize(size)
+        saveRenderedImages()
+    }
+    
+    private func prepareRenderer(image: Image, imageAttachment: ImageAttachment, size: ExportSize) -> ImageRenderer<ImageExportView> {
+        // Use original width if selected, or if original width is less than desired size
+        let desiredWidth: Double = size.label == "Original" ? imageAttachment.originalImageWidth : (imageAttachment.originalImageWidth >= size.width! ? size.width! : imageAttachment.originalImageWidth)
+        let paddingScale = desiredWidth / originalContainerWidth
+        let aspectRatio: CGFloat = desiredAspectRatio == -1 ? (imageAttachment.originalImageWidth / imageAttachment.originalImageHeight) : desiredAspectRatio
+        let renderer = ImageRenderer(content: ImageExportView(image: image, desiredWidth: Int(desiredWidth), desiredAspectRatio: aspectRatio, desiredPadding: desiredPadding * paddingScale, desiredBorderColor: desiredBorderColor))
+        renderer.scale = 1.0
+        return renderer
+    }
+    
+    @objc func handleImageResult(_ image: UIImage, didFinishSavingWithError error: Error?, contextInfo: UnsafeRawPointer) {
         if let error = error {
-            self.saveFailures += 1
-            self.saveResults += 1
-            self.failureMessage = error.localizedDescription
+            self.saveFailures[self.attemptedSizeLabel]! += 1
+            self.saveResults[self.attemptedSizeLabel]! += 1
+            self.error = error
         } else {
-            self.saveSuccesses += 1
-            self.saveResults += 1
+            self.saveSuccesses[self.attemptedSizeLabel]! += 1
+            self.saveResults[self.attemptedSizeLabel]! += 1
         }
     }
 }
@@ -275,21 +323,13 @@ struct ImageView: View {
     }
 }
 
-class WriteImageToFileResponder: NSObject {
-    typealias WriteImageToFileResponderCompletion = ((UIImage?, Error?) -> Void)?
-    var completion: WriteImageToFileResponderCompletion = nil
-    
-    override init() {
-        super.init()
-    }
-    
-    @objc func image(_ image: UIImage, didFinishSavingWithError error: Error?, contextInfo: UnsafeRawPointer) {
-        if (completion != nil) {
-            error == nil ? completion?(image, error) : completion?(nil, error)
-            completion = nil
-        }
-    }
-    func addCompletion(completion:WriteImageToFileResponderCompletion) {
-        self.completion = completion
+struct ExportSize {
+    var label: String
+    var width: Optional<Double>
+}
+
+extension ExportSize: Identifiable {
+    var id: String {
+        label
     }
 }
