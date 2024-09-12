@@ -12,30 +12,76 @@ struct ExportView: View {
     @EnvironmentObject private var data: DataModel
     
     func reset() {
-        data.resetSizeResults()
         data.error = nil
+        data.saveStatus = .unsaved
     }
+    
+    let sizes = [
+        ("Orig.", 0),
+        ("Sm.", 1024),
+        ("Med.", 2048),
+        ("Lg.", 4096)
+    ]
     
     var body: some View {
         DefaultPage {
             VStack(spacing: 12) {
-                Spacer()
-                Grid(alignment: .center, horizontalSpacing: 16, verticalSpacing: 24) {
-                    ForEach(data.supportedSizes, id: \.label) { size in
-                        GridRow {
-                            Text(String(size.label))
-                                .frame(width: 192, height: 52)
-                                .font(Font.custom("SpaceMono-Regular", size: 18))
-                                .foregroundColor(.stone100)
-                                .background(Color(.stone700))
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
-                            DownloadButton(size: size)
-                        }
+                
+                Spacer(minLength: 128)
+                
+                VStack(spacing: 16) {
+                    Text(data.desiredSize == 0 ? "Original" : "\(Int(data.desiredSize))px").font(Font.custom("SpaceMono-Regular", size: 16))
+                        .contentTransition(.numericText(value: Double(data.desiredSize)))
+                        .fixedSize()
+                        .frame(width: 64, height: 32)
+                        .gesture(DragGesture())
+                    
+                    Slider(
+                        value: Binding(
+                            get: { CGFloat(data.desiredSize) },
+                            set: { newVal in
+                                withAnimation {
+                                    data.setDesiredSize(Int(newVal))
+                                }
+                            }),
+                        in: 0...8192,
+                        step: 128
+                    ) {
+                    } minimumValueLabel: {
+                        Text("Orig.").font(Font.custom("SpaceMono-Regular", size: 16))
+                    } maximumValueLabel: {
+                        Text("8192px").font(Font.custom("SpaceMono-Regular", size: 16))
                     }
+                    .sensoryFeedback(.selection, trigger: data.desiredSize)
+                    .frame(height: 32)
+                    
+                    HStack(spacing: 8) {
+                        ForEach(sizes, id: \.self.0, content: { size in
+                            VStack {
+                                Text("\(size.0)").font(Font.custom("SpaceMono-Regular", size: 16)).foregroundColor(.stone200)
+                                Text(size.0 == "Orig." ? "~" : "\(size.1)px").font(Font.custom("SpaceMono-Regular", size: 14)).foregroundColor(.stone400)
+                            }
+                            .onTapGesture {
+                                data.setDesiredSize(size.1)
+                            }
+                            .frame(width: 80, height: 48)
+                            .foregroundColor(.stone400)
+                            .background(.stone700)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                        })
+                    }
+                    .gesture(DragGesture())
                 }
+                .gesture(DragGesture())
+                .padding(.horizontal, 48)
                 
                 Spacer()
-                VStack {
+                
+                DownloadButton()
+                
+                Spacer()
+                
+                VStack(spacing: 32) {
                     KofiButton()
                     if data.hasError {
                         Text(data.error!.localizedDescription)
@@ -55,7 +101,7 @@ struct ExportView: View {
                             Text("Start Over")
                         }
                     }
-                }
+                }.padding(.bottom, 8)
             }
         }
     }
@@ -65,20 +111,15 @@ struct KofiButton: View {
     @State var isAnimating = false
     var body: some View {
         Link(destination: URL(string: "https://ko-fi.com/adamhp")!, label: {
-            HStack(spacing: 0) {
+            HStack(spacing: 2) {
                 Image(.kofi)
                     .resizable()
                     .frame(width: 40, height: 40)
                 Text("Support me on Ko-fi!")
-                    .font(Font.custom("SpaceMono-Regular", size: 14))
-                    .foregroundColor(.stone100)
+                    .font(Font.custom("SpaceMono-Regular", size: 16))
+                    .foregroundColor(.stone200)
                 
             }
-            .padding(.horizontal, 8)
-            .frame(width: 220, height: 48)
-            .background(Color(.stone700))
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .frame(height: 128)
         })
         .scaleEffect(isAnimating ? 1.1 : 1)
         .animation(
@@ -95,106 +136,99 @@ struct KofiButton: View {
 
 struct DownloadButton: View {
     
-    let size: ExportSize
-    
-    @EnvironmentObject private var data: DataModel
-    
-    var body: some View {
-        DownloadProgress(size: size)
-    }
-}
-
-enum DownloadState {
-    case none
-    case loading
-    case success
-    case failure
-}
-
-struct DownloadProgress: View {
-    
-    var size: ExportSize
-    
     @EnvironmentObject var data: DataModel
-    @State var state: DownloadState = .none
     
     var body: some View {
         ZStack {
-            switch state {
-                case .none:
+            switch data.saveStatus {
+                case .unsaved:
                     VStack {
-                        Image(systemName: "arrow.down")
-                            .resizable()
-                            .scaledToFit()
-                            .padding(20)
+                        HStack(spacing: 8) {
+                            Text("Download").font(Font.custom("SpaceMono-Regular", size: 18))
+                            Image(systemName: "arrow.down")
+                                .resizable()
+                                .scaledToFit()
+                        }
+                        .padding(20)
                     }
-                    .frame(width: 52, height: 52)
-                    .foregroundColor(.stone400)
+                    .frame(width: 200, height: 52)
+                    .foregroundColor(.stone100)
                     .background(.stone700)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
-                case .loading:
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.accent.opacity(0.5), lineWidth: 4)
+                    )
+                case .saving:
                     VStack {
-                        ProgressView()
-                            .scaledToFit()
-                            .padding(20)
+                        HStack(spacing: 8)  {
+                            Text("Downloading").font(Font.custom("SpaceMono-Regular", size: 18))
+                            ProgressView()
+                                .scaledToFit()
+                        }
+                        .padding(20)
+                        
                     }
-                    .frame(width: 52, height: 52)
+                    .frame(width: 200, height: 52)
                     .foregroundColor(.stone400)
                     .background(.stone700)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                 case .success:
                     VStack {
-                        Image(systemName: "checkmark")
-                            .resizable()
-                            .scaledToFit()
-                            .padding(20)
-                            .foregroundColor(.green)
+                        HStack(spacing: 8)  {
+                            Text("Saved").font(Font.custom("SpaceMono-Regular", size: 18)).foregroundColor(.green)
+                            Image(systemName: "checkmark")
+                                .resizable()
+                                .scaledToFit()
+                                .foregroundColor(.green)
+                        }
+                        .padding(20)
                     }
-                    .frame(width: 52, height: 52)
+                    .frame(width: 200, height: 52)
                     .foregroundColor(.green)
                     .background(.green.opacity(0.5))
                     .clipShape(RoundedRectangle(cornerRadius: 12))
-                case .failure:
+                case .failed:
                     VStack {
-                        Image(systemName: "exclamationmark.triangle")
-                            .resizable()
-                            .scaledToFit()
-                            .padding(20)
-                            .foregroundColor(.green)
+                        HStack(spacing: 8)  {
+                            Text("Failed").font(Font.custom("SpaceMono-Regular", size: 18)).foregroundColor(.green)
+                            Image(systemName: "exclamationmark.triangle")
+                                .resizable()
+                                .scaledToFit()
+                                .foregroundColor(.orange)
+                        }
+                        .padding(20)
                     }
-                    .frame(width: 52, height: 52)
+                    .frame(width: 200, height: 52)
                     .foregroundColor(.orange)
                     .background(.orange.opacity(0.5))
                     .clipShape(RoundedRectangle(cornerRadius: 12))
             }
         }
-        .onTapGesture {
-            if state == .none {
-                state = .loading
-                Task {
-                    let _ = print("rendering and saving '\(size.label)'")
-                    await data.renderAndSave(size)
+        .onChange(of: data.processed, {
+            if data.processed == data.attachments.count {
+                let failures = data.attachments.filter({ $0.status.savingStatus.isFailed })
+                if failures.count > 0 {
+                    data.saveStatus = .failed("Failed to save images")
+                } else {
+                    data.saveStatus = .success
                 }
+            }
+        })
+        .onTapGesture {
+            switch data.saveStatus {
+                case .unsaved:
+                    data.saveStatus = .saving
+                    Task {
+                        await data.renderAndSave()
+                    }
+                default:
+                    return
             }
         }
-        .sensoryFeedback(.success, trigger: self.state == .success)
-        .sensoryFeedback(.warning, trigger: self.state == .failure)
-        .sensoryFeedback(.impact, trigger: self.state == .loading)
-        .onChange(of: data.attachments.count, {
-            if data.attachments.count == 0 {
-                self.state = .none
-            }
-        })
-        .onChange(of: data.saveResults[size.label], {
-            let _ = print("on change for data.saveResults[\(size.label)]")
-            if data.saveResults[size.label] == data.attachments.count {
-                if data.saveFailures[size.label]! > 0 {
-                    self.state = .failure
-                } else {
-                    self.state = .success
-                }
-            }
-        })
+        .sensoryFeedback(.success, trigger: data.saveStatus.isSuccess)
+        .sensoryFeedback(.warning, trigger: data.saveStatus.isFailed)
+        .sensoryFeedback(.impact, trigger: data.saveStatus.isSaving)
     }
 }
 
@@ -230,4 +264,3 @@ struct DownloadProgress: View {
 //        })
 //    }
 //}
-

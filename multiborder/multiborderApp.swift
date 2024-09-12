@@ -11,7 +11,7 @@ import SwiftUI
 struct multiborderApp: App {
     var body: some Scene {
         WindowGroup {
-            MainView()
+            MainView().environment(\.font, Font.custom("SpaceMono-Regular", size: 14))
         }
     }
 }

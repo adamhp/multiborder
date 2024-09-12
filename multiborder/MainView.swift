@@ -94,6 +94,7 @@ struct MainView: View {
                                 case "Export":
                                     if data.selection.count > 0 {
                                         data.selectedTab = item.rawValue
+                                    } else {
                                         withAnimation {
                                             data.helpTextShown = true
                                         }
