@@ -115,9 +115,14 @@ struct KofiButton: View {
                 Image(.kofi)
                     .resizable()
                     .frame(width: 40, height: 40)
-                Text("Support me on Ko-fi!")
-                    .font(Font.custom("SpaceMono-Regular", size: 16))
-                    .foregroundColor(.stone200)
+                VStack(spacing: 4) {
+                    Text("Support me on Ko-fi!")
+                        .font(Font.custom("SpaceMono-Regular", size: 16))
+                        .foregroundColor(.stone200)
+                    Text("and consider leaving a review")
+                        .font(Font.custom("SpaceMono-Regular", size: 11))
+                        .foregroundColor(.stone200)
+                }
                 
             }
         })
