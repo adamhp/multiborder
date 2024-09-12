@@ -3,121 +3,279 @@ import PhotosUI
 import Foundation
 
 @MainActor final class DataModel: NSObject, ObservableObject  {
-    @MainActor final class ImageAttachment: ObservableObject, Identifiable {
+    @MainActor final class ImageAttachment: NSObject, ObservableObject, Identifiable {
         
-        /// Statuses that indicate the app's progress in loading a selected photo.
-        enum Status {
-
-            /// A status indicating that the app has requested a photo.
+        let parent: DataModel
+        
+        struct Status {
+            var loadingStatus: LoadingStatus = .unloaded
+            var savingStatus: SavingStatus = .unsaved
+        }
+        
+        enum LoadingStatus {
+            case unloaded
             case loading
-            
-            /// A status indicating that the app has loaded a photo.
             case finished(Image)
-            
-            /// A status indicating that the photo has failed to load.
             case failed(Error)
             
-            case saved
-            
-            case saveFailed(Error)
-            
-            /// Determines whether the photo has failed to load.
-            var isFailed: Bool {
+            var isUnloaded: Bool {
                 return switch self {
-                case .failed: true
-                default: false
+                    case .unloaded: true
+                    default: false
                 }
             }
             
-            var asIndex : Double {
-                switch self {
-                    case .finished(_): return 0
-                    case .loading: return 1
-                    case .failed(_): return 2
-                    case .saveFailed(_): return 3
-                    case .saved: return 4
-                        
+            var isLoading: Bool {
+                return switch self {
+                    case .loading: true
+                    default: false
+                }
+            }
+            
+            var isFinished: Bool {
+                return switch self {
+                    case .finished: true
+                    default: false
+                }
+            }
+            
+            var isFailed: Bool {
+                return switch self {
+                    case .failed: true
+                    default: false
                 }
             }
         }
         
-        /// An error that indicates why a photo has failed to load.
         enum LoadingError: Error {
             case contentTypeNotSupported
         }
         
-        /// A reference to a selected photo in the picker.
+        enum SavingStatus {
+            case unsaved
+            case saving
+            case success
+            case failed(SavingError)
+            
+            var isUnsaved: Bool {
+                return switch self {
+                    case .unsaved: true
+                    default: false
+                }
+            }
+            
+            var isSaving: Bool {
+                return switch self {
+                    case .saving: true
+                    default: false
+                }
+            }
+            
+            var isSuccess: Bool {
+                return switch self {
+                    case .success: true
+                    default: false
+                }
+            }
+            
+            var isFailed: Bool {
+                return switch self {
+                    case .failed: true
+                    default: false
+                }
+            }
+        }
+        
+        enum SavingError: Error {
+            case general(String)
+        }
+        
+        struct RenderedImage {
+            let image: UIImage
+            let desiredSize: Int
+            var status: SavingStatus = .unsaved
+            
+            init(_ image: UIImage, _ desiredSize: Int) {
+                self.image = image
+                self.desiredSize = desiredSize
+            }
+        }
+        
         private let pickerItem: PhotosPickerItem
-        
-        /// A load progress for the photo.
-        @Published var imageStatus: Status?
-        
-        @Published var imageDescription: String = ""
-        @Published var imageSize: String = ""
-        @Published var originalImageWidth: Double = 0
-        @Published var originalImageHeight: Double = 0
-        
-        /// An identifier for the photo.
         nonisolated var id: String {
             pickerItem.identifier
         }
         
-        /// Creates an image attachment for the given picker item.
-        init(_ pickerItem: PhotosPickerItem) {
+        @Published var status: Status = Status()
+        @Published var imageDescription: String = ""
+        @Published var rendered: [RenderedImage]?
+        @Published var image: Image?
+        @Published var originalImageWidth: Double?
+        @Published var originalImageHeight: Double?
+        
+        init(_ pickerItem: PhotosPickerItem, _ parent: DataModel) {
             self.pickerItem = pickerItem
+            self.parent = parent
         }
         
         func getPickerItem() -> PhotosPickerItem {
             return self.pickerItem
         }
-        /// Loads the photo that the picker item features.
-        func loadImage() async {
-            guard imageStatus == nil || imageStatus?.isFailed == true else {
+        
+        func load() async {
+            guard status.loadingStatus.isUnloaded == true else {
                 return
             }
-            imageStatus = .loading
+            status.loadingStatus = .loading
+            
             do {
                 if let data = try await pickerItem.loadTransferable(type: Data.self),
                    let uiImage = UIImage(data: data) {
-                    imageStatus = .finished(Image(uiImage: uiImage))
+                    let resImage = Image(uiImage: uiImage)
                     imageDescription = data.description
+                    image = resImage
                     originalImageWidth = uiImage.size.width
                     originalImageHeight = uiImage.size.height
-                    let size: Int64? = Int64(data.description.components(separatedBy: " ")[0])
-                    let byteFormat = ByteCountFormatStyle(style: .memory,
-                                                          allowedUnits: [.mb],
-                                                          spellsOutZero: true,
-                                                          includesActualByteCount: false,
-                                                          locale: Locale(identifier: "en_US"))
-                    imageSize = byteFormat.format(size ?? 0)
-                    self.objectWillChange.send()
+                    status.loadingStatus = .finished(resImage)
                 } else {
                     throw LoadingError.contentTypeNotSupported
                 }
             } catch {
-                imageStatus = .failed(error)
+                status.loadingStatus = .failed(error)
             }
+            self.objectWillChange.send()
+        }
+        
+        @MainActor func save(size: Int, originalContainerWidth: Double, desiredPadding: Double, desiredAspectRatio: Double, desiredBorderColor: Color) async {
+            guard status.loadingStatus.isFinished && status.savingStatus.isUnsaved else {
+                return
+            }
+            status.savingStatus = .saving
+            
+            await renderImage(size: size, originalContainerWidth: originalContainerWidth, desiredPadding: desiredPadding, desiredAspectRatio: desiredAspectRatio, desiredBorderColor: desiredBorderColor)
+                    
+            /// Double unwrap, once for dictionary, twice for render result which should never be nil after line above
+            await saveRenderedImages(desiredSize: size)
+        }
+        
+        private func renderImage(size: Int, originalContainerWidth: Double, desiredPadding: Double, desiredAspectRatio: Double, desiredBorderColor: Color) async {
+            guard status.loadingStatus.isFinished else {
+                return
+            }
+            let renderer = prepareRenderer(image: image!, size: size, originalContainerWidth: originalContainerWidth, desiredPadding: desiredPadding, desiredAspectRatio: desiredAspectRatio, desiredBorderColor: desiredBorderColor)
+
+            /// Unwrap is okay because of duplicate guards on loading status
+            if let result = renderer!.uiImage {
+                if rendered == nil {
+                    rendered = []
+                }
+                rendered!.append(RenderedImage(result, size))
+            }
+        }
+        
+        private func prepareRenderer(image: Image, size: Int, originalContainerWidth: Double, desiredPadding: Double, desiredAspectRatio: Double, desiredBorderColor: Color) -> ImageRenderer<ImageExportView>? {
+            guard status.loadingStatus.isFinished else {
+                return nil
+            }
+            // Use original width if selected, or if original width is less than desired size
+            let desiredWidth: Double = size == 0 ? originalImageWidth! : (originalImageWidth! >= Double(size) ? Double(size) : originalImageWidth!)
+            let paddingScale = desiredWidth / originalContainerWidth
+            let aspectRatio: CGFloat = desiredAspectRatio == -1 ? (originalImageWidth! / originalImageHeight!) : desiredAspectRatio
+            let renderer = ImageRenderer(content: ImageExportView(image: image, desiredWidth: Int(desiredWidth), desiredAspectRatio: aspectRatio, desiredPadding: desiredPadding * paddingScale, desiredBorderColor: desiredBorderColor))
+            renderer.scale = 1.0
+            return renderer
+        }
+        
+        private func saveRenderedImages(desiredSize: Int) async {
+            guard rendered != nil else {
+                return
+            }
+            for rendered in rendered!.filter({ $0.status.isUnsaved && $0.desiredSize == desiredSize }) {
+                saveUIImageForSize(rendered.image, rendered.desiredSize)
+            }
+        }
+        
+        private func saveRenderedImages() {
+            guard rendered != nil else {
+                return
+            }
+            for rendered in rendered!.filter({ $0.status.isUnsaved }) {
+                saveUIImageForSize(rendered.image, rendered.desiredSize)
+            }
+        }
+        
+        private func saveUIImageForSize(_ image: UIImage, _ desiredSize: Int) {
+            UIImageWriteToSavedPhotosAlbum(image, self, #selector(handleImageResult(_:didFinishSavingWithError:contextInfo:)), nil)
+        }
+        
+        @objc func handleImageResult(_ image: UIImage, didFinishSavingWithError error: Error?, contextInfo: UnsafeRawPointer) {
+            if let error = error {
+                status.savingStatus = .failed(.general(error.localizedDescription))
+            } else {
+                status.savingStatus = .success
+            }
+            parent.handleImageResult(image, didFinishSavingWithError: error, contextInfo: contextInfo)
         }
     }
     
+    enum SaveStatus {
+        case unsaved
+        case saving
+        case success
+        case failed(String)
+        
+        var isUnsaved: Bool {
+            return switch self {
+                case .unsaved: true
+                default: false
+            }
+        }
+        
+        var isSaving: Bool {
+            return switch self {
+                case .saving: true
+                default: false
+            }
+        }
+        
+        var isSuccess: Bool {
+            return switch self {
+                case .success: true
+                default: false
+            }
+        }
+        
+        var isFailed: Bool {
+            return switch self {
+                case .failed: true
+                default: false
+            }
+        }
+    }
+        
+    @Published var saveStatus: SaveStatus = .unsaved
+    @Published var processed: Int = 0
+    
+    @Published var helpTextShown: Bool = false
     @Published var selectedTab = 0
     
-    /// User settings
+    /// User defined settings
     @Published var desiredAspectRatio: Double = 4/5
     @Published var desiredPadding: CGFloat = 0
-    @Published var desiredBorderColor = Color(.sRGB, red: 1.0, green: 1.0, blue: 1.0)
+    @Published var desiredBorderColor = Color.white
+    @Published var desiredSize: Int = 0 {
+        didSet {
+            resetSaveStatus()
+        }
+    }
     @Published var originalContainerWidth: CGFloat = 0
-    
     @Published var currentIndex = 0
-    
-    @Published var rendered = [Image]()
-    
     @Published var selection = [PhotosPickerItem]() {
         didSet {
             // Update the attachments according to the current picker selection.
             let newAttachments = selection.map { item in
                 // Access an existing attachment, if it exists; otherwise, create a new attachment.
-                attachmentByIdentifier[item.identifier] ?? ImageAttachment(item)
+                attachmentByIdentifier[item.identifier] ?? ImageAttachment(item, self)
             }
             // Update the saved attachments array for any new attachments loaded in scope.
             let newAttachmentByIdentifier = newAttachments.reduce(into: [:]) { partialResult, attachment in
@@ -125,25 +283,77 @@ import Foundation
             }
             attachments = newAttachments
             attachmentByIdentifier = newAttachmentByIdentifier
+            resetSaveStatus()
             self.objectWillChange.send()
         }
     }
     
-    @Published var attachments = [ImageAttachment]()
+    private func resetSaveStatus() {
+        processed = 0
+        saveStatus = .unsaved
+        for image in attachments {
+            image.status.savingStatus = .unsaved
+        }
+    }
     
-    @Published var saveSuccesses = 0
-    @Published var saveFailures = 0
-    @Published var saveResults = 0
-    @Published var failureMessage = ""
+    public func tryLoadDefaults() {
+        let desiredAspectRatio = UserDefaults.standard.double(forKey: "desiredAspectRatio")
+        if desiredAspectRatio != 0 {
+            setDesiredAspectRatio(desiredAspectRatio)
+        } else {
+            UserDefaults.standard.set(4/5, forKey: "desiredAspectRatio")
+        }
+        
+        let desiredSize = UserDefaults.standard.integer(forKey: "desiredSize")
+        if desiredSize != 0 {
+            setDesiredSize(desiredSize)
+        }
+        
+        let desiredPadding = CGFloat(UserDefaults.standard.float(forKey: "desiredPadding"))
+        if desiredPadding != 0 {
+            setDesiredPadding(desiredPadding)
+        }
+        
+        if !UserDefaults.standard.bool(forKey: "colorStored") {
+            UserDefaults.standard.set(true, forKey: "colorStored")
+            UserDefaults.standard.set(1.0, forKey: "colorR")
+            UserDefaults.standard.set(1.0, forKey: "colorG")
+            UserDefaults.standard.set(1.0, forKey: "colorB")
+        } else {
+            let desiredBorderColor = Color(.sRGB, red: UserDefaults.standard.double(forKey: "colorR"), green: UserDefaults.standard.double(forKey: "colorG"), blue: UserDefaults.standard.double(forKey: "colorB"))
+            setDesiredBorderColor(desiredBorderColor)
+        }
+        
+        self.objectWillChange.send()
+    }
+    
+    var attemptedSizeLabel: String = ""
+    
+    @Published var attachments = [ImageAttachment]() {
+        didSet {
+            if attachments.isEmpty {
+                resetSaveStatus()
+            }
+        }
+    }
+    
+    @Published var error: Error? = nil {
+        didSet {
+            if error != nil {
+                self.hasError = true
+            } else {
+                self.hasError = false
+            }
+        }
+    }
+    
+    @Published var hasError: Bool = false
     
     private var attachmentByIdentifier = [String: ImageAttachment]()
     
     public func clearSelection() {
         selection = []
         attachments = []
-        saveSuccesses = 0
-        saveFailures = 0
-        saveResults = 0
     }
     
     public func removeCurrent() {
@@ -167,71 +377,52 @@ import Foundation
         return attachments[currentIndex]
     }
     
-    public func setDesiredPadding(value: CGFloat) {
+    public func setDesiredSize(_ value: Int) {
+        desiredSize = value
+        UserDefaults.standard.set(value, forKey: "desiredSize")
+        self.objectWillChange.send()
+    }
+    
+    public func setDesiredPadding(_ value: CGFloat) {
         desiredPadding = value
+        UserDefaults.standard.set(value, forKey: "desiredPadding")
         self.objectWillChange.send()
     }
     
-    public func setDesiredAspectRatio(value: Double) {
+    public func setDesiredAspectRatio(_ value: Double) {
         desiredAspectRatio = value
+        UserDefaults.standard.set(value, forKey: "desiredAspectRatio")
         self.objectWillChange.send()
     }
     
-    public func setDesiredBorderColor(value: Color) {
+    public func setDesiredBorderColor(_ value: Color) {
         desiredBorderColor = value
+        let components = UIColor(value).cgColor.components!
+        UserDefaults.standard.set(true, forKey:"colorStored")
+        UserDefaults.standard.set(components[0], forKey: "colorR")
+        UserDefaults.standard.set(components[1], forKey: "colorG")
+        UserDefaults.standard.set(components[2], forKey: "colorB")
         self.objectWillChange.send()
     }
     
-    @MainActor public func render(size: Int) {
+    public func renderAndSave() async {
+        processed = 0
+        saveStatus = .saving
         for imageAttachment in attachments {
-            switch imageAttachment.imageStatus {
-                case .finished(let image):
-                    let paddingScale = originalContainerWidth / (size != 0 ? CGFloat(size) : 1.0)
-                    let aspectRatio: CGFloat = desiredAspectRatio == -1 ? (imageAttachment.originalImageWidth / imageAttachment.originalImageHeight) : desiredAspectRatio
-                    let renderer = ImageRenderer(content: ImageExportView(image: image, desiredWidth: size, desiredAspectRatio: aspectRatio, desiredPadding: desiredPadding * paddingScale, desiredBorderColor: desiredBorderColor))
-                    renderer.scale = 1.0
-                    if let result = renderer.uiImage {
-                        rendered.append(Image(uiImage: result))
-                    }
-                case .failed:
-                    return
-                default:
-                    return
-            }
+            await imageAttachment.save(size: desiredSize, originalContainerWidth: originalContainerWidth, desiredPadding: desiredPadding, desiredAspectRatio: desiredAspectRatio, desiredBorderColor: desiredBorderColor)
         }
     }
     
-    @MainActor public func renderAndSave(size: Int) {
-        for imageAttachment in attachments {
-            switch imageAttachment.imageStatus {
-                case .finished(let image):
-                    let paddingScale = (size != 0 ? CGFloat(size) : 1.0) / originalContainerWidth
-                    let aspectRatio: CGFloat = desiredAspectRatio == -1 ? (imageAttachment.originalImageWidth / imageAttachment.originalImageHeight) : desiredAspectRatio
-                    let renderer = ImageRenderer(content: ImageExportView(image: image, desiredWidth: size, desiredAspectRatio: aspectRatio, desiredPadding: desiredPadding * paddingScale, desiredBorderColor: desiredBorderColor))
-                    renderer.scale = 1.0
-                    if let result = renderer.uiImage {
-                        UIImageWriteToSavedPhotosAlbum(result, self, #selector(image(_:didFinishSavingWithError:contextInfo:)), nil)
-                    }
-                case .failed:
-                    return
-                default:
-                    return
-            }
-        }
-    }
-    
-    @objc func image(_ image: UIImage, didFinishSavingWithError error: Error?, contextInfo: UnsafeRawPointer) {
-        if let error = error {
-            self.saveFailures += 1
-            self.saveResults += 1
-            self.failureMessage = error.localizedDescription
-        } else {
-            self.saveSuccesses += 1
-            self.saveResults += 1
-        }
+    @objc func handleImageResult(_ image: UIImage, didFinishSavingWithError error: Error?, contextInfo: UnsafeRawPointer) {
+        processed += 1
     }
 }
 
+extension Date {
+    func currentTimeMillis() -> Int64 {
+        return Int64(self.timeIntervalSince1970 * 1000)
+    }
+}
 
 private extension PhotosPickerItem {
     var identifier: String {
@@ -271,24 +462,5 @@ struct ImageView: View {
                 .aspectRatio(contentMode: .fit)
                 .padding(desiredPadding)
         }
-    }
-}
-
-class WriteImageToFileResponder: NSObject {
-    typealias WriteImageToFileResponderCompletion = ((UIImage?, Error?) -> Void)?
-    var completion: WriteImageToFileResponderCompletion = nil
-    
-    override init() {
-        super.init()
-    }
-    
-    @objc func image(_ image: UIImage, didFinishSavingWithError error: Error?, contextInfo: UnsafeRawPointer) {
-        if (completion != nil) {
-            error == nil ? completion?(image, error) : completion?(nil, error)
-            completion = nil
-        }
-    }
-    func addCompletion(completion:WriteImageToFileResponderCompletion) {
-        self.completion = completion
     }
 }

@@ -25,7 +25,17 @@ struct SelectView: View {
                         preferredItemEncoding: .current,
                         photoLibrary: .shared()
                     ) {
-                        SelectButton().animation(.easeInOut(duration: 0.5), value: data.selection.isEmpty)
+                        ZStack {
+                            if data.helpTextShown {
+                                Text("Select some photos first!")
+                                    .kerning(0)
+                                    .animation(.easeInOut(duration:1), value: data.helpTextShown)
+                                    .font(Font.custom("SpaceMono-Regular", size: 16))
+                                    .foregroundColor(.accent)
+                                    .padding(.bottom, 128)
+                            }
+                            SelectButton().animation(.easeInOut(duration: 0.5), value: data.selection.isEmpty)
+                        }
                     }
                     .frame(height: 64)
                 } else {
@@ -33,6 +43,16 @@ struct SelectView: View {
                         .frame(height: 64)
                 }
             }
+            .sensoryFeedback(.success, trigger: !data.selection.isEmpty)
+            .onChange(of: data.helpTextShown, {
+                if data.helpTextShown {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                        withAnimation {
+                            data.helpTextShown = false
+                        }
+                    }
+                }
+            })
         }
     }
 }

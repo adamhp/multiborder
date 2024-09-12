@@ -19,13 +19,13 @@
 		6626B0A02C88BFA2009501CF /* CardStack.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6626B09F2C88BFA2009501CF /* CardStack.swift */; };
 		6626B0A22C89ED7A009501CF /* DefaultPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6626B0A12C89ED7A009501CF /* DefaultPage.swift */; };
 		6626B0A62C89F388009501CF /* ImageViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6626B0A52C89F388009501CF /* ImageViews.swift */; };
-		6626B0B92C8B6692009501CF /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6626B0B72C8B65C8009501CF /* Images.xcassets */; };
 		6626B0BA2C8B6695009501CF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 660EB6C72C1C6E8900033C60 /* Assets.xcassets */; };
-		6626B0BB2C8B6698009501CF /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 6626B0B52C8B65B6009501CF /* SplashScreen.storyboard */; };
 		6626B0C32C8B6B70009501CF /* SpaceMono.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 6626B0BE2C8B66D7009501CF /* SpaceMono.ttf */; };
 		6626B0C42C8B6B71009501CF /* SpaceMono.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 6626B0BE2C8B66D7009501CF /* SpaceMono.ttf */; };
 		6626B0C52C8B6C4B009501CF /* SpaceMono.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 6626B0BE2C8B66D7009501CF /* SpaceMono.ttf */; };
 		6626B0CC2C8C93F7009501CF /* PhotosUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6626B0CB2C8C93F7009501CF /* PhotosUI.framework */; };
+		6626B0E12C8F8389009501CF /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 6626B0E02C8F8389009501CF /* SplashScreen.storyboard */; };
+		6626B0E32C8F838F009501CF /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6626B0E22C8F838F009501CF /* Images.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -77,14 +77,14 @@
 		6626B0A12C89ED7A009501CF /* DefaultPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultPage.swift; sourceTree = "<group>"; };
 		6626B0A52C89F388009501CF /* ImageViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageViews.swift; sourceTree = "<group>"; };
 		6626B0A72C8A35F7009501CF /* TODO.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = TODO.md; sourceTree = "<group>"; };
-		6626B0B52C8B65B6009501CF /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = ../../multiborder/multiborder/ios/multiborder/SplashScreen.storyboard; sourceTree = "<group>"; };
-		6626B0B72C8B65C8009501CF /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = ../../multiborder/multiborder/ios/multiborder/Images.xcassets; sourceTree = "<group>"; };
 		6626B0BE2C8B66D7009501CF /* SpaceMono.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = SpaceMono.ttf; path = multiborder/SpaceMono.ttf; sourceTree = SOURCE_ROOT; };
 		6626B0C62C8B6DB5009501CF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		6626B0C72C8B6DB7009501CF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = ../../multiborder/multiborder/ios/multiborder/Info.plist; sourceTree = "<group>"; };
 		6626B0C82C8B6DD7009501CF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		6626B0C92C8C9314009501CF /* multiborder.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = multiborder.entitlements; sourceTree = "<group>"; };
 		6626B0CB2C8C93F7009501CF /* PhotosUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PhotosUI.framework; path = System/Library/Frameworks/PhotosUI.framework; sourceTree = SDKROOT; };
+		6626B0E02C8F8389009501CF /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; path = SplashScreen.storyboard; sourceTree = "<group>"; };
+		6626B0E22C8F838F009501CF /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -137,11 +137,10 @@
 		660EB6C22C1C6E8900033C60 /* multiborder */ = {
 			isa = PBXGroup;
 			children = (
+				6626B0E22C8F838F009501CF /* Images.xcassets */,
 				6626B0C92C8C9314009501CF /* multiborder.entitlements */,
 				6626B0C82C8B6DD7009501CF /* Info.plist */,
 				6626B0BE2C8B66D7009501CF /* SpaceMono.ttf */,
-				6626B0B72C8B65C8009501CF /* Images.xcassets */,
-				6626B0B52C8B65B6009501CF /* SplashScreen.storyboard */,
 				6626B0A42C89F379009501CF /* Images */,
 				660EB6C32C1C6E8900033C60 /* multiborderApp.swift */,
 				660EB6C52C1C6E8900033C60 /* MainView.swift */,
@@ -154,6 +153,7 @@
 				6626B09F2C88BFA2009501CF /* CardStack.swift */,
 				6626B0A12C89ED7A009501CF /* DefaultPage.swift */,
 				6626B0A72C8A35F7009501CF /* TODO.md */,
+				6626B0E02C8F8389009501CF /* SplashScreen.storyboard */,
 			);
 			path = multiborder;
 			sourceTree = "<group>";
@@ -307,9 +307,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				6626B0C52C8B6C4B009501CF /* SpaceMono.ttf in Resources */,
-				6626B0BB2C8B6698009501CF /* SplashScreen.storyboard in Resources */,
+				6626B0E32C8F838F009501CF /* Images.xcassets in Resources */,
+				6626B0E12C8F8389009501CF /* SplashScreen.storyboard in Resources */,
 				6626B0BA2C8B6695009501CF /* Assets.xcassets in Resources */,
-				6626B0B92C8B6692009501CF /* Images.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -511,12 +511,13 @@
 				DEVELOPMENT_ASSET_PATHS = "\"multiborder/Preview Content\"";
 				DEVELOPMENT_TEAM = 3BF23L96N2;
 				ENABLE_PREVIEWS = YES;
+				EXCLUDED_ARCHS = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = multiborder/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = multiborder;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.photography";
-				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "${PRODUCT_NAME} requires access to your photo library to save edited photos.";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "${PRODUCT_NAME} requires access to select photos to edit.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "multiborder requires access to your photo library to save edited photos.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "multiborder requires access to select photos to edit.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = SplashScreen.storyboard;
@@ -554,8 +555,8 @@
 				INFOPLIST_FILE = multiborder/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = multiborder;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.photography";
-				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "${PRODUCT_NAME} requires access to your photo library to save edited photos.";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "${PRODUCT_NAME} requires access to select photos to edit.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "multiborder requires access to your photo library to save edited photos.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "multiborder requires access to select photos to edit.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = SplashScreen.storyboard;
