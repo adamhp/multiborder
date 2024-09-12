@@ -118,7 +118,7 @@ public struct CardStack<Data, Content>: View where Data: RandomAccessCollection,
     }
     
     private func swingOutMultiplier(_ progress: Double) -> Double {
-        return sin(Double.pi * progress) * 15
+        return sin(Double.pi * progress) * 5
     }
 }
 
