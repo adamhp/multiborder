@@ -31,21 +31,34 @@ struct ImageStack: View {
 struct ImageContainerView: View {
     
     @EnvironmentObject private var data: DataModel
-    
     @ObservedObject var imageAttachment: DataModel.ImageAttachment
     
     var body: some View {
-        GeometryReader { geo in
-            Rectangle()
-                .foregroundColor(data.desiredBorderColor)
-                .aspectRatio(data.desiredAspectRatio == -1 ? (imageAttachment.originalImageWidth / imageAttachment.originalImageHeight) : data.desiredAspectRatio, contentMode: .fit)
-                .overlay(ImageAttachmentView(imageAttachment: imageAttachment))
-                .position(x: geo.frame(in: .local).midX, y: geo.frame(in: .local).midY)
-                .onAppear {
-                    if data.originalContainerWidth == 0 {
-                        data.originalContainerWidth = geo.size.width
+        ZStack {
+            switch imageAttachment.status.loadingStatus {
+                case .unloaded:
+                    ProgressView()
+                case .loading:
+                    ProgressView()
+                case .finished(_):
+                    GeometryReader { geo in
+                        Rectangle()
+                            .foregroundColor(data.desiredBorderColor)
+                            .aspectRatio(data.desiredAspectRatio == -1 ? (imageAttachment.originalImageWidth! / imageAttachment.originalImageHeight!) : data.desiredAspectRatio, contentMode: .fit)
+                            .overlay(ImageAttachmentView(imageAttachment: imageAttachment))
+                            .position(x: geo.frame(in: .local).midX, y: geo.frame(in: .local).midY)
+                            .onAppear {
+                                if data.originalContainerWidth == 0 {
+                                    data.originalContainerWidth = geo.size.width
+                                }
+                            }
                     }
-                }
+                case .failed:
+                    Image(systemName: "exclamationmark.triangle.fill")
+            }
+        }
+        .task {
+            await imageAttachment.load()
         }
     }
 }
@@ -56,20 +69,9 @@ struct ImageAttachmentView: View {
     @ObservedObject var imageAttachment: DataModel.ImageAttachment
     
     var body: some View {
-        ZStack {
-            switch imageAttachment.imageStatus {
-                case .finished(let image):
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .padding(data.desiredPadding)
-                case .failed:
-                    Image(systemName: "exclamationmark.triangle.fill")
-                default:
-                    ProgressView()
-            }
-        }.task {
-            await imageAttachment.loadImage()
-        }
+        imageAttachment.image!
+            .resizable()
+            .aspectRatio(contentMode: .fit)
+            .padding(data.desiredPadding)
     }
 }

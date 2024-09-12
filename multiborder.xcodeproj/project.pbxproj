@@ -511,6 +511,7 @@
 				DEVELOPMENT_ASSET_PATHS = "\"multiborder/Preview Content\"";
 				DEVELOPMENT_TEAM = 3BF23L96N2;
 				ENABLE_PREVIEWS = YES;
+				EXCLUDED_ARCHS = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = multiborder/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = multiborder;
