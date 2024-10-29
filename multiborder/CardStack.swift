@@ -7,10 +7,13 @@
 import SwiftUI
 
 public struct CardStack<Data, Content>: View where Data: RandomAccessCollection, Data.Element: Identifiable, Content: View {
+    
+    @EnvironmentObject private var dataModel: DataModel
     @State private var currentIndex: Double = 0.0
     @State private var previousIndex: Double = 0.0
     
     private var data: Data
+    
     @ViewBuilder private let content: (Data.Element) -> Content
     @Binding var finalCurrentIndex: Int
     
@@ -37,10 +40,16 @@ public struct CardStack<Data, Content>: View where Data: RandomAccessCollection,
         }
         .onChange(of: data.count, {
             if (data.count == Int(currentIndex)) {
-                self.goTo(currentIndex)
+                self.goTo(Double(finalCurrentIndex))
                 if (self.previousIndex >= 1) {
                     self.previousIndex -= 1
                 }
+            }
+        })
+        .onChange(of: dataModel.currentIndex, {
+            if (self.currentIndex != Double(dataModel.currentIndex)) {
+                self.goTo(Double(dataModel.currentIndex))
+                self.previousIndex = self.currentIndex
             }
         })
         .highPriorityGesture(dragGesture)

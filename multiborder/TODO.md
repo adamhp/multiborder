@@ -1,4 +1,5 @@
 #  TODO
+- Handle incremental save at desired resolution
 - Adjust to git flow for Xcode cloud
 - Figure out ShareLink 
     "Contents Need Refresh: No): accessing preferences outside an application's container requires user-preference-read or file-read-data sandbox access"

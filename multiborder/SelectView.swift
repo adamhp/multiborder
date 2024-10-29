@@ -16,6 +16,19 @@ struct SelectView: View {
         DefaultPage {
             VStack(spacing: 0) {
                 Spacer()
+                if data.attachments.count > 0 {
+                    Text("\(data.currentIndex+1) of \(data.attachments.count)")
+                        .contentTransition(.numericText(value: Double(data.currentIndex)))
+                        .font(Font.custom("SpaceMono-Regular", size: 14))
+                        .foregroundColor(.accent)
+                        .padding(.top, 16)
+                    Text("(Preview Resolution)")
+                        .contentTransition(.numericText(value: Double(data.currentIndex)))
+                        .font(Font.custom("SpaceMono-Regular", size: 12))
+                        .foregroundColor(.stone500)
+                        .padding(.top, 16)
+                }
+                Spacer()
                 ImageStack()
                 Spacer()
                 if data.attachments.isEmpty {
@@ -53,6 +66,7 @@ struct SelectView: View {
                     }
                 }
             })
+        
         }
     }
 }

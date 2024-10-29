@@ -76,9 +76,14 @@ struct ExportView: View {
                 .padding(.horizontal, 48)
                 
                 Spacer()
-                
-                DownloadButton()
-                
+                VStack {
+                    VStack {
+                        if data.processed > -1 {
+                            ProgressView(value: Float(data.processed), total: Float(data.attachments.count)).padding(.horizontal, 32).tint(.accent).animation(.easeIn(duration: 1), value: data.processed)
+                        }
+                    }.frame(height: 32).padding(.horizontal, 32)
+                    DownloadButton()
+                }.frame(height: 84)
                 Spacer()
                 
                 VStack(spacing: 32) {
@@ -104,6 +109,21 @@ struct ExportView: View {
                 }.padding(.bottom, 8)
             }
         }
+    }
+}
+
+struct LinearProgressView<Shape: SwiftUI.Shape>: View {
+    var value: Double
+    var shape: Shape
+    
+    var body: some View {
+        shape.fill(.foreground.quaternary)
+            .overlay(alignment: .leading) {
+                GeometryReader { proxy in
+                    shape.fill(.tint)
+                        .frame(width: proxy.size.width * value)
+                }
+            }
     }
 }
 
@@ -142,6 +162,7 @@ struct KofiButton: View {
 struct DownloadButton: View {
     
     @EnvironmentObject var data: DataModel
+    @Environment(\.displayScale) var displayScale
     
     var body: some View {
         ZStack {
@@ -186,6 +207,11 @@ struct DownloadButton: View {
                                 .resizable()
                                 .scaledToFit()
                                 .foregroundColor(.green)
+                        }.onAppear {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                                data.resetSaveStatus()
+                                data.error = nil
+                            }
                         }
                         .padding(20)
                     }
@@ -224,9 +250,7 @@ struct DownloadButton: View {
             switch data.saveStatus {
                 case .unsaved:
                     data.saveStatus = .saving
-                    Task {
-                        await data.renderAndSave()
-                    }
+                    data.processed = 0
                 default:
                     return
             }

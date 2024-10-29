@@ -24,6 +24,9 @@ struct ImageStack: View {
                 ImageContainerView(imageAttachment: imageAttachment)
             }
             .padding(8)
+            .task {
+                data.currentIndex = 0
+            }
         }
     }
 }
@@ -35,9 +38,9 @@ struct ImageContainerView: View {
     
     var body: some View {
         ZStack {
-            switch imageAttachment.status.loadingStatus {
+            switch imageAttachment.status.thumbnailStatus {
                 case .unloaded:
-                    ProgressView()
+                    EmptyView()
                 case .loading:
                     ProgressView()
                 case .finished(_):
@@ -57,10 +60,8 @@ struct ImageContainerView: View {
                     Image(systemName: "exclamationmark.triangle.fill")
             }
         }
-        .task {
-            await imageAttachment.load()
-        }
     }
+       
 }
 
 struct ImageAttachmentView: View {
@@ -69,9 +70,13 @@ struct ImageAttachmentView: View {
     @ObservedObject var imageAttachment: DataModel.ImageAttachment
     
     var body: some View {
-        imageAttachment.image!
-            .resizable()
-            .aspectRatio(contentMode: .fit)
-            .padding(data.desiredPadding)
+        if let thumbnail = imageAttachment.imageThumbnail {
+            thumbnail
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .padding(data.desiredPadding)
+        } else {
+            EmptyView()
+        }
     }
 }

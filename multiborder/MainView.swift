@@ -30,7 +30,7 @@ enum TabbedItems: Int, CaseIterable{
             case .edit:
                 return "slider.horizontal.3"
             case .export:
-                return "square.and.arrow.up"
+                return "square.and.arrow.down"
         }
     }
 }

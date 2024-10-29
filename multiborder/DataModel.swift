@@ -6,10 +6,12 @@ import Foundation
     @MainActor final class ImageAttachment: NSObject, ObservableObject, Identifiable {
         
         let parent: DataModel
+        var index: Int
         
         struct Status {
             var loadingStatus: LoadingStatus = .unloaded
             var savingStatus: SavingStatus = .unsaved
+            var thumbnailStatus: LoadingStatus = .unloaded
         }
         
         enum LoadingStatus {
@@ -89,18 +91,7 @@ import Foundation
         enum SavingError: Error {
             case general(String)
         }
-        
-        struct RenderedImage {
-            let image: UIImage
-            let desiredSize: Int
-            var status: SavingStatus = .unsaved
-            
-            init(_ image: UIImage, _ desiredSize: Int) {
-                self.image = image
-                self.desiredSize = desiredSize
-            }
-        }
-        
+
         private let pickerItem: PhotosPickerItem
         nonisolated var id: String {
             pickerItem.identifier
@@ -108,104 +99,91 @@ import Foundation
         
         @Published var status: Status = Status()
         @Published var imageDescription: String = ""
-        @Published var rendered: [RenderedImage]?
-        @Published var image: Image?
+        @Published var imageThumbnail: Image? = Image(systemName: "questionmark.diamond")
         @Published var originalImageWidth: Double?
         @Published var originalImageHeight: Double?
+        @Published var originalImageAspectRatio: Double?
         
-        init(_ pickerItem: PhotosPickerItem, _ parent: DataModel) {
+        @Environment(\.displayScale) private var displayScale
+        
+        init(_ pickerItem: PhotosPickerItem, _ parent: DataModel, _ index: Int) {
             self.pickerItem = pickerItem
             self.parent = parent
+            self.index = index
         }
         
         func getPickerItem() -> PhotosPickerItem {
             return self.pickerItem
         }
         
-        func load() async {
-            guard status.loadingStatus.isUnloaded == true else {
+        func loadThumbnail() async {
+            guard status.thumbnailStatus.isUnloaded == true else {
                 return
             }
-            status.loadingStatus = .loading
+            status.thumbnailStatus = .loading
             
             do {
                 if let data = try await pickerItem.loadTransferable(type: Data.self),
                    let uiImage = UIImage(data: data) {
-                    let resImage = Image(uiImage: uiImage)
-                    imageDescription = data.description
-                    image = resImage
                     originalImageWidth = uiImage.size.width
                     originalImageHeight = uiImage.size.height
-                    status.loadingStatus = .finished(resImage)
+                    originalImageAspectRatio = uiImage.size.width / uiImage.size.height
+                    if let resizedImage = uiImage.resized(to: CGSize(width: 200, height: 200 / originalImageAspectRatio!)) {
+                        let resImage = Image(uiImage: resizedImage)
+                        imageDescription = data.description
+                        imageThumbnail = resImage
+                        status.thumbnailStatus = .finished(resImage)
+                    } else {
+                        throw LoadingError.contentTypeNotSupported
+                    }
                 } else {
                     throw LoadingError.contentTypeNotSupported
                 }
             } catch {
-                status.loadingStatus = .failed(error)
+                status.thumbnailStatus = .failed(error)
             }
             self.objectWillChange.send()
         }
         
-        @MainActor func save(size: Int, originalContainerWidth: Double, desiredPadding: Double, desiredAspectRatio: Double, desiredBorderColor: Color) async {
-            guard status.loadingStatus.isFinished && status.savingStatus.isUnsaved else {
-                return
-            }
-            status.savingStatus = .saving
-            
-            await renderImage(size: size, originalContainerWidth: originalContainerWidth, desiredPadding: desiredPadding, desiredAspectRatio: desiredAspectRatio, desiredBorderColor: desiredBorderColor)
-                    
-            /// Double unwrap, once for dictionary, twice for render result which should never be nil after line above
-            await saveRenderedImages(desiredSize: size)
-        }
-        
-        private func renderImage(size: Int, originalContainerWidth: Double, desiredPadding: Double, desiredAspectRatio: Double, desiredBorderColor: Color) async {
-            guard status.loadingStatus.isFinished else {
-                return
-            }
-            let renderer = prepareRenderer(image: image!, size: size, originalContainerWidth: originalContainerWidth, desiredPadding: desiredPadding, desiredAspectRatio: desiredAspectRatio, desiredBorderColor: desiredBorderColor)
-
-            /// Unwrap is okay because of duplicate guards on loading status
-            if let result = renderer!.uiImage {
-                if rendered == nil {
-                    rendered = []
+        @MainActor func exportImage() {
+//            guard status.loadingStatus.isUnloaded == true else {
+//                return
+//            }
+            status.loadingStatus = .loading
+            Task {
+                do {
+                    if let data = try await pickerItem.loadTransferable(type: Data.self),
+                       let uiImage = UIImage(data: data) {
+                        originalImageWidth = uiImage.size.width
+                        originalImageHeight = uiImage.size.height
+                        originalImageAspectRatio = uiImage.size.width / uiImage.size.height
+                        if let resizedImage = self.parent.desiredSize == 0 ? uiImage : uiImage.resized(to: CGSize(width: Double(self.parent.desiredSize), height: Double(self.parent.desiredSize) / originalImageAspectRatio!)) {
+                            imageDescription = data.description
+                            let desiredWidth: Double = self.parent.desiredSize == 0 ? originalImageWidth! : (originalImageWidth! >= Double(self.parent.desiredSize) ? Double(self.parent.desiredSize) : originalImageWidth!)
+                            let paddingScale = desiredWidth / self.parent.originalContainerWidth
+                            let aspectRatio: CGFloat = self.parent.desiredAspectRatio == -1 ? (originalImageWidth! / originalImageHeight!) : self.parent.desiredAspectRatio
+                            let exportView = ImageExportView(image: resizedImage, desiredWidth: Int(desiredWidth), desiredAspectRatio: aspectRatio, desiredPadding: self.parent.desiredPadding * paddingScale, desiredBorderColor: self.parent.desiredBorderColor)
+                            let renderer = ImageRenderer(content: exportView)
+                            if let imageResult = renderer.uiImage {
+                                UIImageWriteToSavedPhotosAlbum(imageResult, self, #selector(handleImageResult(_:didFinishSavingWithError:contextInfo:)), nil)
+                            }
+                            status.loadingStatus = .unloaded
+                        } else {
+                            throw LoadingError.contentTypeNotSupported
+                        }
+                    } else {
+                        throw LoadingError.contentTypeNotSupported
+                    }
+                } catch {
+                    status.loadingStatus = .failed(error)
                 }
-                rendered!.append(RenderedImage(result, size))
             }
         }
         
-        private func prepareRenderer(image: Image, size: Int, originalContainerWidth: Double, desiredPadding: Double, desiredAspectRatio: Double, desiredBorderColor: Color) -> ImageRenderer<ImageExportView>? {
-            guard status.loadingStatus.isFinished else {
-                return nil
-            }
-            // Use original width if selected, or if original width is less than desired size
-            let desiredWidth: Double = size == 0 ? originalImageWidth! : (originalImageWidth! >= Double(size) ? Double(size) : originalImageWidth!)
-            let paddingScale = desiredWidth / originalContainerWidth
-            let aspectRatio: CGFloat = desiredAspectRatio == -1 ? (originalImageWidth! / originalImageHeight!) : desiredAspectRatio
-            let renderer = ImageRenderer(content: ImageExportView(image: image, desiredWidth: Int(desiredWidth), desiredAspectRatio: aspectRatio, desiredPadding: desiredPadding * paddingScale, desiredBorderColor: desiredBorderColor))
-            renderer.scale = 1.0
-            return renderer
-        }
-        
-        private func saveRenderedImages(desiredSize: Int) async {
-            guard rendered != nil else {
-                return
-            }
-            for rendered in rendered!.filter({ $0.status.isUnsaved && $0.desiredSize == desiredSize }) {
-                saveUIImageForSize(rendered.image, rendered.desiredSize)
-            }
-        }
-        
-        private func saveRenderedImages() {
-            guard rendered != nil else {
-                return
-            }
-            for rendered in rendered!.filter({ $0.status.isUnsaved }) {
-                saveUIImageForSize(rendered.image, rendered.desiredSize)
-            }
-        }
-        
-        private func saveUIImageForSize(_ image: UIImage, _ desiredSize: Int) {
-            UIImageWriteToSavedPhotosAlbum(image, self, #selector(handleImageResult(_:didFinishSavingWithError:contextInfo:)), nil)
+        func unloadThumbnail() async {
+            self.imageThumbnail = Image(systemName: "questionmark.diamond")
+            status.thumbnailStatus = .unloaded
+            self.objectWillChange.send()
         }
         
         @objc func handleImageResult(_ image: UIImage, didFinishSavingWithError error: Error?, contextInfo: UnsafeRawPointer) {
@@ -217,6 +195,8 @@ import Foundation
             parent.handleImageResult(image, didFinishSavingWithError: error, contextInfo: contextInfo)
         }
     }
+    
+    // End ImageAttachment ----------
     
     enum SaveStatus {
         case unsaved
@@ -254,7 +234,20 @@ import Foundation
     }
         
     @Published var saveStatus: SaveStatus = .unsaved
-    @Published var processed: Int = 0
+    
+    @Published var processed: Int = -1 {
+        didSet {
+            guard self.processed != -1 else {
+                return
+            }
+            if self.processed >= attachments.count {
+                self.processed = -1
+                self.saveStatus = .success
+            } else {
+                attachments[self.processed].exportImage()
+            }
+        }
+    }
     
     @Published var helpTextShown: Bool = false
     @Published var selectedTab = 0
@@ -269,13 +262,31 @@ import Foundation
         }
     }
     @Published var originalContainerWidth: CGFloat = 0
-    @Published var currentIndex = 0
+    @Published var currentIndex: Int = 0 {
+        didSet {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                Task {
+                    for attachment in self.attachments {
+                        if attachment.index >= self.currentIndex - 2 && attachment.index <= self.currentIndex + 2 {
+                            await attachment.loadThumbnail()
+                        } else {
+                            await attachment.unloadThumbnail()
+                        }
+                    }
+                }
+            }
+            self.objectWillChange.send()
+        }
+    }
+    
+    
     @Published var selection = [PhotosPickerItem]() {
         didSet {
             // Update the attachments according to the current picker selection.
-            let newAttachments = selection.map { item in
+            let newAttachments = selection.enumerated().map { (index, item) in
                 // Access an existing attachment, if it exists; otherwise, create a new attachment.
-                attachmentByIdentifier[item.identifier] ?? ImageAttachment(item, self)
+                attachmentByIdentifier[item.identifier] ?? ImageAttachment(item, self, index)
+                
             }
             // Update the saved attachments array for any new attachments loaded in scope.
             let newAttachmentByIdentifier = newAttachments.reduce(into: [:]) { partialResult, attachment in
@@ -288,8 +299,8 @@ import Foundation
         }
     }
     
-    private func resetSaveStatus() {
-        processed = 0
+    func resetSaveStatus() {
+        processed = -1
         saveStatus = .unsaved
         for image in attachments {
             image.status.savingStatus = .unsaved
@@ -360,14 +371,24 @@ import Foundation
         if attachments.count == 0 {
             return
         }
-        let removed = attachments.remove(at: currentIndex)
+        let removed = attachments.remove(at: self.currentIndex)
         attachmentByIdentifier.removeValue(forKey: removed.id)
-        if (currentIndex >= 1) {
-            currentIndex -= 1
-        }
         if (attachments.isEmpty) {
             clearSelection()
+        } else {
+            var counter = 0
+            for attachment in attachments {
+                attachment.index = counter
+                counter += 1
+            }
         }
+        if (self.currentIndex >= 1) {
+            self.currentIndex -= 1
+        } else {
+            // Re-set so we trigger loading of thumbnails
+            self.currentIndex = self.currentIndex
+        }
+        self.objectWillChange.send()
     }
     
     public func getCurrent() -> ImageAttachment? {
@@ -405,22 +426,28 @@ import Foundation
         self.objectWillChange.send()
     }
     
-    public func renderAndSave() async {
-        processed = 0
-        saveStatus = .saving
-        for imageAttachment in attachments {
-            await imageAttachment.save(size: desiredSize, originalContainerWidth: originalContainerWidth, desiredPadding: desiredPadding, desiredAspectRatio: desiredAspectRatio, desiredBorderColor: desiredBorderColor)
-        }
-    }
-    
     @objc func handleImageResult(_ image: UIImage, didFinishSavingWithError error: Error?, contextInfo: UnsafeRawPointer) {
-        processed += 1
+        if processed == self.attachments.count {
+            saveStatus = SaveStatus.success
+        } else {
+            processed += 1
+        }
     }
 }
 
 extension Date {
     func currentTimeMillis() -> Int64 {
         return Int64(self.timeIntervalSince1970 * 1000)
+    }
+}
+
+extension UIImage {
+    func resized(to size: CGSize) -> UIImage? {
+        UIGraphicsBeginImageContextWithOptions(size, false, 0.0)
+        self.draw(in: CGRect(origin: .zero, size: size))
+        let newImage = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        return newImage
     }
 }
 
@@ -435,32 +462,30 @@ private extension PhotosPickerItem {
 
 struct ImageExportView: View {
     
-    let image: Image
+    let image: UIImage?
     let desiredWidth: Int
     let desiredAspectRatio: CGFloat
     let desiredPadding: Double
     let desiredBorderColor: Color
+    
+    
     
     var body: some View {
         Rectangle()
             .frame(width: CGFloat(desiredWidth), height: CGFloat(desiredWidth) * (1 / desiredAspectRatio))
             .foregroundColor(desiredBorderColor)
             .aspectRatio(desiredAspectRatio, contentMode: .fit)
-            .overlay(ImageView(image: image, desiredPadding: desiredPadding))
-    }
-}
-
-struct ImageView: View {
-    
-    let image: Image
-    let desiredPadding: Double
-    
-    var body: some View {
-        ZStack {
-            image
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .padding(desiredPadding)
-        }
+            .overlay(
+                ZStack {
+                    if let img = image {
+                        Image(uiImage: img)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .padding(desiredPadding)
+                    } else {
+                        EmptyView()
+                    }
+                }
+            )
     }
 }

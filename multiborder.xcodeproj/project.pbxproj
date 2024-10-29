@@ -26,6 +26,7 @@
 		6626B0CC2C8C93F7009501CF /* PhotosUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6626B0CB2C8C93F7009501CF /* PhotosUI.framework */; };
 		6626B0E12C8F8389009501CF /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 6626B0E02C8F8389009501CF /* SplashScreen.storyboard */; };
 		6626B0E32C8F838F009501CF /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6626B0E22C8F838F009501CF /* Images.xcassets */; };
+		66A3296F2CD13BF3005BA13B /* Status.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66A3296E2CD13BF3005BA13B /* Status.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -85,6 +86,7 @@
 		6626B0CB2C8C93F7009501CF /* PhotosUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PhotosUI.framework; path = System/Library/Frameworks/PhotosUI.framework; sourceTree = SDKROOT; };
 		6626B0E02C8F8389009501CF /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; path = SplashScreen.storyboard; sourceTree = "<group>"; };
 		6626B0E22C8F838F009501CF /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = "<group>"; };
+		66A3296E2CD13BF3005BA13B /* Status.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Status.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -154,6 +156,7 @@
 				6626B0A12C89ED7A009501CF /* DefaultPage.swift */,
 				6626B0A72C8A35F7009501CF /* TODO.md */,
 				6626B0E02C8F8389009501CF /* SplashScreen.storyboard */,
+				66A3296E2CD13BF3005BA13B /* Status.swift */,
 			);
 			path = multiborder;
 			sourceTree = "<group>";
@@ -266,7 +269,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1540;
-				LastUpgradeCheck = 1540;
+				LastUpgradeCheck = 1600;
 				TargetAttributes = {
 					660EB6BF2C1C6E8900033C60 = {
 						CreatedOnToolsVersion = 15.4;
@@ -290,6 +293,9 @@
 				Base,
 			);
 			mainGroup = 660EB6B72C1C6E8900033C60;
+			packageReferences = (
+				662235E32CCE9D4400313AC7 /* XCRemoteSwiftPackageReference "HanekeSwift" */,
+			);
 			productRefGroup = 660EB6C12C1C6E8900033C60 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -341,6 +347,7 @@
 				6626B0A02C88BFA2009501CF /* CardStack.swift in Sources */,
 				660EB6C42C1C6E8900033C60 /* multiborderApp.swift in Sources */,
 				6626B0A22C89ED7A009501CF /* DefaultPage.swift in Sources */,
+				66A3296F2CD13BF3005BA13B /* Status.swift in Sources */,
 				660EB6F82C1CD13100033C60 /* ExportView.swift in Sources */,
 				660EB6F02C1CB73D00033C60 /* EditView.swift in Sources */,
 				6626B0A62C89F388009501CF /* ImageViews.swift in Sources */,
@@ -582,7 +589,6 @@
 		660EB6E82C1C6E8A00033C60 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -605,7 +611,6 @@
 		660EB6E92C1C6E8A00033C60 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -628,7 +633,6 @@
 		660EB6EB2C1C6E8A00033C60 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -649,7 +653,6 @@
 		660EB6EC2C1C6E8A00033C60 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -707,6 +710,17 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		662235E32CCE9D4400313AC7 /* XCRemoteSwiftPackageReference "HanekeSwift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/Haneke/HanekeSwift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.11.2;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
 	};
 	rootObject = 660EB6B82C1C6E8900033C60 /* Project object */;
 }
