@@ -294,7 +294,6 @@
 			);
 			mainGroup = 660EB6B72C1C6E8900033C60;
 			packageReferences = (
-				662235E32CCE9D4400313AC7 /* XCRemoteSwiftPackageReference "HanekeSwift" */,
 			);
 			productRefGroup = 660EB6C12C1C6E8900033C60 /* Products */;
 			projectDirPath = "";
@@ -710,17 +709,6 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
-
-/* Begin XCRemoteSwiftPackageReference section */
-		662235E32CCE9D4400313AC7 /* XCRemoteSwiftPackageReference "HanekeSwift" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/Haneke/HanekeSwift";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 0.11.2;
-			};
-		};
-/* End XCRemoteSwiftPackageReference section */
 	};
 	rootObject = 660EB6B82C1C6E8900033C60 /* Project object */;
 }
