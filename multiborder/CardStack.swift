@@ -8,7 +8,6 @@ import SwiftUI
 
 public struct CardStack<Data, Content>: View where Data: RandomAccessCollection, Data.Element: Identifiable, Content: View {
     
-    @EnvironmentObject private var dataModel: DataModel
     @State private var currentIndex: Double = 0.0
     @State private var previousIndex: Double = 0.0
     
@@ -46,13 +45,27 @@ public struct CardStack<Data, Content>: View where Data: RandomAccessCollection,
                 }
             }
         })
-        .onChange(of: dataModel.currentIndex, {
-            if (self.currentIndex != Double(dataModel.currentIndex)) {
-                self.goTo(Double(dataModel.currentIndex))
+        .onChange(of: finalCurrentIndex, {
+            if (self.currentIndex != Double(finalCurrentIndex)) {
+                self.goTo(Double(finalCurrentIndex))
                 self.previousIndex = self.currentIndex
             }
         })
         .highPriorityGesture(dragGesture)
+        // VoiceOver can't drag the stack, so it moves between cards by swiping up or down.
+        .accessibilityElement(children: .ignore)
+        .accessibilityAdjustableAction { direction in
+            let step: Double
+            switch direction {
+            case .increment: step = 1
+            case .decrement: step = -1
+            @unknown default: return
+            }
+            withAnimation(.interpolatingSpring(stiffness: 300, damping: 40)) {
+                goTo(round(currentIndex) + step)
+            }
+            previousIndex = currentIndex
+        }
     }
     
     private var dragGesture: some Gesture {
@@ -131,61 +144,37 @@ public struct CardStack<Data, Content>: View where Data: RandomAccessCollection,
     }
 }
 
-struct CardStackView_Previews: PreviewProvider {
-    
+#Preview {
     struct DemoItem: Identifiable {
         let name: String
         let color: Color
-        
-        var id: String {
-            name
+        var id: String { name }
+    }
+
+    @Previewable @State var currentIndex = 0
+
+    let colors = [
+        DemoItem(name: "Red", color: .red),
+        DemoItem(name: "Orange", color: .orange),
+        DemoItem(name: "Yellow", color: .yellow),
+        DemoItem(name: "Green", color: .green),
+        DemoItem(name: "Blue", color: .blue),
+        DemoItem(name: "Purple", color: .purple),
+    ]
+
+    return VStack {
+        CardStack(colors, currentIndex: $currentIndex) { namedColor in
+            Rectangle()
+                .fill(namedColor.color)
+                .overlay(
+                    Text(namedColor.name)
+                        .font(.largeTitle)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.white)
+                )
+                .frame(height: 400)
+                .padding(50)
         }
+        Text("Current card is \(currentIndex)")
     }
-    
-    struct DemoView: View {
-        @State private var currentIndex = 0
-        @State private var tappedIndex: Int? = nil
-        
-        var body: some View {
-            let colors = [
-                DemoItem(name: "Red", color: .red),
-                DemoItem(name: "Orange", color: .orange),
-                DemoItem(name: "Yellow", color: .yellow),
-                DemoItem(name: "Green", color: .green),
-                DemoItem(name: "Blue", color: .blue),
-                DemoItem(name: "Purple", color: .purple),
-            ]
-            
-            VStack {
-                CardStack(colors, currentIndex: $currentIndex) { namedColor in
-                    Rectangle()
-                        .fill(namedColor.color)
-                        .overlay(
-                            Text(namedColor.name)
-                                .font(.largeTitle)
-                                .fontWeight(.bold)
-                                .foregroundColor(.white)
-                        )
-                        .frame(height: 400)
-                        .onTapGesture {
-                            tappedIndex = currentIndex
-                        }
-                        .padding(50)
-                    
-                }
-                
-                Text("Current card is \(currentIndex)")
-                if let tappedIndex = tappedIndex {
-                    Text("Card \(tappedIndex) was tapped")
-                } else {
-                    Text("No card has been tapped")
-                }
-            }
-        }
-    }
-    
-    static var previews: some View {
-        DemoView()
-    }
-    
 }

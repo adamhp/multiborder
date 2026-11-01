@@ -10,9 +10,10 @@ import PhotosUI
 
 struct SelectView: View {
     
-    @EnvironmentObject private var data: DataModel
+    @Environment(DataModel.self) private var data
     
     var body: some View {
+        @Bindable var data = data
         DefaultPage {
             VStack(spacing: 0) {
                 Spacer()
@@ -20,12 +21,12 @@ struct SelectView: View {
                     Text("\(data.currentIndex+1) of \(data.attachments.count)")
                         .contentTransition(.numericText(value: Double(data.currentIndex)))
                         .font(Font.custom("SpaceMono-Regular", size: 14))
-                        .foregroundColor(.accent)
+                        .foregroundStyle(.accent)
                         .padding(.top, 16)
                     Text("(Preview Resolution)")
                         .contentTransition(.numericText(value: Double(data.currentIndex)))
                         .font(Font.custom("SpaceMono-Regular", size: 12))
-                        .foregroundColor(.stone500)
+                        .foregroundStyle(.stone500)
                         .padding(.top, 16)
                 }
                 Spacer()
@@ -38,18 +39,10 @@ struct SelectView: View {
                         preferredItemEncoding: .current,
                         photoLibrary: .shared()
                     ) {
-                        ZStack {
-                            if data.helpTextShown {
-                                Text("Select some photos first!")
-                                    .kerning(0)
-                                    .animation(.easeInOut(duration:1), value: data.helpTextShown)
-                                    .font(Font.custom("SpaceMono-Regular", size: 16))
-                                    .foregroundColor(.accent)
-                                    .padding(.bottom, 128)
-                            }
-                            SelectButton().animation(.easeInOut(duration: 0.5), value: data.selection.isEmpty)
-                        }
+                        // The picker's label closure is not main-actor isolated, so it reads the model in its own view.
+                        SelectPickerLabel()
                     }
+                    .accessibilityLabel("Select Photos")
                     .frame(height: 64)
                 } else {
                     ClearButton(data: data)
@@ -57,16 +50,33 @@ struct SelectView: View {
                 }
             }
             .sensoryFeedback(.success, trigger: !data.selection.isEmpty)
-            .onChange(of: data.helpTextShown, {
-                if data.helpTextShown {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                        withAnimation {
-                            data.helpTextShown = false
-                        }
-                    }
+            .task(id: data.helpTextShown) {
+                guard data.helpTextShown else { return }
+                do { try await Task.sleep(for: .seconds(2)) } catch { return }
+                withAnimation {
+                    data.helpTextShown = false
                 }
-            })
+            }
         
+        }
+    }
+}
+
+struct SelectPickerLabel: View {
+
+    @Environment(DataModel.self) private var data
+
+    var body: some View {
+        ZStack {
+            if data.helpTextShown {
+                Text("Select some photos first!")
+                    .kerning(0)
+                    .animation(.easeInOut(duration:1), value: data.helpTextShown)
+                    .font(Font.custom("SpaceMono-Regular", size: 16))
+                    .foregroundStyle(.accent)
+                    .padding(.bottom, 128)
+            }
+            SelectButton().animation(.easeInOut(duration: 0.5), value: data.selection.isEmpty)
         }
     }
 }
@@ -78,7 +88,7 @@ struct SelectButton: View {
                 .fill(.accent.opacity(0.2))
                 .frame(width: 64, height: 64)
             Image(systemName: "plus")
-                .foregroundColor(.accent)
+                .foregroundStyle(.accent)
                 .font(.system(size: 32, weight: .semibold))
         }
     }
@@ -88,23 +98,28 @@ struct ClearButton: View {
     
     let data: DataModel
     
-    @State var tap = false
+    @State private var tap = false
     
     var body: some View {
-        ZStack {
-            Circle()
-                .foregroundColor(.gray.opacity(0.25))
-                .frame(width: 64, height: 64)
-            Image(systemName: "xmark")
-                .foregroundColor(.gray.opacity(0.5))
-                .font(.system(size: 32, weight: .semibold))
-        }
-        .onTapGesture {
+        Button {
             data.removeCurrent()
             tap = true
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                tap = false
+        } label: {
+            ZStack {
+                Circle()
+                    .fill(.gray.opacity(0.25))
+                    .frame(width: 64, height: 64)
+                Image(systemName: "xmark")
+                    .foregroundStyle(.gray.opacity(0.5))
+                    .font(.system(size: 32, weight: .semibold))
             }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Remove Photo")
+        .task(id: tap) {
+            guard tap else { return }
+            do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
+            tap = false
         }
         .scaleEffect(tap ? 1.2 : 1)
         .animation(.spring(response: 0.4, dampingFraction: 0.6), value: tap)

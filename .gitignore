@@ -1,2 +1,5 @@
 .DS_Store
-DerivedData
+DerivedData/
+xcuserdata/
+*.xcuserstate
+.derived-data-log-*

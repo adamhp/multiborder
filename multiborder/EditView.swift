@@ -8,8 +8,6 @@
 import SwiftUI
 
 struct EditView: View {
-    
-    @EnvironmentObject private var data: DataModel
 
     var body: some View {
         DefaultPage {
@@ -22,7 +20,9 @@ struct EditView: View {
                     DesiredAspectRatioChooser()
                 }
                 .padding(.horizontal, 32)
-                .frame(height: 128)
+                .frame(minHeight: 128)
+                // Five ratio buttons must fit one row; beyond this size they would truncate.
+                .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
             }
         }
     }
@@ -30,119 +30,86 @@ struct EditView: View {
 
 struct DesiredPaddingSlider: View {
     
-    @EnvironmentObject private var data: DataModel
+    @Environment(DataModel.self) private var data
+    
+    /// The slider shows 0–64, the same scale the app used before padding became a fraction.
+    private var paddingLabel: Int {
+        Int((data.settings.paddingFraction / BorderSettings.paddingRange.upperBound * 64).rounded())
+    }
     
     var body: some View {
         GridRow {
-            Image(systemName: "square.dashed").frame(width: 32, height: 32)
+            Image(systemName: "square.dashed")
+                .frame(width: 32, height: 32)
+                .accessibilityHidden(true)
             HStack(spacing: 0) {
                 ZStack {
                     Slider(
                         value: Binding(
-                            get: { data.desiredPadding },
+                            get: { data.settings.paddingFraction },
                             set: { newVal in
                                 withAnimation {
-                                    data.setDesiredPadding(CGFloat(newVal))
+                                    data.settings.paddingFraction = newVal
                                 }
                             }),
-                        in: 0...64,
-                        step: 1
+                        in: BorderSettings.paddingRange,
+                        step: BorderSettings.paddingRange.upperBound / 64
                     ) {
+                        Text("Border Width")
                     }
-                    .sensoryFeedback(.selection, trigger: data.desiredPadding)
+                    .accessibilityValue("\(paddingLabel)")
+                    .sensoryFeedback(.selection, trigger: data.settings.paddingFraction)
                     .frame(height: 32)
-                    Text("\(Int(data.desiredPadding))").font(Font.custom("SpaceMono-Regular", size: 16))
-                        .contentTransition(.numericText(value: data.desiredPadding))
+                    Text("\(paddingLabel)").font(Font.custom("SpaceMono-Regular", size: 16))
+                        .contentTransition(.numericText(value: Double(paddingLabel)))
                         .padding(.leading, 8.0)
                         .padding(.bottom, 44)
                         .fixedSize()
                         .frame(width: 32, height: 32)
+                        .accessibilityHidden(true)
                 }
-                ColorPicker("", 
+                ColorPicker("Border Color",
                     selection: Binding(
-                        get: { data.desiredBorderColor },
-                        set: { newVal in data.setDesiredBorderColor(newVal)}
+                        get: { Color(data.settings.borderColor) },
+                        set: { newVal in data.settings.borderColor = newVal.resolve(in: EnvironmentValues()) }
                     ),
                     supportsOpacity: false)
                 .labelsHidden()
                 .frame(maxWidth: 48)
             }
         }
-        .frame(height:32)
+        .frame(minHeight: 32)
     }
 }
 
 struct DesiredAspectRatioChooser: View {
     
-    @EnvironmentObject private var data: DataModel
-    @State var tapped = false
+    @Environment(DataModel.self) private var data
     
     var body: some View {
         GridRow {
-            Image(systemName: "aspectratio").frame(width: 32, height: 32)
+            Image(systemName: "aspectratio")
+                .frame(width: 32, height: 32)
+                .accessibilityHidden(true)
             HStack(spacing: 4) {
-                
-                /// Original
-                Button {
-                    data.setDesiredAspectRatio(-1)
-                    tapped = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        tapped = false
+                ForEach(AspectRatio.allCases) { ratio in
+                    Button {
+                        data.settings.aspectRatio = ratio
+                    } label: {
+                        if ratio == .original {
+                            Image(systemName: "photo.artframe")
+                        } else {
+                            Text(ratio.title).font(Font.custom("SpaceMono-Regular", size: 16))
+                        }
                     }
-                } label: {
-                    Image(systemName: "photo.artframe")
+                    .buttonStyle(AspectRatioButton(active: data.settings.aspectRatio == ratio))
+                    .accessibilityLabel(ratio == .original ? "Original Aspect Ratio" : "Aspect Ratio \(ratio.title)")
+                    .accessibilityAddTraits(data.settings.aspectRatio == ratio ? .isSelected : [])
                 }
-                .buttonStyle(AspectRatioButton(active: data.desiredAspectRatio == -1))
-                
-                Button {
-                    data.setDesiredAspectRatio(2/3)
-                    tapped = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        tapped = false
-                    }
-                } label: {
-                    Text("2:3").font(Font.custom("SpaceMono-Regular", size: 16))
-                }
-                .buttonStyle(AspectRatioButton(active: data.desiredAspectRatio == 2/3))
-                
-                Button {
-                    data.setDesiredAspectRatio(3/4)
-                    tapped = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        tapped = false
-                    }
-                    
-                } label: {
-                    Text("3:4").font(Font.custom("SpaceMono-Regular", size: 16))
-                }
-                .buttonStyle(AspectRatioButton(active: data.desiredAspectRatio == 3/4))
-                
-                Button {
-                    data.setDesiredAspectRatio(4/5)
-                    tapped = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        tapped = false
-                    }
-                } label: {
-                    Text("4:5").font(Font.custom("SpaceMono-Regular", size: 16))
-                }
-                .buttonStyle(AspectRatioButton(active: data.desiredAspectRatio == 4/5))
-                
-                Button {
-                    data.setDesiredAspectRatio(1.0)
-                    tapped = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        tapped = false
-                    }
-                } label: {
-                    Text("1:1").font(Font.custom("SpaceMono-Regular", size: 16))
-                }
-                .buttonStyle(AspectRatioButton(active: data.desiredAspectRatio == 1.0))
             }
-            .sensoryFeedback(.selection, trigger: tapped)
-            .frame(height: 32)
+            .sensoryFeedback(.selection, trigger: data.settings.aspectRatio)
         }
-        .frame(height:32)
+        .frame(minHeight: 32)
     }
 }
 
@@ -156,11 +123,9 @@ struct AspectRatioButton: ButtonStyle {
     
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .foregroundColor(active ? .accent : .white)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(active ? .stone800 : .stone600)
-                    .frame(width: 48, height: 40))
-            .frame(width: 48, height: 40)
+            .foregroundStyle(active ? .accent : .white)
+            .padding(.horizontal, 6)
+            .frame(minWidth: 48, minHeight: 40)
+            .background(active ? .stone800 : .stone600, in: .rect(cornerRadius: 12))
     }
 }

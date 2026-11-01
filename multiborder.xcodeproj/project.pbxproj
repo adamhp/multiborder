@@ -15,6 +15,7 @@
 		660EB6EE2C1CB72F00033C60 /* SelectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 660EB6ED2C1CB72F00033C60 /* SelectView.swift */; };
 		660EB6F02C1CB73D00033C60 /* EditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 660EB6EF2C1CB73D00033C60 /* EditView.swift */; };
 		660EB6F82C1CD13100033C60 /* ExportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 660EB6F72C1CD13100033C60 /* ExportView.swift */; };
+		66C0FFEE2EA1000200B0C0DE /* ImageComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66C0FFEE2EA1000100B0C0DE /* ImageComposer.swift */; };
 		6626B09E2C88A413009501CF /* DataModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6626B09D2C88A413009501CF /* DataModel.swift */; };
 		6626B0A02C88BFA2009501CF /* CardStack.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6626B09F2C88BFA2009501CF /* CardStack.swift */; };
 		6626B0A22C89ED7A009501CF /* DefaultPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6626B0A12C89ED7A009501CF /* DefaultPage.swift */; };
@@ -26,7 +27,7 @@
 		6626B0CC2C8C93F7009501CF /* PhotosUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6626B0CB2C8C93F7009501CF /* PhotosUI.framework */; };
 		6626B0E12C8F8389009501CF /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 6626B0E02C8F8389009501CF /* SplashScreen.storyboard */; };
 		6626B0E32C8F838F009501CF /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6626B0E22C8F838F009501CF /* Images.xcassets */; };
-		66A3296F2CD13BF3005BA13B /* Status.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66A3296E2CD13BF3005BA13B /* Status.swift */; };
+		66B1C0A22E9F000100A1B2C3 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 66B1C0A12E9F000100A1B2C3 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -73,6 +74,7 @@
 		660EB6ED2C1CB72F00033C60 /* SelectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectView.swift; sourceTree = "<group>"; };
 		660EB6EF2C1CB73D00033C60 /* EditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditView.swift; sourceTree = "<group>"; };
 		660EB6F72C1CD13100033C60 /* ExportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportView.swift; sourceTree = "<group>"; wrapsLines = 0; };
+		66C0FFEE2EA1000100B0C0DE /* ImageComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageComposer.swift; sourceTree = "<group>"; };
 		6626B09D2C88A413009501CF /* DataModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataModel.swift; sourceTree = "<group>"; };
 		6626B09F2C88BFA2009501CF /* CardStack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardStack.swift; sourceTree = "<group>"; };
 		6626B0A12C89ED7A009501CF /* DefaultPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultPage.swift; sourceTree = "<group>"; };
@@ -86,7 +88,7 @@
 		6626B0CB2C8C93F7009501CF /* PhotosUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PhotosUI.framework; path = System/Library/Frameworks/PhotosUI.framework; sourceTree = SDKROOT; };
 		6626B0E02C8F8389009501CF /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; path = SplashScreen.storyboard; sourceTree = "<group>"; };
 		6626B0E22C8F838F009501CF /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = "<group>"; };
-		66A3296E2CD13BF3005BA13B /* Status.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Status.swift; sourceTree = "<group>"; };
+		66B1C0A12E9F000100A1B2C3 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -152,11 +154,12 @@
 				660EB6EF2C1CB73D00033C60 /* EditView.swift */,
 				660EB6F72C1CD13100033C60 /* ExportView.swift */,
 				6626B09D2C88A413009501CF /* DataModel.swift */,
+				66C0FFEE2EA1000100B0C0DE /* ImageComposer.swift */,
 				6626B09F2C88BFA2009501CF /* CardStack.swift */,
 				6626B0A12C89ED7A009501CF /* DefaultPage.swift */,
 				6626B0A72C8A35F7009501CF /* TODO.md */,
 				6626B0E02C8F8389009501CF /* SplashScreen.storyboard */,
-				66A3296E2CD13BF3005BA13B /* Status.swift */,
+				66B1C0A12E9F000100A1B2C3 /* PrivacyInfo.xcprivacy */,
 			);
 			path = multiborder;
 			sourceTree = "<group>";
@@ -315,6 +318,7 @@
 				6626B0E32C8F838F009501CF /* Images.xcassets in Resources */,
 				6626B0E12C8F8389009501CF /* SplashScreen.storyboard in Resources */,
 				6626B0BA2C8B6695009501CF /* Assets.xcassets in Resources */,
+				66B1C0A22E9F000100A1B2C3 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -342,11 +346,11 @@
 			buildActionMask = 2147483647;
 			files = (
 				6626B09E2C88A413009501CF /* DataModel.swift in Sources */,
+				66C0FFEE2EA1000200B0C0DE /* ImageComposer.swift in Sources */,
 				660EB6C62C1C6E8900033C60 /* MainView.swift in Sources */,
 				6626B0A02C88BFA2009501CF /* CardStack.swift in Sources */,
 				660EB6C42C1C6E8900033C60 /* multiborderApp.swift in Sources */,
 				6626B0A22C89ED7A009501CF /* DefaultPage.swift in Sources */,
-				66A3296F2CD13BF3005BA13B /* Status.swift in Sources */,
 				660EB6F82C1CD13100033C60 /* ExportView.swift in Sources */,
 				660EB6F02C1CB73D00033C60 /* EditView.swift in Sources */,
 				6626B0A62C89F388009501CF /* ImageViews.swift in Sources */,
@@ -522,7 +526,6 @@
 				INFOPLIST_KEY_CFBundleDisplayName = multiborder;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.photography";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "multiborder requires access to your photo library to save edited photos.";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "multiborder requires access to select photos to edit.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = SplashScreen.storyboard;
@@ -532,8 +535,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = "";
-				"MARKETING_VERSION[sdk=iphoneos*]" = 2.0.1;
+				MARKETING_VERSION = 2.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.adamhp.multiborder;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -541,7 +543,9 @@
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
@@ -561,7 +565,6 @@
 				INFOPLIST_KEY_CFBundleDisplayName = multiborder;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.photography";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "multiborder requires access to your photo library to save edited photos.";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "multiborder requires access to select photos to edit.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = SplashScreen.storyboard;
@@ -571,8 +574,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = "";
-				"MARKETING_VERSION[sdk=iphoneos*]" = 2.0.1;
+				MARKETING_VERSION = 2.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.adamhp.multiborder;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -580,7 +582,9 @@
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
@@ -593,7 +597,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.5;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 2.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = "adamhp.swift-multiborderTests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -601,7 +605,9 @@
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_VERSION = 5.0;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = 1;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/multiborder.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/multiborder";
 			};
@@ -615,7 +621,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.5;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 2.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = "adamhp.swift-multiborderTests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -623,7 +629,9 @@
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_VERSION = 5.0;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = 1;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/multiborder.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/multiborder";
 			};
@@ -635,7 +643,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 2.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = "adamhp.swift-multiborderUITests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -643,9 +651,11 @@
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_VERSION = 5.0;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = 1;
-				TEST_TARGET_NAME = "swift-multiborder";
+				TEST_TARGET_NAME = multiborder;
 			};
 			name = Debug;
 		};
@@ -655,7 +665,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 2.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = "adamhp.swift-multiborderUITests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -663,9 +673,11 @@
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_VERSION = 5.0;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = 1;
-				TEST_TARGET_NAME = "swift-multiborder";
+				TEST_TARGET_NAME = multiborder;
 			};
 			name = Release;
 		};

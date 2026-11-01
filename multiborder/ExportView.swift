@@ -9,12 +9,8 @@ import SwiftUI
 
 struct ExportView: View {
     
-    @EnvironmentObject private var data: DataModel
-    
-    func reset() {
-        data.error = nil
-        data.saveStatus = .unsaved
-    }
+    @Environment(DataModel.self) private var data
+    @Environment(\.openURL) private var openURL
     
     let sizes = [
         ("Orig.", 0),
@@ -30,45 +26,51 @@ struct ExportView: View {
                 Spacer(minLength: 128)
                 
                 VStack(spacing: 16) {
-                    Text(data.desiredSize == 0 ? "Original" : "\(Int(data.desiredSize))px").font(Font.custom("SpaceMono-Regular", size: 16))
-                        .contentTransition(.numericText(value: Double(data.desiredSize)))
+                    Text(data.settings.exportWidth == 0 ? "Original" : "\(data.settings.exportWidth)px").font(Font.custom("SpaceMono-Regular", size: 16))
+                        .contentTransition(.numericText(value: Double(data.settings.exportWidth)))
                         .fixedSize()
                         .frame(width: 64, height: 32)
                         .gesture(DragGesture())
                     
                     Slider(
                         value: Binding(
-                            get: { CGFloat(data.desiredSize) },
+                            get: { Double(data.settings.exportWidth) },
                             set: { newVal in
                                 withAnimation {
-                                    data.setDesiredSize(Int(newVal))
+                                    data.settings.exportWidth = Int(newVal)
                                 }
                             }),
                         in: 0...8192,
                         step: 128
                     ) {
+                        Text("Export Width")
                     } minimumValueLabel: {
                         Text("Orig.").font(Font.custom("SpaceMono-Regular", size: 16))
                     } maximumValueLabel: {
                         Text("8192px").font(Font.custom("SpaceMono-Regular", size: 16))
                     }
-                    .sensoryFeedback(.selection, trigger: data.desiredSize)
+                    .accessibilityValue(data.settings.exportWidth == 0 ? "Original" : "\(data.settings.exportWidth) pixels")
+                    .sensoryFeedback(.selection, trigger: data.settings.exportWidth)
                     .frame(height: 32)
                     
                     HStack(spacing: 8) {
-                        ForEach(sizes, id: \.self.0, content: { size in
-                            VStack {
-                                Text("\(size.0)").font(Font.custom("SpaceMono-Regular", size: 16)).foregroundColor(.stone200)
-                                Text(size.0 == "Orig." ? "~" : "\(size.1)px").font(Font.custom("SpaceMono-Regular", size: 14)).foregroundColor(.stone400)
+                        ForEach(sizes, id: \.self.0) { size in
+                            Button {
+                                data.settings.exportWidth = size.1
+                            } label: {
+                                VStack {
+                                    Text("\(size.0)").font(Font.custom("SpaceMono-Regular", size: 16)).foregroundStyle(.stone200)
+                                    Text(size.1 == 0 ? "~" : "\(size.1)px").font(Font.custom("SpaceMono-Regular", size: 14)).foregroundStyle(.stone400)
+                                }
+                                .padding(.vertical, 4)
+                                .frame(minWidth: 80, minHeight: 48)
+                                .background(.stone700)
+                                .clipShape(.rect(cornerRadius: 12))
                             }
-                            .onTapGesture {
-                                data.setDesiredSize(size.1)
-                            }
-                            .frame(width: 80, height: 48)
-                            .foregroundColor(.stone400)
-                            .background(.stone700)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                        })
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(size.1 == 0 ? "Original Size" : "\(size.1) Pixels Wide")
+                            .accessibilityAddTraits(data.settings.exportWidth == size.1 ? .isSelected : [])
+                        }
                     }
                     .gesture(DragGesture())
                 }
@@ -78,30 +80,33 @@ struct ExportView: View {
                 Spacer()
                 VStack {
                     VStack {
-                        if data.processed > -1 {
-                            ProgressView(value: Float(data.processed), total: Float(data.attachments.count)).padding(.horizontal, 32).tint(.accent).animation(.easeIn(duration: 1), value: data.processed)
+                        if data.saveStatus == .saving {
+                            ProgressView(value: data.exportProgress).padding(.horizontal, 32).tint(.accent).animation(.easeIn(duration: 1), value: data.exportProgress)
                         }
                     }.frame(height: 32).padding(.horizontal, 32)
                     DownloadButton()
-                }.frame(height: 84)
+                }.frame(minHeight: 84)
                 Spacer()
                 
                 VStack(spacing: 32) {
                     KofiButton()
-                    if data.hasError {
-                        Text(data.error!.localizedDescription)
-                    } else if data.selection.count > 0 {
+                    if case .failed(let message) = data.saveStatus {
+                        Text(message).foregroundStyle(.orange)
+                    }
+                    if !data.attachments.isEmpty {
                         Button {
-                            UIApplication.shared.open(URL(string: "photos-redirect://")!)
-                            reset()
+                            // Undocumented scheme: best effort, openURL simply fails if it is unavailable.
+                            if let url = URL(string: "photos-redirect://") {
+                                openURL(url)
+                            }
+                            data.resetSaveStatus()
                         } label: {
                             Text("Open Photos Library")
                         }
                         Button(role: .destructive) {
                             data.clearSelection()
-                            reset()
                             data.helpTextShown = false
-                            data.selectedTab = 0
+                            data.selectedTab = .select
                         } label: {
                             Text("Start Over")
                         }
@@ -112,36 +117,23 @@ struct ExportView: View {
     }
 }
 
-struct LinearProgressView<Shape: SwiftUI.Shape>: View {
-    var value: Double
-    var shape: Shape
-    
-    var body: some View {
-        shape.fill(.foreground.quaternary)
-            .overlay(alignment: .leading) {
-                GeometryReader { proxy in
-                    shape.fill(.tint)
-                        .frame(width: proxy.size.width * value)
-                }
-            }
-    }
-}
-
 struct KofiButton: View {
-    @State var isAnimating = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isAnimating = false
     var body: some View {
         Link(destination: URL(string: "https://ko-fi.com/adamhp")!, label: {
             HStack(spacing: 2) {
                 Image(.kofi)
                     .resizable()
                     .frame(width: 40, height: 40)
+                    .accessibilityHidden(true)
                 VStack(spacing: 4) {
                     Text("Support me on Ko-fi!")
                         .font(Font.custom("SpaceMono-Regular", size: 16))
-                        .foregroundColor(.stone200)
+                        .foregroundStyle(.stone200)
                     Text("and consider leaving a review")
                         .font(Font.custom("SpaceMono-Regular", size: 11))
-                        .foregroundColor(.stone200)
+                        .foregroundStyle(.stone200)
                 }
                 
             }
@@ -153,143 +145,96 @@ struct KofiButton: View {
                     .default,
             value: isAnimating
         )
-        .onAppear {
-            isAnimating = true
+        .onChange(of: reduceMotion, initial: true) {
+            isAnimating = !reduceMotion
         }
     }
 }
 
 struct DownloadButton: View {
     
-    @EnvironmentObject var data: DataModel
-    @Environment(\.displayScale) var displayScale
+    @Environment(DataModel.self) private var data
     
     var body: some View {
-        ZStack {
+        Button {
             switch data.saveStatus {
-                case .unsaved:
-                    VStack {
-                        HStack(spacing: 8) {
-                            Text("Download").font(Font.custom("SpaceMono-Regular", size: 18))
-                            Image(systemName: "arrow.down")
-                                .resizable()
-                                .scaledToFit()
-                        }
-                        .padding(20)
-                    }
-                    .frame(width: 200, height: 52)
-                    .foregroundColor(.stone100)
-                    .background(.stone700)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.accent.opacity(0.5), lineWidth: 4)
-                    )
-                case .saving:
-                    VStack {
-                        HStack(spacing: 8)  {
-                            Text("Downloading").font(Font.custom("SpaceMono-Regular", size: 18))
-                            ProgressView()
-                                .scaledToFit()
-                        }
-                        .padding(20)
-                        
-                    }
-                    .frame(width: 200, height: 52)
-                    .foregroundColor(.stone400)
-                    .background(.stone700)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                case .success:
-                    VStack {
-                        HStack(spacing: 8)  {
-                            Text("Saved").font(Font.custom("SpaceMono-Regular", size: 18)).foregroundColor(.green)
-                            Image(systemName: "checkmark")
-                                .resizable()
-                                .scaledToFit()
-                                .foregroundColor(.green)
-                        }.onAppear {
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                                data.resetSaveStatus()
-                                data.error = nil
-                            }
-                        }
-                        .padding(20)
-                    }
-                    .frame(width: 200, height: 52)
-                    .foregroundColor(.green)
-                    .background(.green.opacity(0.5))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                case .failed:
-                    VStack {
-                        HStack(spacing: 8)  {
-                            Text("Failed").font(Font.custom("SpaceMono-Regular", size: 18)).foregroundColor(.green)
-                            Image(systemName: "exclamationmark.triangle")
-                                .resizable()
-                                .scaledToFit()
-                                .foregroundColor(.orange)
-                        }
-                        .padding(20)
-                    }
-                    .frame(width: 200, height: 52)
-                    .foregroundColor(.orange)
-                    .background(.orange.opacity(0.5))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-            }
-        }
-        .onChange(of: data.processed, {
-            if data.processed == data.attachments.count {
-                let failures = data.attachments.filter({ $0.status.savingStatus.isFailed })
-                if failures.count > 0 {
-                    data.saveStatus = .failed("Failed to save images")
-                } else {
-                    data.saveStatus = .success
-                }
-            }
-        })
-        .onTapGesture {
-            switch data.saveStatus {
-                case .unsaved:
-                    data.saveStatus = .saving
-                    data.processed = 0
+                case .unsaved, .failed:
+                    data.startExport()
                 default:
                     return
             }
+        } label: {
+            label
         }
-        .sensoryFeedback(.success, trigger: data.saveStatus.isSuccess)
+        .buttonStyle(.plain)
+        .sensoryFeedback(.success, trigger: data.saveStatus == .success)
         .sensoryFeedback(.warning, trigger: data.saveStatus.isFailed)
-        .sensoryFeedback(.impact, trigger: data.saveStatus.isSaving)
+        .sensoryFeedback(.impact, trigger: data.saveStatus == .saving)
+        .onChange(of: data.saveStatus) { _, status in
+            // The result is only shown briefly, so tell VoiceOver users too.
+            switch status {
+            case .success: AccessibilityNotification.Announcement("Saved to Photos").post()
+            case .failed(let message): AccessibilityNotification.Announcement(message).post()
+            case .unsaved, .saving: break
+            }
+        }
+    }
+
+    @ViewBuilder private var label: some View {
+        switch data.saveStatus {
+            case .unsaved:
+                let content = sized {
+                    Text("Download")
+                    Image(systemName: "arrow.down")
+                }
+                .foregroundStyle(.stone100)
+                Group {
+                    if #available(iOS 26, *) {
+                        content
+                            .glassEffect(.regular.tint(.stone700).interactive(), in: .rect(cornerRadius: 12))
+                    } else {
+                        content
+                            .background(.stone700, in: .rect(cornerRadius: 12))
+                    }
+                }
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.accent.opacity(0.5), lineWidth: 4)
+                )
+            case .saving:
+                sized {
+                    Text("Downloading")
+                    ProgressView()
+                }
+                .foregroundStyle(.stone400)
+                .background(.stone700, in: .rect(cornerRadius: 12))
+            case .success:
+                sized {
+                    Text("Saved")
+                    Image(systemName: "checkmark")
+                }
+                .foregroundStyle(.green)
+                .background(.green.opacity(0.5), in: .rect(cornerRadius: 12))
+                .task {
+                    do { try await Task.sleep(for: .seconds(2)) } catch { return }
+                    data.resetSaveStatus()
+                }
+            case .failed:
+                sized {
+                    Text("Failed")
+                    Image(systemName: "exclamationmark.triangle")
+                }
+                .foregroundStyle(.orange)
+                .background(.orange.opacity(0.5), in: .rect(cornerRadius: 12))
+        }
+    }
+
+    /// Grows with Dynamic Type instead of clipping at a fixed size.
+    private func sized(@ViewBuilder _ content: () -> some View) -> some View {
+        HStack(spacing: 8, content: content)
+            .font(Font.custom("SpaceMono-Regular", size: 18))
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+            .frame(minWidth: 200, minHeight: 52)
     }
 }
-
-
-//struct ShareButton: View {
-//    
-//    let size: ExportSize
-//    
-//    @EnvironmentObject private var data: DataModel
-//    
-//    init(_ size: ExportSize) {
-//        self.size = size
-//    }
-//    
-//    var body: some View {
-//        ShareLink(items: data.rendered, subject: nil, message: nil, preview: { _ in
-//            SharePreview("Test", image: data.rendered.first ?? Image(systemName: "square.and.arrow.up"))
-//        }, label: {
-////            Button {
-////                data.render(size: size)
-////            } label: {
-//                VStack {
-//                    Image(systemName: "square.and.arrow.up")
-//                        .resizable()
-//                        .scaledToFit()
-//                        .padding(24)
-//                }
-//                .frame(width: 64, height: 64)
-//                .foregroundColor(.stone400)
-//                .background(.stone700)
-//                .clipShape(RoundedRectangle(cornerRadius: 12))
-////            }
-//        })
-//    }
-//}
