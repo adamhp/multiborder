@@ -56,10 +56,9 @@ enum TabbedItems: Int, CaseIterable {
             loadTask = Task {
                 let result: ThumbnailState
                 do {
-                    guard let data = try await item.loadTransferable(type: Data.self) else {
-                        throw ImageComposer.ComposeError.unreadable
-                    }
-                    result = .loaded(try await ImageComposer.thumbnail(from: data, maxPixelSize: Self.thumbnailPixelSize))
+                    let photo = try await item.loadPhoto()
+                    result = .loaded(try await ImageComposer.thumbnail(from: photo.data, filename: photo.filename,
+                                                                       maxPixelSize: Self.thumbnailPixelSize))
                 } catch {
                     result = .failed
                 }
@@ -248,10 +247,8 @@ enum TabbedItems: Int, CaseIterable {
         for (index, attachment) in pending.enumerated() {
             guard !Task.isCancelled else { break }
             do {
-                guard let data = try await attachment.item.loadTransferable(type: Data.self) else {
-                    throw ImageComposer.ComposeError.unreadable
-                }
-                let output = try await ImageComposer.render(data, settings: settings)
+                let photo = try await attachment.item.loadPhoto()
+                let output = try await ImageComposer.render(photo.data, filename: photo.filename, settings: settings)
                 try Task.checkCancellation()
                 try await addToPhotoLibrary(output)
                 // A copy made with settings changed since then doesn't count as saved.
@@ -291,6 +288,34 @@ private nonisolated func addToPhotoLibrary(_ data: Data) async throws {
 /// A picked photo with a border, rendered only when a share destination asks for it.
 /// Shared as JPEG, which every destination accepts, even when the source is HEIC.
 ///
+/// A picked photo's bytes and the name of the file the photo library handed them over in.
+nonisolated struct PickedPhoto: Transferable {
+    let data: Data
+    /// e.g. "IMG_1234.HEIC"; `nil` if the photo only came as data.
+    let filename: String?
+
+    static var transferRepresentation: some TransferRepresentation {
+        // As a file first, since only a file carries a name.
+        FileRepresentation(importedContentType: .image) { received in
+            // The file is removed once this returns, so read it now.
+            PickedPhoto(data: try Data(contentsOf: received.file), filename: received.file.lastPathComponent)
+        }
+        DataRepresentation(importedContentType: .image) { data in
+            PickedPhoto(data: data, filename: nil)
+        }
+    }
+}
+
+nonisolated extension PhotosPickerItem {
+    /// The photo's bytes and filename, or `unreadable` if the library has nothing to give.
+    func loadPhoto() async throws -> PickedPhoto {
+        guard let photo = try await loadTransferable(type: PickedPhoto.self) else {
+            throw ImageComposer.ComposeError.unreadable
+        }
+        return photo
+    }
+}
+
 /// Offered as data rather than a file: Instagram's share extension rejects a file
 /// representation with "Content currently unavailable" but accepts the same JPEG as data.
 nonisolated struct BorderedPhoto: Transferable {
@@ -303,10 +328,9 @@ nonisolated struct BorderedPhoto: Transferable {
         DataRepresentation(exportedContentType: .jpeg) { photo in
             log.info("Share requested photo \(photo.number)")
             do {
-                guard let data = try await photo.item.loadTransferable(type: Data.self) else {
-                    throw ImageComposer.ComposeError.unreadable
-                }
-                let output = try await ImageComposer.render(data, settings: photo.settings, keepHEIC: false)
+                let picked = try await photo.item.loadPhoto()
+                let output = try await ImageComposer.render(picked.data, filename: picked.filename,
+                                                            settings: photo.settings, keepHEIC: false)
                 log.info("Shared photo \(photo.number) as \(output.count) bytes of data")
                 return output
             } catch {

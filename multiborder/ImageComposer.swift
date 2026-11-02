@@ -109,6 +109,25 @@ nonisolated struct BorderSettings: Codable, Equatable, Sendable {
     /// Strength of the `.blur` fill: the Gaussian blur's standard deviation as a fraction of the
     /// canvas's shorter side, so the preview and every export size look equally soft.
     var blurFraction: Double = 0.04
+    /// Whether details are printed in rows above and below the photo (see `PhotoCaption`).
+    var showsCaption = false
+    /// Which details the caption includes. The filename starts off; the title is usually the better label.
+    var captionFields = Set(CaptionField.allCases).subtracting([.filename])
+    /// The details in the row above the photo, left to right. With `captionBelow`, lists every field exactly once.
+    var captionAbove = CaptionField.allCases.filter { $0.defaultRow == .above }
+    /// The details in the row below the photo, left to right.
+    var captionBelow = CaptionField.allCases.filter { $0.defaultRow == .below }
+    /// The name printed by the `.handle` field, as typed.
+    var handle = ""
+    var handleStyle: HandleStyle = .instagram
+    /// Details printed without their icon.
+    var captionHiddenIcons = Set<CaptionField>()
+    /// Which parts of the camera's name the `.camera` field prints.
+    var cameraShowsMake = true
+    var cameraShowsModel = true
+    /// How each caption row is arranged across the photo's width.
+    var captionAlignmentAbove = CaptionAlignment.spread
+    var captionAlignmentBelow = CaptionAlignment.spread
     /// Maximum output width in pixels; 0 exports at the photo's full resolution.
     var exportWidth: Int = 0
 
@@ -120,6 +139,32 @@ nonisolated struct BorderSettings: Codable, Equatable, Sendable {
     /// The thickness of each side that the layout uses.
     var insets: BorderInsets {
         isPerSide ? sides ?? BorderInsets(uniform: paddingFraction) : BorderInsets(uniform: paddingFraction)
+    }
+
+    /// How `row` is arranged across the photo's width.
+    func captionAlignment(in row: CaptionRow) -> CaptionAlignment {
+        row == .above ? captionAlignmentAbove : captionAlignmentBelow
+    }
+
+    /// Every field in `row`, included or not, left to right.
+    func captionOrder(in row: CaptionRow) -> [CaptionField] {
+        row == .above ? captionAbove : captionBelow
+    }
+
+    /// The fields printed in `row`, left to right.
+    func includedCaptionFields(in row: CaptionRow) -> [CaptionField] {
+        captionOrder(in: row).filter(captionFields.contains)
+    }
+
+    /// Moves `field` to position `index` of `row`, taking it out of wherever it was.
+    mutating func moveCaptionField(_ field: CaptionField, to row: CaptionRow, at index: Int) {
+        captionAbove.removeAll { $0 == field }
+        captionBelow.removeAll { $0 == field }
+        if row == .above {
+            captionAbove.insert(field, at: min(max(index, 0), captionAbove.count))
+        } else {
+            captionBelow.insert(field, at: min(max(index, 0), captionBelow.count))
+        }
     }
 
     /// Blur standard deviation in points or pixels for a canvas of `canvasSize`.
@@ -143,6 +188,34 @@ nonisolated extension BorderSettings {
         borderColor = try container.decodeIfPresent(Color.Resolved.self, forKey: .borderColor) ?? fallback.borderColor
         fill = try container.decodeIfPresent(BorderFill.self, forKey: .fill) ?? fallback.fill
         blurFraction = try container.decodeIfPresent(Double.self, forKey: .blurFraction) ?? fallback.blurFraction
+        showsCaption = try container.decodeIfPresent(Bool.self, forKey: .showsCaption) ?? fallback.showsCaption
+        captionFields = try container.decodeIfPresent(Set<CaptionField>.self, forKey: .captionFields) ?? fallback.captionFields
+        // Repaired so the rows list every field exactly once: duplicates are dropped, and fields
+        // the saved rows don't place (e.g. added in a later version) go at the end of their default row.
+        var above = [CaptionField](), below = [CaptionField]()
+        for field in try container.decodeIfPresent([CaptionField].self, forKey: .captionAbove) ?? fallback.captionAbove
+        where !above.contains(field) {
+            above.append(field)
+        }
+        for field in try container.decodeIfPresent([CaptionField].self, forKey: .captionBelow) ?? fallback.captionBelow
+        where !above.contains(field) && !below.contains(field) {
+            below.append(field)
+        }
+        for field in CaptionField.allCases where !above.contains(field) && !below.contains(field) {
+            if field.defaultRow == .above { above.append(field) } else { below.append(field) }
+        }
+        captionAbove = above
+        captionBelow = below
+        handle = try container.decodeIfPresent(String.self, forKey: .handle) ?? fallback.handle
+        handleStyle = try container.decodeIfPresent(HandleStyle.self, forKey: .handleStyle) ?? fallback.handleStyle
+        captionHiddenIcons = try container.decodeIfPresent(Set<CaptionField>.self, forKey: .captionHiddenIcons)
+            ?? fallback.captionHiddenIcons
+        cameraShowsMake = try container.decodeIfPresent(Bool.self, forKey: .cameraShowsMake) ?? fallback.cameraShowsMake
+        cameraShowsModel = try container.decodeIfPresent(Bool.self, forKey: .cameraShowsModel) ?? fallback.cameraShowsModel
+        captionAlignmentAbove = try container.decodeIfPresent(CaptionAlignment.self, forKey: .captionAlignmentAbove)
+            ?? fallback.captionAlignmentAbove
+        captionAlignmentBelow = try container.decodeIfPresent(CaptionAlignment.self, forKey: .captionAlignmentBelow)
+            ?? fallback.captionAlignmentBelow
         exportWidth = try container.decodeIfPresent(Int.self, forKey: .exportWidth) ?? fallback.exportWidth
     }
 }
@@ -159,6 +232,8 @@ nonisolated enum ImageComposer {
         let image: UIImage
         /// Upright pixel size of the full-resolution photo.
         let pixelSize: CGSize
+        /// Every detail the photo records, for `BorderSettings.showsCaption`.
+        let captionItems: [PhotoCaption.Item]
     }
 
     enum ComposeError: Error {
@@ -246,13 +321,15 @@ nonisolated enum ImageComposer {
     }
 
     /// Downsampled, upright preview of the photo, decoded with ImageIO.
-    @concurrent static func thumbnail(from data: Data, maxPixelSize: Int) async throws -> Thumbnail {
+    @concurrent static func thumbnail(from data: Data, filename: String? = nil, maxPixelSize: Int) async throws -> Thumbnail {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil),
               let pixelSize = uprightPixelSize(of: source),
               let image = downsample(source, maxPixelSize: maxPixelSize) else {
             throw ComposeError.unreadable
         }
-        return Thumbnail(image: UIImage(cgImage: image), pixelSize: pixelSize)
+        let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any] ?? [:]
+        return Thumbnail(image: UIImage(cgImage: image), pixelSize: pixelSize, captionItems: PhotoCaption.photoItems(
+            from: properties, metadata: CGImageSourceCopyMetadataAtIndex(source, 0, nil), filename: filename))
     }
 
     /// Draws the photo on its border and encodes it, keeping the source's color space
@@ -265,15 +342,15 @@ nonisolated enum ImageComposer {
     ///
     /// Renders run one at a time, whoever calls (a Download, or the share sheet loading
     /// several photos at once), so only one canvas of up to `maxCanvasBytes` exists at a time.
-    static func render(_ data: Data, settings: BorderSettings, keepHEIC: Bool = true) async throws -> Data {
+    static func render(_ data: Data, filename: String? = nil, settings: BorderSettings, keepHEIC: Bool = true) async throws -> Data {
         try await renderQueue.run {
-            try await renderNow(data, settings: settings, keepHEIC: keepHEIC)
+            try await renderNow(data, filename: filename, settings: settings, keepHEIC: keepHEIC)
         }
     }
 
     private static let renderQueue = SerialQueue()
 
-    @concurrent private static func renderNow(_ data: Data, settings: BorderSettings, keepHEIC: Bool) async throws -> Data {
+    @concurrent private static func renderNow(_ data: Data, filename: String?, settings: BorderSettings, keepHEIC: Bool) async throws -> Data {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil),
               let pixelSize = uprightPixelSize(of: source) else {
             throw ComposeError.unreadable
@@ -293,7 +370,10 @@ nonisolated enum ImageComposer {
                 ? try blurredBackdrop(source, canvasSize: layout.canvasSize,
                                       radius: settings.blurRadius(canvasSize: layout.canvasSize))
                 : nil
-            return try composite(image, layout: layout, borderColor: settings.borderColor.cgColor,
+            let caption = PhotoCaption.rows(photoItems: PhotoCaption.photoItems(
+                from: properties ?? [:], metadata: CGImageSourceCopyMetadataAtIndex(source, 0, nil), filename: filename),
+                                            settings: settings)
+            return try composite(image, layout: layout, settings: settings, caption: caption,
                                  backdrop: backdrop, allowDeep: deep)
         }()
 
@@ -352,11 +432,11 @@ nonisolated enum ImageComposer {
         return result
     }
 
-    /// Draws `image` on a canvas filled with `backdrop` scaled to cover it, or with `borderColor`
-    /// when there's no backdrop. A 16-bit canvas is used only when the decoded image is deeper
+    /// Draws `image` on a canvas filled with `backdrop` scaled to cover it, or with the border color
+    /// when there's no backdrop, then `caption` in rows above and below the photo. A 16-bit canvas is used only when the decoded image is deeper
     /// than 8 bits and `allowDeep` says the layout was budgeted for 8 bytes per pixel.
-    private static func composite(_ image: CGImage, layout: Layout, borderColor: CGColor, backdrop: CGImage?,
-                                  allowDeep: Bool) throws -> CGImage {
+    private static func composite(_ image: CGImage, layout: Layout, settings: BorderSettings, caption: PhotoCaption.Rows,
+                                  backdrop: CGImage?, allowDeep: Bool) throws -> CGImage {
         let width = Int(layout.canvasSize.width)
         let height = Int(layout.canvasSize.height)
         // Draw in the photo's own RGB color space (e.g. Display P3) so wide color survives.
@@ -384,13 +464,14 @@ nonisolated enum ImageComposer {
             context.draw(backdrop, in: CGRect(x: (canvas.width - size.width) / 2, y: (canvas.height - size.height) / 2,
                                               width: size.width, height: size.height))
         } else {
-            context.setFillColor(borderColor)
+            context.setFillColor(settings.borderColor.cgColor)
             context.fill(CGRect(origin: .zero, size: layout.canvasSize))
         }
         // Core Graphics has a bottom-left origin.
         var drawRect = layout.imageRect
         drawRect.origin.y = layout.canvasSize.height - layout.imageRect.maxY
         context.draw(image, in: drawRect)
+        PhotoCaption.draw(caption, in: context, layout: layout, border: settings.borderColor, fill: settings.fill)
         guard let result = context.makeImage() else {
             throw ComposeError.encodingFailed
         }

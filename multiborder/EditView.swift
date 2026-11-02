@@ -9,6 +9,9 @@ import SwiftUI
 
 struct EditView: View {
 
+    /// Every row of controls below the preview gets this much height, so the rows are evenly spaced.
+    static let controlRowHeight = 44.0
+
     @Environment(DataModel.self) private var data
 
     var body: some View {
@@ -36,12 +39,15 @@ struct EditView: View {
                     }
                 }
                 Spacer()
-                Grid(horizontalSpacing: 16, verticalSpacing: 24) {
+                if data.settings.showsCaption {
+                    CaptionFieldsRow()
+                        .transition(.opacity)
+                }
+                Grid(horizontalSpacing: 16, verticalSpacing: 0) {
                     DesiredPaddingSlider()
                     DesiredAspectRatioChooser()
                 }
                 .padding(.horizontal, 20)
-                .frame(minHeight: 128)
                 // Six ratio buttons must fit one row; beyond this size they would truncate.
                 .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
             }
@@ -90,6 +96,21 @@ struct DesiredPaddingSlider: View {
                 // The sliders around the preview set the width while each side is separate.
                 .disabled(isPerSide)
                 .opacity(isPerSide ? 0.4 : 1)
+                let showsCaption = data.settings.showsCaption
+                Button {
+                    withAnimation {
+                        data.settings.showsCaption.toggle()
+                    }
+                } label: {
+                    Image(systemName: "text.below.photo")
+                        .foregroundStyle(showsCaption ? .accent : .white)
+                        .frame(width: 40, height: 40)
+                        .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Camera Settings Caption")
+                .accessibilityAddTraits(showsCaption ? .isSelected : [])
+                .sensoryFeedback(.selection, trigger: showsCaption)
                 let isBlurred = data.settings.fill == .blur
                 Button {
                     withAnimation {
@@ -125,7 +146,7 @@ struct DesiredPaddingSlider: View {
                 }
             }
         }
-        .frame(minHeight: 32)
+        .frame(height: EditView.controlRowHeight)
     }
 }
 
@@ -310,6 +331,323 @@ struct LabeledSlider: View {
     }
 }
 
+/// The caption's details as pills in two rows, matching the rows above and below the photo, shown above
+/// the border controls while the caption is on. Tapping a pill turns its detail on or off (the handle's opens
+/// its editor); dragging moves it along its row or into the other one. A button at the start of each row
+/// cycles how that row is arranged across the photo.
+struct CaptionFieldsRow: View {
+
+    private static let pillSize = CGSize(width: 48, height: 28)
+    private static let spacing = 6.0
+    private static let rowHeight = EditView.controlRowHeight
+    private static let coordinateSpace = "captionFields"
+
+    @Environment(DataModel.self) private var data
+    /// Width of the area the pills are centered in.
+    @State private var width = 0.0
+    @State private var dragged: CaptionField?
+    /// Where the dragged pill's center is, following the finger.
+    @State private var dragCenter = CGPoint.zero
+    /// The dragged pill's center when the drag began.
+    @State private var dragStart = CGPoint.zero
+    /// The field whose options popover is open: the handle's or the camera's.
+    @State private var editing: CaptionField?
+
+    var body: some View {
+        let settings = data.settings
+        // Laid out like the grid below: the same margin, column width and spacing, so the buttons
+        // at the start of every row line up.
+        HStack(spacing: 16) {
+            VStack(spacing: 0) {
+                alignmentButton(.above, settings: settings)
+                    .frame(height: Self.rowHeight)
+                alignmentButton(.below, settings: settings)
+                    .frame(height: Self.rowHeight)
+            }
+            // One flat list of pills, placed by position rather than by two stacks, so a pill keeps its
+            // identity (and its drag) as it moves from one row to the other.
+            ZStack {
+                ForEach(CaptionField.allCases, id: \.self) { field in
+                    pill(field, settings: settings)
+                        .position(dragged == field ? dragCenter : center(of: field, in: settings))
+                        .zIndex(dragged == field ? 1 : 0)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .onGeometryChange(for: Double.self) { $0.size.width } action: { width = $0 }
+            .coordinateSpace(.named(Self.coordinateSpace))
+        }
+        .frame(height: Self.rowHeight * 2)
+        .padding(.horizontal, 20)
+        .sensoryFeedback(.selection, trigger: settings.captionFields)
+        .sensoryFeedback(.selection, trigger: [settings.captionAbove, settings.captionBelow])
+        .sensoryFeedback(.impact(weight: .light), trigger: dragged) { _, new in new != nil }
+    }
+
+    private func alignmentButton(_ row: CaptionRow, settings: BorderSettings) -> some View {
+        let alignment = settings.captionAlignment(in: row)
+        return Button {
+            withAnimation(.snappy) {
+                if row == .above {
+                    data.settings.captionAlignmentAbove = alignment.next
+                } else {
+                    data.settings.captionAlignmentBelow = alignment.next
+                }
+            }
+        } label: {
+            Image(systemName: alignment.symbolName)
+                .contentTransition(.symbolEffect(.replace))
+                .frame(width: 32, height: 40)
+                .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(row == .above ? "Top Row Arrangement" : "Bottom Row Arrangement")
+        .accessibilityValue(alignment.title)
+        .sensoryFeedback(.selection, trigger: alignment)
+    }
+
+    /// Distance between neighboring pills' centers, narrowed if a row holds more pills than fit.
+    private func slot(in settings: BorderSettings) -> Double {
+        let mostPills = Double(max(settings.captionAbove.count, settings.captionBelow.count, 1))
+        return min(Self.pillSize.width + Self.spacing, width / mostPills)
+    }
+
+    private func pill(_ field: CaptionField, settings: BorderSettings) -> some View {
+        let isOn = settings.captionFields.contains(field) && (field != .handle || PhotoCaption.handleItem(settings) != nil)
+        let isDragged = dragged == field
+        let row = row(of: field, in: settings)
+        return PillLabel(field: field, handleStyle: settings.handleStyle)
+            .foregroundStyle(isOn ? .accent : .white.opacity(0.5))
+            .frame(width: slot(in: settings) - Self.spacing, height: Self.pillSize.height)
+            // A solid pill the color of the page gives each detail a handle, and covers its neighbors while dragged.
+            .background(.stone800, in: .capsule)
+            .overlay { Capsule().strokeBorder(.white.opacity(isDragged ? 0.4 : 0.15), lineWidth: 1) }
+            .contentShape(.capsule)
+            .shadow(color: .black.opacity(isDragged ? 0.4 : 0), radius: 6, y: 2)
+            .scaleEffect(isDragged ? 1.15 : 1)
+            .onTapGesture {
+                tap(field)
+            }
+            .gesture(drag(field))
+            .popover(isPresented: Binding(get: { editing == field }, set: { if !$0 { editing = nil } })) {
+                Group {
+                    if field == .handle { HandleEditor() } else { FieldEditor(field: field) }
+                }
+                .presentationCompactAdaptation(.popover)
+            }
+            .accessibilityElement()
+            .accessibilityLabel(field == .handle && !settings.handle.isEmpty ? "Handle, \(settings.handle)" : field.title)
+            .accessibilityValue(row == .above ? "Above photo" : "Below photo")
+            .accessibilityAddTraits(isOn ? [.isButton, .isSelected] : .isButton)
+            .accessibilityAction {
+                tap(field)
+            }
+            .accessibilityActions {
+                let order = settings.captionOrder(in: row)
+                if order.first != field {
+                    Button("Move Left") { move(field, to: row, at: (order.firstIndex(of: field) ?? 0) - 1) }
+                }
+                if order.last != field {
+                    Button("Move Right") { move(field, to: row, at: (order.firstIndex(of: field) ?? 0) + 1) }
+                }
+                Button(row == .above ? "Move Below Photo" : "Move Above Photo") {
+                    move(field, to: row == .above ? .below : .above, at: .max)
+                }
+            }
+    }
+
+    private func row(of field: CaptionField, in settings: BorderSettings) -> CaptionRow {
+        settings.captionAbove.contains(field) ? .above : .below
+    }
+
+    private func rowCenterY(_ row: CaptionRow) -> Double {
+        row == .above ? Self.rowHeight / 2 : Self.rowHeight * 1.5
+    }
+
+    /// Where `field`'s pill sits: its row, centered as a group like the photo's caption rows.
+    private func center(of field: CaptionField, in settings: BorderSettings) -> CGPoint {
+        let row = row(of: field, in: settings)
+        let order = settings.captionOrder(in: row)
+        let index = Double(order.firstIndex(of: field) ?? 0)
+        return CGPoint(x: width / 2 + (index - Double(order.count - 1) / 2) * slot(in: settings), y: rowCenterY(row))
+    }
+
+    /// Every pill opens its options.
+    private func tap(_ field: CaptionField) {
+        editing = field
+    }
+
+    private func move(_ field: CaptionField, to row: CaptionRow, at index: Int) {
+        withAnimation(.snappy) {
+            data.settings.moveCaptionField(field, to: row, at: index)
+        }
+    }
+
+    private func drag(_ field: CaptionField) -> some Gesture {
+        // Measured in the row's space: the pill itself moves under the finger, so its own space would
+        // shift with every swap and make the pills fight.
+        DragGesture(minimumDistance: 6, coordinateSpace: .named(Self.coordinateSpace))
+            .onChanged { value in
+                let settings = data.settings
+                if dragged == nil {
+                    dragStart = center(of: field, in: settings)
+                    dragCenter = dragStart
+                    withAnimation(.snappy) { dragged = field }
+                }
+                dragCenter = CGPoint(x: dragStart.x + value.translation.width, y: dragStart.y + value.translation.height)
+
+                // The row the finger is over, and the place in it the pill's center is closest to.
+                let row: CaptionRow = dragCenter.y < Self.rowHeight ? .above : .below
+                let count = settings.captionOrder(in: row).filter { $0 != field }.count + 1
+                let place = ((dragCenter.x - width / 2) / slot(in: settings) + Double(count - 1) / 2).rounded()
+                let index = min(max(Int(place), 0), count - 1)
+                if row != self.row(of: field, in: settings) || settings.captionOrder(in: row).firstIndex(of: field) != index {
+                    move(field, to: row, at: index)
+                }
+            }
+            .onEnded { _ in
+                withAnimation(.snappy) { dragged = nil }
+            }
+    }
+}
+
+/// A caption pill's face: the detail's icon, or a short label where there's no fitting symbol.
+private struct PillLabel: View {
+
+    let field: CaptionField
+    let handleStyle: HandleStyle
+
+    var body: some View {
+        switch field {
+        case .handle:
+            if let icon = handleStyle.controlIcon {
+                CaptionIconView(icon: icon).frame(width: 17, height: 17)
+            } else {
+                Text("@").font(.spaceMono(16))
+            }
+        case .iso:
+            Text("ISO").font(.spaceMono(14))
+        // Printed without an icon, but the pills still need one.
+        case .title:
+            CaptionIconView(icon: .symbol("text.quote")).frame(width: 18, height: 18)
+        case .filename:
+            CaptionIconView(icon: .symbol("doc")).frame(width: 18, height: 18)
+        default:
+            if let icon = field.icon {
+                CaptionIconView(icon: icon).frame(width: 18, height: 18)
+            }
+        }
+    }
+}
+
+/// Turns one caption detail on or off, for the options popovers.
+private struct ShowFieldToggle: View {
+
+    let field: CaptionField
+    @Environment(DataModel.self) private var data
+
+    var body: some View {
+        Toggle("Show", isOn: Binding(
+            get: { data.settings.captionFields.contains(field) },
+            set: { isOn in
+                if isOn { data.settings.captionFields.insert(field) } else { data.settings.captionFields.remove(field) }
+            }))
+            .font(.spaceMono(15))
+    }
+}
+
+/// A caption detail's options: whether it's shown, whether its icon is printed (for details that have one),
+/// and for the camera, which parts of its name.
+private struct FieldEditor: View {
+
+    let field: CaptionField
+    @Environment(DataModel.self) private var data
+
+    var body: some View {
+        @Bindable var data = data
+        VStack(alignment: .leading, spacing: 14) {
+            if field == .camera {
+                Toggle("Make", isOn: $data.settings.cameraShowsMake)
+                Toggle("Model", isOn: $data.settings.cameraShowsModel)
+            }
+            if field.icon != nil {
+                Toggle("Icon", isOn: Binding(
+                    get: { !data.settings.captionHiddenIcons.contains(field) },
+                    set: { shows in
+                        if shows {
+                            data.settings.captionHiddenIcons.remove(field)
+                        } else {
+                            data.settings.captionHiddenIcons.insert(field)
+                        }
+                    }))
+            }
+            if field == .camera || field.icon != nil {
+                Divider()
+            }
+            ShowFieldToggle(field: field)
+        }
+        .font(.spaceMono(15))
+        .padding(16)
+        .frame(width: 220)
+    }
+}
+
+/// Edits the handle printed by the caption: its text, its icon, and whether it's shown.
+private struct HandleEditor: View {
+
+    @Environment(DataModel.self) private var data
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        @Bindable var data = data
+        VStack(alignment: .leading, spacing: 14) {
+            TextField("yourname", text: $data.settings.handle)
+                .font(.spaceMono(16))
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .keyboardType(.twitter)
+                .submitLabel(.done)
+                .focused($isFocused)
+                .padding(.horizontal, 12)
+                .frame(height: 40)
+                .background(.white.opacity(0.1), in: .rect(cornerRadius: 10))
+                .accessibilityLabel("Handle")
+            HStack(spacing: 6) {
+                ForEach(HandleStyle.allCases, id: \.self) { style in
+                    let isSelected = data.settings.handleStyle == style
+                    Button {
+                        data.settings.handleStyle = style
+                    } label: {
+                        Group {
+                            if let icon = style.controlIcon {
+                                CaptionIconView(icon: icon).frame(width: 18, height: 18)
+                            } else {
+                                Text("@").font(.spaceMono(17))
+                            }
+                        }
+                        .foregroundStyle(isSelected ? .accent : .white)
+                        .frame(maxWidth: .infinity, minHeight: 36)
+                        .background(isSelected ? .white.opacity(0.15) : .clear, in: .rect(cornerRadius: 8))
+                        .contentShape(.rect)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(style.title)
+                    .accessibilityAddTraits(isSelected ? .isSelected : [])
+                }
+            }
+            ShowFieldToggle(field: .handle)
+        }
+        .padding(16)
+        .frame(width: 260)
+        .sensoryFeedback(.selection, trigger: data.settings.handleStyle)
+        .onAppear { isFocused = data.settings.handle.isEmpty }
+        // Typing a handle means wanting it shown.
+        .onChange(of: data.settings.handle.isEmpty) { _, isEmpty in
+            if !isEmpty { data.settings.captionFields.insert(.handle) }
+        }
+    }
+}
+
 struct DesiredAspectRatioChooser: View {
     
     @Environment(DataModel.self) private var data
@@ -351,7 +689,7 @@ struct DesiredAspectRatioChooser: View {
             }
             .sensoryFeedback(.selection, trigger: settings.aspectRatio)
         }
-        .frame(minHeight: 32)
+        .frame(height: EditView.controlRowHeight)
     }
 }
 

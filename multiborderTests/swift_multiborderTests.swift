@@ -5,6 +5,7 @@
 //  Created by Adam Pearce on 6/14/24.
 //
 
+import CoreText
 import Foundation
 import ImageIO
 import PhotosUI
@@ -22,7 +23,12 @@ private func isClose(_ a: Color.Resolved, _ b: Color.Resolved) -> Bool {
 private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
     a.aspectRatio == b.aspectRatio && a.isLandscape == b.isLandscape && a.paddingFraction == b.paddingFraction
         && a.isPerSide == b.isPerSide && a.sides == b.sides
-        && a.exportWidth == b.exportWidth && a.fill == b.fill && a.blurFraction == b.blurFraction && isClose(a.borderColor, b.borderColor)
+        && a.exportWidth == b.exportWidth && a.fill == b.fill && a.blurFraction == b.blurFraction
+        && a.showsCaption == b.showsCaption && a.captionFields == b.captionFields
+        && a.captionAbove == b.captionAbove && a.captionBelow == b.captionBelow
+        && a.handle == b.handle && a.handleStyle == b.handleStyle
+        && a.captionHiddenIcons == b.captionHiddenIcons && a.cameraShowsMake == b.cameraShowsMake && a.cameraShowsModel == b.cameraShowsModel
+        && a.captionAlignmentAbove == b.captionAlignmentAbove && a.captionAlignmentBelow == b.captionAlignmentBelow && isClose(a.borderColor, b.borderColor)
 }
 
 @Suite struct AspectRatioTests {
@@ -451,7 +457,8 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
 @Suite struct ImageIOTests {
 
     /// A solid-color Display P3 image (JPEG unless `type` says otherwise), optionally tagged with an EXIF orientation.
-    private func makeImage(width: Int, height: Int, orientation: Int = 1, type: UTType = .jpeg) throws -> Data {
+    private func makeImage(width: Int, height: Int, orientation: Int = 1, type: UTType = .jpeg,
+                           metadata: [CFString: Any] = [:]) throws -> Data {
         let p3 = try #require(CGColorSpace(name: CGColorSpace.displayP3))
         let context = try #require(CGContext(
             data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
@@ -463,7 +470,8 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
 
         let output = NSMutableData()
         let destination = try #require(CGImageDestinationCreateWithData(output, type.identifier as CFString, 1, nil))
-        CGImageDestinationAddImage(destination, image, [kCGImagePropertyOrientation: orientation] as CFDictionary)
+        let properties = metadata.merging([kCGImagePropertyOrientation: orientation]) { $1 }
+        CGImageDestinationAddImage(destination, image, properties as CFDictionary)
         #expect(CGImageDestinationFinalize(destination))
         return output as Data
     }
@@ -536,6 +544,36 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
         let plain = try decode(try await ImageComposer.render(red, settings: BorderSettings(aspectRatio: .square, paddingFraction: 0.1))).image
         let white = try pixel(of: plain, x: 2, y: 2)
         #expect(white.red > 240 && white.green > 240 && white.blue > 240)
+    }
+
+    @Test func captionIsDrawnAboveAndBelowThePhotoOnlyWhenOn() async throws {
+        let metadata: [CFString: Any] = [
+            kCGImagePropertyTIFFDictionary: [kCGImagePropertyTIFFMake: "Apple", kCGImagePropertyTIFFModel: "iPhone 16 Pro"],
+            kCGImagePropertyExifDictionary: [kCGImagePropertyExifFNumber: 1.78, kCGImagePropertyExifExposureTime: 0.008,
+                                             kCGImagePropertyExifDateTimeOriginal: "2026:11:02 14:05:09"],
+        ]
+        let photo = try makeImage(width: 400, height: 300, metadata: metadata)
+        // White border, deep above and below to print in.
+        var settings = BorderSettings(aspectRatio: .square, isPerSide: true,
+                                      sides: BorderInsets(top: 0.2, left: 0.02, bottom: 0.2, right: 0.02))
+        settings.handle = "@adam"
+        /// Whether any pixel along the middle of `field`'s row is dark.
+        func hasDarkText(_ data: Data, in field: CaptionField) throws -> Bool {
+            let image = try decode(data).image
+            let layout = ImageComposer.layout(sourceSize: CGSize(width: 400, height: 300), settings: settings)
+            var on = settings
+            on.showsCaption = true
+            let rows = PhotoCaption.rows(photoItems: PhotoCaption.photoItems(from: metadata), settings: on)
+            let entry = try #require(PhotoCaption.placement(of: rows, layout: layout)?.entries.first { $0.item.field == field })
+            let y = Int(entry.frame.midY)
+            return try stride(from: 0, to: image.width, by: 1).contains { x in try pixel(of: image, x: x, y: y).red < 128 }
+        }
+        let off = try await ImageComposer.render(photo, settings: settings)
+        #expect(try !hasDarkText(off, in: .handle) && !hasDarkText(off, in: .camera))
+        settings.showsCaption = true
+        let on = try await ImageComposer.render(photo, settings: settings)
+        #expect(try hasDarkText(on, in: .handle))
+        #expect(try hasDarkText(on, in: .camera))
     }
 
     @Test func heicStaysHEICUnlessSharing() async throws {
@@ -677,5 +715,282 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
         #expect(CardStackLayout.snapTarget(restingIndex: 4, translation: -100, predictedEndTranslation: -400, count: 5) == 4)
         #expect(CardStackLayout.snapTarget(restingIndex: 4, translation: -3000, predictedEndTranslation: -150, count: 5) == 4)
         #expect(CardStackLayout.snapTarget(restingIndex: 0, translation: 0, predictedEndTranslation: 0, count: 0) == 0)
+    }
+}
+
+@Suite struct PhotoCaptionTests {
+
+    private func properties(make: String? = nil, model: String? = nil, exif: [CFString: Any] = [:]) -> [CFString: Any] {
+        var tiff = [CFString: Any]()
+        tiff[kCGImagePropertyTIFFMake] = make
+        tiff[kCGImagePropertyTIFFModel] = model
+        return [kCGImagePropertyTIFFDictionary: tiff, kCGImagePropertyExifDictionary: exif]
+    }
+
+    private func texts(_ properties: [CFString: Any]) -> [String] {
+        PhotoCaption.photoItems(from: properties).map(\.text)
+    }
+
+    private let iPhone: [CFString: Any] = [
+        kCGImagePropertyTIFFDictionary: [kCGImagePropertyTIFFMake: "Apple", kCGImagePropertyTIFFModel: "iPhone 16 Pro"],
+        kCGImagePropertyExifDictionary: [
+            kCGImagePropertyExifFocalLenIn35mmFilm: 24.0, kCGImagePropertyExifFocalLength: 6.765,
+            kCGImagePropertyExifFNumber: 1.78, kCGImagePropertyExifExposureTime: 1.0 / 120,
+            kCGImagePropertyExifISOSpeedRatings: [80], kCGImagePropertyExifDateTimeOriginal: "2026:11:02 23:30:00",
+        ],
+    ]
+
+    private var captionOn: BorderSettings {
+        var settings = BorderSettings()
+        settings.showsCaption = true
+        return settings
+    }
+
+    @Test func iPhoneDetails() throws {
+        let items = PhotoCaption.photoItems(from: iPhone)
+        #expect(items.map(\.field) == [.date, .camera, .focalLength, .aperture, .shutter, .iso])
+        #expect(Array(items.map(\.text).dropFirst()) == ["iPhone 16 Pro", "24mm", "ƒ/1.8", "1/120s", "ISO 80"])
+        // The day the camera recorded, late in the evening, isn't moved by the time zone.
+        let date = items[0].text
+        let expected = Date(timeIntervalSince1970: 1_793_577_600) // 2 Nov 2026, 00:00 GMT
+            .formatted(Date.FormatStyle(date: .abbreviated, time: .omitted, timeZone: .gmt))
+        #expect(date == expected)
+    }
+
+    @Test func rowsFollowTheChosenRowsOrderAndToggles() {
+        var settings = captionOn
+        settings.handle = "adam"
+        let photo = PhotoCaption.photoItems(from: iPhone)
+        var rows = PhotoCaption.rows(photoItems: photo, settings: settings)
+        #expect(rows.above.map(\.field) == [.date, .handle])
+        #expect(rows.below.map(\.field) == [.camera, .focalLength, .aperture, .shutter, .iso])
+
+        settings.moveCaptionField(.iso, to: .above, at: 1)
+        settings.moveCaptionField(.date, to: .below, at: 0)
+        settings.captionFields.remove(.aperture)
+        rows = PhotoCaption.rows(photoItems: photo, settings: settings)
+        #expect(rows.above.map(\.field) == [.iso, .handle])
+        #expect(rows.below.map(\.field) == [.date, .camera, .focalLength, .shutter])
+
+        settings.showsCaption = false
+        #expect(PhotoCaption.rows(photoItems: photo, settings: settings) == PhotoCaption.Rows())
+    }
+
+    @Test func iconsCanBeTurnedOffPerDetail() {
+        var settings = captionOn
+        settings.captionHiddenIcons = [.camera, .aperture]
+        let rows = PhotoCaption.rows(photoItems: PhotoCaption.photoItems(from: iPhone), settings: settings)
+        let icons = Dictionary(uniqueKeysWithValues: (rows.above + rows.below).map { ($0.field, $0.icon) })
+        #expect(icons[.camera]! == nil && icons[.aperture]! == nil)
+        #expect(icons[.shutter]! == .symbol("timer") && icons[.date]! == .symbol("calendar"))
+        // The camera's text is still printed without its icon.
+        #expect(rows.below.first { $0.field == .camera }?.text == "Apple iPhone 16 Pro")
+    }
+
+    @Test func handleFollowsItsStyle() {
+        var settings = captionOn
+        #expect(PhotoCaption.handleItem(settings) == nil)
+        settings.handle = "  @@adam "
+        #expect(PhotoCaption.handleItem(settings) == .init(field: .handle, text: "adam", icon: .glyph(.instagram)))
+        settings.handleStyle = .at
+        #expect(PhotoCaption.handleItem(settings) == .init(field: .handle, text: "@adam"))
+        #expect(PhotoCaption.handleItem(settings)?.icon == nil)
+        settings.handleStyle = .website
+        #expect(PhotoCaption.handleItem(settings)?.icon == .symbol("globe"))
+        settings.handleStyle = .plain
+        #expect(PhotoCaption.handleItem(settings) == .init(field: .handle, text: "adam"))
+        #expect(PhotoCaption.handleItem(settings)?.icon == nil)
+    }
+
+    @Test func filenameIsADetailOfThePhoto() async throws {
+        let items = PhotoCaption.photoItems(from: iPhone, filename: " IMG_1234.HEIC ")
+        #expect(items.first { $0.field == .filename }?.text == "IMG_1234")
+        #expect(PhotoCaption.photoItems(from: iPhone, filename: "").allSatisfy { $0.field != .filename })
+        #expect(PhotoCaption.photoItems(from: [:], filename: ".hidden").first?.text == ".hidden")
+
+        var settings = captionOn
+        // Off until chosen: the title is usually the better label.
+        #expect(!settings.captionFields.contains(.filename))
+        settings.captionFields.insert(.filename)
+        settings.handle = "adam"
+        let rows = PhotoCaption.rows(photoItems: items, settings: settings)
+        // Date at the left, filename in the middle, handle at the right.
+        #expect(rows.above.map(\.field) == [.date, .filename, .handle])
+    }
+
+    private func title(_ properties: [CFString: Any], metadata: CGImageMetadata? = nil) -> String? {
+        PhotoCaption.photoItems(from: properties, metadata: metadata).first { $0.field == .title }?.text
+    }
+
+    @Test func titleComesFromIPTCThenXMPThenDescriptions() throws {
+        let iptc: [CFString: Any] = [kCGImagePropertyIPTCDictionary: [
+            kCGImagePropertyIPTCObjectName: "Morning Fog", kCGImagePropertyIPTCCaptionAbstract: "Over the bay",
+        ]]
+        #expect(title(iptc) == "Morning Fog")
+        #expect(title([kCGImagePropertyIPTCDictionary: [kCGImagePropertyIPTCCaptionAbstract: "Over\n the   bay"]]) == "Over the bay")
+
+        let xmp = CGImageMetadataCreateMutable()
+        #expect(CGImageMetadataSetValueWithPath(xmp, nil, "dc:title" as CFString, "Harbor" as CFString))
+        #expect(title([:], metadata: xmp) == "Harbor")
+        #expect(title([kCGImagePropertyTIFFDictionary: [kCGImagePropertyTIFFImageDescription: "Dusk"]]) == "Dusk")
+    }
+
+    @Test func titleSkipsCameraBoilerplateAndStaysShort() {
+        #expect(title([kCGImagePropertyTIFFDictionary: [kCGImagePropertyTIFFImageDescription: "OLYMPUS DIGITAL CAMERA"]]) == nil)
+        #expect(title([kCGImagePropertyTIFFDictionary: [
+            kCGImagePropertyTIFFModel: "X100V", kCGImagePropertyTIFFImageDescription: "FUJIFILM X100V",
+        ]]) == nil)
+        #expect(title([kCGImagePropertyTIFFDictionary: [kCGImagePropertyTIFFImageDescription: "   "]]) == nil)
+        let long = title([kCGImagePropertyIPTCDictionary: [kCGImagePropertyIPTCObjectName: String(repeating: "a ", count: 50)]])
+        #expect(long?.count == 60 && long?.hasSuffix("…") == true)
+    }
+
+    private func camera(make: String?, model: String?, showsMake: Bool = true, showsModel: Bool = true) -> String? {
+        var settings = BorderSettings()
+        settings.cameraShowsMake = showsMake
+        settings.cameraShowsModel = showsModel
+        return PhotoCaption.photoItems(from: properties(make: make, model: model))
+            .first { $0.field == .camera }
+            .flatMap { PhotoCaption.cameraItem($0, settings: settings) }?.text
+    }
+
+    @Test func cameraPrintsTheChosenPartsOfItsName() {
+        #expect(camera(make: "FUJIFILM", model: "X-T5") == "FUJIFILM X-T5")
+        #expect(camera(make: "Apple", model: "iPhone 16 Pro") == "Apple iPhone 16 Pro")
+        #expect(camera(make: "Apple", model: "iPhone 16 Pro", showsMake: false) == "iPhone 16 Pro")
+        #expect(camera(make: "FUJIFILM", model: "X-T5", showsModel: false) == "FUJIFILM")
+        #expect(camera(make: "FUJIFILM", model: "X-T5", showsMake: false, showsModel: false) == nil)
+        // A model that already names its make doesn't repeat it.
+        #expect(camera(make: "Canon", model: "Canon EOS R5") == "Canon EOS R5")
+        #expect(camera(make: "Canon", model: "Canon EOS R5", showsModel: false) == "Canon")
+        // Only what's recorded.
+        #expect(camera(make: nil, model: "X-T5", showsModel: false) == nil)
+        #expect(camera(make: "Leica", model: nil) == "Leica")
+    }
+
+    @Test func longExposuresAndWholeApertures() {
+        let text = texts(properties(exif: [
+            kCGImagePropertyExifFocalLength: 50.0, kCGImagePropertyExifFNumber: 8.0, kCGImagePropertyExifExposureTime: 2.5,
+        ]))
+        #expect(text == ["50mm", "ƒ/8", "2.5s"])
+    }
+
+    @Test func nothingToPrint() {
+        #expect(PhotoCaption.photoItems(from: [:]).isEmpty)
+    }
+
+    @Test func movingAFieldKeepsEveryFieldOnce() {
+        var settings = BorderSettings()
+        settings.moveCaptionField(.camera, to: .above, at: 99)
+        settings.moveCaptionField(.handle, to: .below, at: -3)
+        #expect(settings.captionAbove == [.date, .title, .filename, .camera])
+        #expect(settings.captionBelow == [.handle, .focalLength, .aperture, .shutter, .iso])
+    }
+
+    @Test func savedRowsAreRepairedToListEveryFieldOnce() throws {
+        let json = #"{"captionAbove": ["iso", "iso", "camera"], "captionBelow": ["camera", "date"]}"#
+        let settings = try JSONDecoder().decode(BorderSettings.self, from: Data(json.utf8))
+        #expect(settings.captionAbove == [.iso, .camera, .title, .filename, .handle])
+        #expect(settings.captionBelow == [.date, .focalLength, .aperture, .shutter])
+        let old = try JSONDecoder().decode(BorderSettings.self, from: Data("{}".utf8))
+        #expect(old.captionAbove == [.date, .title, .filename, .handle] && old.captionBelow == [.camera, .focalLength, .aperture, .shutter, .iso])
+        #expect(old.handle == "" && old.handleStyle == .instagram)
+    }
+
+    @Test func rowsSpreadAcrossThePhotoJustBesideIt() throws {
+        let layout = ImageComposer.Layout(canvasSize: CGSize(width: 1000, height: 1300),
+                                          imageRect: CGRect(x: 50, y: 200, width: 900, height: 900))
+        var settings = captionOn
+        settings.handle = "adam"
+        let rows = PhotoCaption.rows(photoItems: PhotoCaption.photoItems(from: iPhone), settings: settings)
+        let placement = try #require(PhotoCaption.placement(of: rows, layout: layout))
+        let above = placement.entries.filter { rows.above.contains($0.item) }.map(\.frame)
+        let below = placement.entries.filter { rows.below.contains($0.item) }.map(\.frame)
+        #expect(above.count == 2 && below.count == 5)
+        for frames in [above, below] {
+            #expect(abs(frames.first!.minX - 50) < 0.001)
+            #expect(abs(frames.last!.maxX - 950) < 0.001)
+            // Equal space between neighbors.
+            let spaces = zip(frames, frames.dropFirst()).map { $1.minX - $0.maxX }
+            #expect(spaces.allSatisfy { abs($0 - spaces[0]) < 0.001 && $0 > 0 })
+        }
+        // Just beside the photo, not centered in the borders.
+        #expect(above[0].maxY < 200 && above[0].maxY > 200 - placement.fontSize * 1.5)
+        #expect(below[0].minY > 1100 && below[0].minY < 1100 + placement.fontSize * 1.5)
+
+        let single = try #require(PhotoCaption.placement(of: .init(below: [rows.below[4]]), layout: layout))
+        #expect(abs(single.entries[0].frame.midX - 500) < 0.001)
+    }
+
+    @Test func groupedRowsSitLeftCenterOrRight() throws {
+        let layout = ImageComposer.Layout(canvasSize: CGSize(width: 1000, height: 1300),
+                                          imageRect: CGRect(x: 50, y: 200, width: 900, height: 900))
+        let items = [PhotoCaption.Item(field: .aperture, text: "ƒ/1.8"), PhotoCaption.Item(field: .iso, text: "ISO 80")]
+        func frames(_ alignment: CaptionAlignment) throws -> [CGRect] {
+            try #require(PhotoCaption.placement(of: .init(below: items, belowAlignment: alignment), layout: layout)).entries.map(\.frame)
+        }
+        let leading = try frames(.leading), center = try frames(.center), trailing = try frames(.trailing)
+        #expect(abs(leading[0].minX - 50) < 0.001)
+        #expect(abs((center[0].minX + center[1].maxX) / 2 - 500) < 0.001)
+        #expect(abs(trailing[1].maxX - 950) < 0.001)
+        // The same fixed gap in each, narrower than spreading them across the photo.
+        let gaps = [leading, center, trailing].map { $0[1].minX - $0[0].maxX }
+        #expect(gaps.allSatisfy { abs($0 - gaps[0]) < 0.001 })
+        let spread = try frames(.spread)
+        #expect(gaps[0] < spread[1].minX - spread[0].maxX)
+
+        var settings = BorderSettings()
+        settings.showsCaption = true
+        settings.captionAlignmentAbove = .trailing
+        let rows = PhotoCaption.rows(photoItems: [], settings: settings)
+        #expect(rows.aboveAlignment == .trailing && rows.belowAlignment == .spread)
+        #expect(CaptionAlignment.trailing.next == .spread)
+    }
+
+    @Test func iconsAreAsTallAsCapitalsAndStandOnTheBaseline() throws {
+        let layout = ImageComposer.Layout(canvasSize: CGSize(width: 1000, height: 1200),
+                                          imageRect: CGRect(x: 50, y: 50, width: 900, height: 900))
+        let items = [PhotoCaption.Item(field: .aperture, text: "ƒ/1.8"), PhotoCaption.Item(field: .iso, text: "ISO 80")]
+        let placement = try #require(PhotoCaption.placement(of: .init(below: items), layout: layout))
+        let font = CTFontCreateWithName(PhotoCaption.fontName as CFString, placement.fontSize, nil)
+        let entry = placement.entries[0]
+        let icon = placement.iconRect(for: entry)
+        #expect(abs(icon.height - CTFontGetCapHeight(font)) < 0.001)
+        #expect(abs(icon.maxY - placement.baseline(in: entry.frame)) < 0.001)
+        #expect(abs(icon.minX - entry.frame.minX) < 0.001)
+        // The camera keeps a little space under it, so it lines up with the text.
+        let camera = PhotoCaption.Placement.Entry(item: .init(field: .camera, text: "X-T5"), frame: entry.frame)
+        let cameraBox = placement.iconRect(for: camera)
+        #expect(cameraBox.minY == icon.minY && cameraBox.maxY < icon.maxY)
+
+        // The value starts after the icon; ISO has no icon, so its value starts at its frame.
+        #expect(placement.textOffset(for: entry.item) > icon.width)
+        #expect(placement.textOffset(for: placement.entries[1].item) == 0)
+    }
+
+    @Test func placementShrinksToFitAndSkipsRowsWithNoBorder() throws {
+        let iso = PhotoCaption.Item(field: .iso, text: "ISO 80")
+        let layout = ImageComposer.Layout(canvasSize: CGSize(width: 1000, height: 1200),
+                                          imageRect: CGRect(x: 50, y: 50, width: 900, height: 900))
+        let short = try #require(PhotoCaption.placement(of: .init(below: [iso]), layout: layout))
+        // A long line is narrowed to fit the photo's width.
+        let long = try #require(PhotoCaption.placement(
+            of: .init(below: [.init(field: .camera, text: String(repeating: "W", count: 80))]), layout: layout))
+        #expect(long.fontSize < short.fontSize)
+        #expect(long.entries[0].frame.width <= 900.001)
+        // A shallow border shrinks the text to fit in it.
+        let shallow = ImageComposer.Layout(canvasSize: CGSize(width: 1000, height: 960),
+                                           imageRect: CGRect(x: 50, y: 50, width: 900, height: 900))
+        let tight = try #require(PhotoCaption.placement(of: .init(below: [iso]), layout: shallow))
+        #expect(tight.entries[0].frame.maxY <= 960)
+
+        // No border on a side: that row is left out.
+        let noTop = ImageComposer.Layout(canvasSize: CGSize(width: 1000, height: 1100),
+                                         imageRect: CGRect(x: 0, y: 0, width: 1000, height: 1000))
+        let date = PhotoCaption.Item(field: .date, text: "Nov 2, 2026")
+        let onlyBelow = try #require(PhotoCaption.placement(of: .init(above: [date], below: [iso]), layout: noTop))
+        #expect(onlyBelow.entries.map(\.item) == [iso])
+        #expect(PhotoCaption.placement(of: .init(above: [date]), layout: noTop) == nil)
+        #expect(PhotoCaption.placement(of: .init(), layout: layout) == nil)
     }
 }

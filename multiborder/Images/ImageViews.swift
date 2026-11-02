@@ -111,5 +111,31 @@ struct BorderedImage: View {
                 .offset(x: layout.imageRect.minX * scale, y: layout.imageRect.minY * scale)
         }
         .frame(width: canvasSize.width, height: canvasSize.height)
+        .overlay(alignment: .topLeading) {
+            let rows = PhotoCaption.rows(photoItems: thumbnail.captionItems, settings: settings)
+            if let placement = PhotoCaption.placement(of: rows, layout: layout) {
+                ZStack(alignment: .topLeading) {
+                    ForEach(placement.entries, id: \.item.field) { entry in
+                        // Placed from the same boxes the export draws in, so icons stand on the text's baseline.
+                        if let icon = entry.item.icon {
+                            let box = placement.iconRect(for: entry)
+                            CaptionIconView(icon: icon)
+                                .frame(width: box.width * scale, height: box.height * scale)
+                                .offset(x: box.minX * scale, y: box.minY * scale)
+                        }
+                        Text(entry.item.text)
+                            .font(.custom(PhotoCaption.fontName, fixedSize: placement.fontSize * scale))
+                            .lineLimit(1)
+                            .fixedSize()
+                            .frame(height: entry.frame.height * scale)
+                            .offset(x: (entry.frame.minX + placement.textOffset(for: entry.item)) * scale,
+                                    y: entry.frame.minY * scale)
+                    }
+                }
+                .foregroundStyle(Color(PhotoCaption.color(on: settings.borderColor, fill: settings.fill)))
+                .shadow(color: settings.fill == .blur ? .black.opacity(0.5) : .clear, radius: placement.fontSize * scale * 0.2)
+                .accessibilityHidden(true)
+            }
+        }
     }
 }
