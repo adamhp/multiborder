@@ -242,6 +242,12 @@ enum TabbedItems: Int, CaseIterable {
             return
         }
 
+        // Lets the export finish if the user leaves the app; cancelling it from the system UI cancels the export.
+        let continued = ContinuedExport.start(total: pending.count) { [weak self] in
+            self?.exportTask?.cancel()
+        }
+        defer { continued?.finish(success: saveStatus == .success) }
+
         let settings = settings
         var failures = 0
         for (index, attachment) in pending.enumerated() {
@@ -260,6 +266,7 @@ enum TabbedItems: Int, CaseIterable {
                 failures += 1
             }
             exportProgress = Double(index + 1) / Double(pending.count)
+            continued?.update(completed: index + 1)
         }
         if Task.isCancelled {
             saveStatus = .unsaved
