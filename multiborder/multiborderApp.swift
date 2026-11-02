@@ -11,11 +11,11 @@ import SwiftUI
 struct multiborderApp: App {
 
     init() {
-        // Shown read-only on the app's page in the Settings app (see Settings.bundle/Root.plist).
+        // Shown read-only on the app's page in the Settings app, which reads the App Group (see Settings.bundle/Root.plist).
         let info = Bundle.main.infoDictionary
         let version = info?["CFBundleShortVersionString"] as? String ?? "?"
         let build = info?["CFBundleVersion"] as? String ?? "?"
-        UserDefaults.standard.set("\(version) (\(build))", forKey: "settingsBundleVersion")
+        UserDefaults.appGroup.set("\(version) (\(build))", forKey: "settingsBundleVersion")
     }
 
     var body: some Scene {

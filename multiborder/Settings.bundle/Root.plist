@@ -2,8 +2,32 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>ApplicationGroupContainerIdentifier</key>
+	<string>group.com.adamhp.multiborder</string>
 	<key>PreferenceSpecifiers</key>
 	<array>
+		<dict>
+			<key>FooterText</key>
+			<string>Ask before adding borders from the share sheet, with a summary of the settings that will be used.</string>
+			<key>Title</key>
+			<string>Share Sheet</string>
+			<key>Type</key>
+			<string>PSGroupSpecifier</string>
+		</dict>
+		<dict>
+			<key>DefaultValue</key>
+			<false/>
+			<key>FalseValue</key>
+			<true/>
+			<key>Key</key>
+			<string>shareExtensionSkipsIntro</string>
+			<key>Title</key>
+			<string>Confirm Settings</string>
+			<key>TrueValue</key>
+			<false/>
+			<key>Type</key>
+			<string>PSToggleSwitchSpecifier</string>
+		</dict>
 		<dict>
 			<key>Title</key>
 			<string>About</string>

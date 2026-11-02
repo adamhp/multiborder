@@ -77,16 +77,29 @@ final class ActionViewController: UIViewController {
     /// Shared by both extensions through the App Group.
     private static let skipsIntroKey = "shareExtensionSkipsIntro"
 
-    /// Shows the intro, or saves straight away if the user asked not to see it again.
+    /// Shows the intro, or, if the user asked not to see it again, shows the settings summary
+    /// for a moment and then saves.
     func start() async {
         guard !providers.isEmpty else {
             state = .failed(String(localized: "There are no photos to add a border to."))
             return
         }
-        if UserDefaults.appGroup.bool(forKey: Self.skipsIntroKey) {
-            await save()
+        guard UserDefaults.appGroup.bool(forKey: Self.skipsIntroKey) else {
+            await countBytes()
             return
         }
+        state = .working(done: 0, total: providers.count)
+        async let counted: Void = countBytes()
+        // Long enough to read which settings are about to be used.
+        try? await Task.sleep(for: .seconds(1.5))
+        if !Task.isCancelled {
+            await save()
+        }
+        await counted
+    }
+
+    /// Fills in `totalBytes` for the settings summary.
+    private func countBytes() async {
         var total: Int64 = 0
         for provider in providers {
             guard let size = await Self.fileSize(of: provider), !Task.isCancelled else { return }
@@ -191,6 +204,7 @@ struct AddBorderView: View {
                     .padding(.horizontal, 48)
                 Text("\(finished) of \(total)")
                     .foregroundStyle(.secondary)
+                SettingsSummary(run: run)
                 Spacer()
                 Button("Cancel", role: .cancel, action: cancel)
             case .finished(let saved, let total):
