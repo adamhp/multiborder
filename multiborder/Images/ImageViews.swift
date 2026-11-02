@@ -91,14 +91,25 @@ struct BorderedImage: View {
         let scale = layout.canvasSize.width > 0
             ? min(containerSize.width / layout.canvasSize.width, containerSize.height / layout.canvasSize.height)
             : 0
+        let canvasSize = CGSize(width: layout.canvasSize.width * scale, height: layout.canvasSize.height * scale)
         ZStack(alignment: .topLeading) {
-            Rectangle()
-                .fill(Color(settings.borderColor))
+            switch settings.fill {
+            case .color:
+                Rectangle()
+                    .fill(Color(settings.borderColor))
+            case .blur:
+                Image(uiImage: thumbnail.image)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: canvasSize.width, height: canvasSize.height)
+                    .blur(radius: settings.blurRadius(canvasSize: canvasSize), opaque: true)
+                    .clipped()
+            }
             Image(uiImage: thumbnail.image)
                 .resizable()
                 .frame(width: layout.imageRect.width * scale, height: layout.imageRect.height * scale)
                 .offset(x: layout.imageRect.minX * scale, y: layout.imageRect.minY * scale)
         }
-        .frame(width: layout.canvasSize.width * scale, height: layout.canvasSize.height * scale)
+        .frame(width: canvasSize.width, height: canvasSize.height)
     }
 }

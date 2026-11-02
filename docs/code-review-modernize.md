@@ -16,6 +16,7 @@ Added after `6f2dd49`:
   - `ImageComposer.render` now runs one render at a time, so the share sheet loading several photos at once can't hold several large canvases in memory.
   - Sharing logs to the `com.adamhp.multiborder` subsystem, category `Share`, which made the Instagram problem traceable from a device log.
 - **Inline picker:** the Select tab shows the system photo picker in the page instead of a sheet. Each tap adds a photo to the batch in the order tapped, and a ✓ below the picker switches to the card stack. Leaving the tab also counts as Done, and clearing every photo brings the picker back. "Select some photos first!" takes the ✓'s place so it's readable instead of sitting over the picker. iOS shows a one-time "Private Access to Photos" notice the first time the picker appears. Tested on an iPhone 16 Pro.
+- **Blurred photo fill:** a drop button next to the color well fills the border with the photo itself, scaled to cover the canvas and blurred, instead of the plain color. It's off by default. While it's on, a blur-strength slider (shown as 5–100% in steps of 5, default 40%, where 100 is a blur of 10% of the canvas) takes the color well's place. Strength is `BorderSettings.blurFraction`, measured against the canvas's shorter side, so the preview and every export size look equally soft. The export blurs a 512px copy and scales it up, which keeps it cheap at any canvas size. Builds and passes its unit tests on the iOS 26.5 simulator; the drop button and 4% default have been checked on the iPhone 16 Pro; the strength slider still needs checking there.
 
 The Liquid Glass morph, hold-to-clear and the share sheet have since been checked on the iPhone 16 Pro.
 
@@ -30,7 +31,6 @@ Tried and dropped: blurring the cards behind the front one in `CardStack`, meant
 
 ## Feature ideas
 
-- **Blurred photo fill:** filling the border with a blurred, scaled-up copy of the photo is the most requested option in apps like this. Your layout already gives you the rectangles.
 - **Colors sampled from the photo:** offer a few border colors taken from the photo (dominant or average color), beyond the plain color picker.
 - **EXIF caption:** you already keep EXIF, so you could print camera, lens, focal length, aperture, shutter speed and ISO in the border. That fits the Space Mono look well.
 - **Uneven borders:** a heavier bottom border gives a Polaroid or gallery-mat look, and per-side padding is a small change to `layout`.

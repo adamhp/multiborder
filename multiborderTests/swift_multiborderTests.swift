@@ -21,7 +21,7 @@ private func isClose(_ a: Color.Resolved, _ b: Color.Resolved) -> Bool {
 
 private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
     a.aspectRatio == b.aspectRatio && a.isLandscape == b.isLandscape && a.paddingFraction == b.paddingFraction
-        && a.exportWidth == b.exportWidth && isClose(a.borderColor, b.borderColor)
+        && a.exportWidth == b.exportWidth && a.fill == b.fill && a.blurFraction == b.blurFraction && isClose(a.borderColor, b.borderColor)
 }
 
 @Suite struct AspectRatioTests {
@@ -248,6 +248,28 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
         #expect(isClose(loaded, stored))
     }
 
+    @Test func loadsSettingsSavedBeforeFillExisted() throws {
+        let defaults = makeDefaults()
+        let stored = BorderSettings(aspectRatio: .square, paddingFraction: 0.1, fill: .blur, blurFraction: 0.08)
+        var json = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(stored)) as? [String: Any])
+        json.removeValue(forKey: "fill")
+        json.removeValue(forKey: "blurFraction")
+        defaults.set(try JSONSerialization.data(withJSONObject: json), forKey: "borderSettings")
+        let loaded = BorderSettings.load(from: defaults)
+        #expect(loaded.fill == .color)
+        #expect(loaded.blurFraction == BorderSettings().blurFraction)
+
+        stored.save(to: defaults)
+        #expect(isClose(BorderSettings.load(from: defaults), stored))
+    }
+
+    @Test func blurRadiusScalesWithTheShorterSideAndIsClamped() {
+        let canvas = CGSize(width: 1000, height: 2000)
+        #expect(BorderSettings(blurFraction: 0.05).blurRadius(canvasSize: canvas) == 50)
+        #expect(BorderSettings(blurFraction: 1).blurRadius(canvasSize: canvas) == BorderSettings.blurRange.upperBound * 1000)
+        #expect(BorderSettings(blurFraction: 0).blurRadius(canvasSize: canvas) == BorderSettings.blurRange.lowerBound * 1000)
+    }
+
     @Test func defaultsWhenNothingStored() {
         #expect(BorderSettings.load(from: makeDefaults()) == BorderSettings())
     }
@@ -389,6 +411,17 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
         return (image, CGImageSourceGetType(source).flatMap { UTType($0 as String) })
     }
 
+    /// The sRGB 8-bit components of one pixel of `image` (top-left origin).
+    private func pixel(of image: CGImage, x: Int, y: Int) throws -> (red: UInt8, green: UInt8, blue: UInt8) {
+        var bytes = [UInt8](repeating: 0, count: 4)
+        let context = try #require(CGContext(
+            data: &bytes, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+            space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+        ))
+        context.draw(image, in: CGRect(x: -x, y: y - image.height + 1, width: image.width, height: image.height))
+        return (bytes[0], bytes[1], bytes[2])
+    }
+
     @Test func thumbnailIsDownsampled() async throws {
         let thumbnail = try await ImageComposer.thumbnail(from: makeImage(width: 400, height: 300), maxPixelSize: 100)
         #expect(thumbnail.pixelSize == CGSize(width: 400, height: 300))
@@ -426,6 +459,20 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
         #expect(image.height == 500)
         #expect(type == .jpeg)
         #expect(image.colorSpace?.name == CGColorSpace.displayP3)
+    }
+
+    @Test func blurFillUsesThePhotosColors() async throws {
+        // A solid red photo on a white border setting: the blurred border should be red, not white.
+        let red = try makeImage(width: 400, height: 300)
+        let settings = BorderSettings(aspectRatio: .square, paddingFraction: 0.1, fill: .blur)
+        let image = try decode(try await ImageComposer.render(red, settings: settings)).image
+        #expect(image.width == 500 && image.height == 500)
+        let corner = try pixel(of: image, x: 2, y: 2)
+        #expect(corner.red > 200 && corner.green < 60 && corner.blue < 60)
+
+        let plain = try decode(try await ImageComposer.render(red, settings: BorderSettings(aspectRatio: .square, paddingFraction: 0.1))).image
+        let white = try pixel(of: plain, x: 2, y: 2)
+        #expect(white.red > 240 && white.green > 240 && white.blue > 240)
     }
 
     @Test func heicStaysHEICUnlessSharing() async throws {

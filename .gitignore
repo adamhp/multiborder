@@ -3,3 +3,4 @@ DerivedData/
 xcuserdata/
 *.xcuserstate
 .derived-data-log-*
+build/

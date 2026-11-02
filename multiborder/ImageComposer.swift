@@ -8,6 +8,7 @@
 
 import SwiftUI
 import ImageIO
+import CoreImage
 import UniformTypeIdentifiers
 
 /// Canvas shapes, described in portrait; `BorderSettings.isLandscape` turns them sideways.
@@ -55,8 +56,18 @@ nonisolated enum AspectRatio: String, CaseIterable, Identifiable, Codable, Senda
     }
 }
 
+/// What fills the border around the photo.
+nonisolated enum BorderFill: String, Codable, Sendable {
+    /// The plain `borderColor`.
+    case color
+    /// The photo itself, scaled to cover the canvas and blurred.
+    case blur
+}
+
 nonisolated struct BorderSettings: Codable, Equatable, Sendable {
     static let paddingRange: ClosedRange<Double> = 0...0.16
+    /// The slider shows this as 5–100 in steps of 5.
+    static let blurRange: ClosedRange<Double> = 0.005...0.1
 
     var aspectRatio: AspectRatio = .fourByFive
     /// Turns the aspect ratio sideways (e.g. 4:5 becomes 5:4).
@@ -64,12 +75,22 @@ nonisolated struct BorderSettings: Codable, Equatable, Sendable {
     /// Border thickness as a fraction of the canvas's shorter side.
     var paddingFraction: Double = 0
     var borderColor: Color.Resolved = Color.Resolved(red: 1, green: 1, blue: 1)
+    var fill: BorderFill = .color
+    /// Strength of the `.blur` fill: the Gaussian blur's standard deviation as a fraction of the
+    /// canvas's shorter side, so the preview and every export size look equally soft.
+    var blurFraction: Double = 0.04
     /// Maximum output width in pixels; 0 exports at the photo's full resolution.
     var exportWidth: Int = 0
 
     /// Canvas width divided by height after orientation; `nil` keeps the photo's own ratio.
     var canvasWidthOverHeight: Double? {
         aspectRatio.widthOverHeight.map { isLandscape ? 1 / $0 : $0 }
+    }
+
+    /// Blur standard deviation in points or pixels for a canvas of `canvasSize`.
+    func blurRadius(canvasSize: CGSize) -> Double {
+        min(max(blurFraction, Self.blurRange.lowerBound), Self.blurRange.upperBound)
+            * min(canvasSize.width, canvasSize.height)
     }
 }
 
@@ -83,6 +104,8 @@ nonisolated extension BorderSettings {
         isLandscape = try container.decodeIfPresent(Bool.self, forKey: .isLandscape) ?? fallback.isLandscape
         paddingFraction = try container.decodeIfPresent(Double.self, forKey: .paddingFraction) ?? fallback.paddingFraction
         borderColor = try container.decodeIfPresent(Color.Resolved.self, forKey: .borderColor) ?? fallback.borderColor
+        fill = try container.decodeIfPresent(BorderFill.self, forKey: .fill) ?? fallback.fill
+        blurFraction = try container.decodeIfPresent(Double.self, forKey: .blurFraction) ?? fallback.blurFraction
         exportWidth = try container.decodeIfPresent(Int.self, forKey: .exportWidth) ?? fallback.exportWidth
     }
 }
@@ -105,6 +128,10 @@ nonisolated enum ImageComposer {
         case unreadable
         case encodingFailed
     }
+
+    /// Long side of the photo copy the `.blur` fill is blurred at before being scaled up.
+    /// A heavy blur has no detail left to lose, so this keeps the blur cheap at any canvas size.
+    private static let backdropPixelSize = 512
 
     /// Bytes the export canvas may use; keeps a 48MP photo with a wide border from exhausting memory.
     static let maxCanvasBytes = 400_000_000.0
@@ -219,7 +246,12 @@ nonisolated enum ImageComposer {
             guard let image = downsample(source, maxPixelSize: longestSide) else {
                 throw ComposeError.unreadable
             }
-            return try composite(image, layout: layout, borderColor: settings.borderColor.cgColor, allowDeep: deep)
+            let backdrop = settings.fill == .blur
+                ? try blurredBackdrop(source, canvasSize: layout.canvasSize,
+                                      radius: settings.blurRadius(canvasSize: layout.canvasSize))
+                : nil
+            return try composite(image, layout: layout, borderColor: settings.borderColor.cgColor,
+                                 backdrop: backdrop, allowDeep: deep)
         }()
 
         let metadata = exportMetadata(source)
@@ -257,9 +289,31 @@ nonisolated enum ImageComposer {
         return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
     }
 
-    /// Draws `image` on a border-colored canvas. A 16-bit canvas is used only when the decoded image
-    /// is deeper than 8 bits and `allowDeep` says the layout was budgeted for 8 bytes per pixel.
-    private static func composite(_ image: CGImage, layout: Layout, borderColor: CGColor, allowDeep: Bool) throws -> CGImage {
+    /// A small, blurred copy of the photo for the `.blur` fill, blurred so that once it's scaled to
+    /// cover a canvas of `canvasSize` its blur has a standard deviation of `radius` canvas pixels.
+    private static func blurredBackdrop(_ source: CGImageSource, canvasSize canvas: CGSize, radius: Double) throws -> CGImage {
+        guard let small = downsample(source, maxPixelSize: backdropPixelSize) else {
+            throw ComposeError.unreadable
+        }
+        let scaleUp = max(canvas.width / Double(small.width), canvas.height / Double(small.height))
+        let sigma = radius / scaleUp
+        let input = CIImage(cgImage: small)
+        // Clamping first keeps the edges from blurring into transparency.
+        let blurred = input.clampedToExtent().applyingGaussianBlur(sigma: sigma).cropped(to: input.extent)
+        let space = small.colorSpace.flatMap { $0.model == .rgb && $0.supportsOutput ? $0 : nil }
+            ?? CGColorSpace(name: CGColorSpace.sRGB)!
+        guard let result = CIContext(options: [.cacheIntermediates: false])
+                .createCGImage(blurred, from: input.extent, format: .RGBA8, colorSpace: space) else {
+            throw ComposeError.encodingFailed
+        }
+        return result
+    }
+
+    /// Draws `image` on a canvas filled with `backdrop` scaled to cover it, or with `borderColor`
+    /// when there's no backdrop. A 16-bit canvas is used only when the decoded image is deeper
+    /// than 8 bits and `allowDeep` says the layout was budgeted for 8 bytes per pixel.
+    private static func composite(_ image: CGImage, layout: Layout, borderColor: CGColor, backdrop: CGImage?,
+                                  allowDeep: Bool) throws -> CGImage {
         let width = Int(layout.canvasSize.width)
         let height = Int(layout.canvasSize.height)
         // Draw in the photo's own RGB color space (e.g. Display P3) so wide color survives.
@@ -279,8 +333,17 @@ nonisolated enum ImageComposer {
             throw ComposeError.encodingFailed
         }
         context.interpolationQuality = .high
-        context.setFillColor(borderColor)
-        context.fill(CGRect(origin: .zero, size: layout.canvasSize))
+        if let backdrop {
+            let canvas = layout.canvasSize
+            let scale = max(canvas.width / Double(backdrop.width), canvas.height / Double(backdrop.height))
+            let size = CGSize(width: Double(backdrop.width) * scale, height: Double(backdrop.height) * scale)
+            // Centered, so the bottom-left origin doesn't matter.
+            context.draw(backdrop, in: CGRect(x: (canvas.width - size.width) / 2, y: (canvas.height - size.height) / 2,
+                                              width: size.width, height: size.height))
+        } else {
+            context.setFillColor(borderColor)
+            context.fill(CGRect(origin: .zero, size: layout.canvasSize))
+        }
         // Core Graphics has a bottom-left origin.
         var drawRect = layout.imageRect
         drawRect.origin.y = layout.canvasSize.height - layout.imageRect.maxY
