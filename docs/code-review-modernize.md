@@ -24,7 +24,10 @@ Both were checked on the iPhone 16 Pro.
 
 The Liquid Glass morph, hold-to-clear and the share sheet have since been checked on the iPhone 16 Pro.
 
-Tried and dropped: blurring the cards behind the front one in `CardStack`, meant to make overlapping photos of different shapes less distracting.
+Tried and dropped:
+
+- Blurring the cards behind the front one in `CardStack`, meant to make overlapping photos of different shapes less distracting.
+- A row of border color swatches sampled from the current photo's most common colors.
 
 ## iOS features worth adopting
 
@@ -35,7 +38,6 @@ Tried and dropped: blurring the cards behind the front one in `CardStack`, meant
 
 ## Feature ideas
 
-- **Colors sampled from the photo:** offer a few border colors taken from the photo (dominant or average color), beyond the plain color picker.
 - **EXIF caption:** you already keep EXIF, so you could print camera, lens, focal length, aperture, shutter speed and ISO in the border. That fits the Space Mono look well.
 - **Rounded corners or a shadow** on the photo inside the border.
 - **Export options:** format (JPEG, HEIC or PNG), "save to album 'multiborder'", and an option to keep the original date. You currently set the date to now on purpose, and some users will want the other choice.
