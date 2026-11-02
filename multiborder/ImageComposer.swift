@@ -10,18 +10,28 @@ import SwiftUI
 import ImageIO
 import UniformTypeIdentifiers
 
+/// Canvas shapes, described in portrait; `BorderSettings.isLandscape` turns them sideways.
 nonisolated enum AspectRatio: String, CaseIterable, Identifiable, Codable, Sendable {
     case original
     case twoByThree = "2:3"
     case threeByFour = "3:4"
     case fourByFive = "4:5"
     case square = "1:1"
+    case nineBySixteen = "9:16"
 
     var id: Self { self }
 
-    var title: String { self == .original ? "Original" : rawValue }
+    /// Whether turning the canvas sideways changes its shape.
+    var hasOrientation: Bool { self != .original && self != .square }
 
-    /// Width divided by height; `nil` keeps the photo's own ratio.
+    /// The ratio as shown to the user, e.g. "2:3", or "3:2" in landscape.
+    func title(landscape: Bool) -> String {
+        guard self != .original else { return "Original" }
+        guard landscape else { return rawValue }
+        return rawValue.split(separator: ":").reversed().joined(separator: ":")
+    }
+
+    /// Portrait width divided by height; `nil` keeps the photo's own ratio.
     var widthOverHeight: Double? {
         switch self {
         case .original: nil
@@ -29,6 +39,7 @@ nonisolated enum AspectRatio: String, CaseIterable, Identifiable, Codable, Senda
         case .threeByFour: 3.0 / 4.0
         case .fourByFive: 4.0 / 5.0
         case .square: 1.0
+        case .nineBySixteen: 9.0 / 16.0
         }
     }
 
@@ -48,11 +59,32 @@ nonisolated struct BorderSettings: Codable, Equatable, Sendable {
     static let paddingRange: ClosedRange<Double> = 0...0.16
 
     var aspectRatio: AspectRatio = .fourByFive
+    /// Turns the aspect ratio sideways (e.g. 4:5 becomes 5:4).
+    var isLandscape = false
     /// Border thickness as a fraction of the canvas's shorter side.
     var paddingFraction: Double = 0
     var borderColor: Color.Resolved = Color.Resolved(red: 1, green: 1, blue: 1)
     /// Maximum output width in pixels; 0 exports at the photo's full resolution.
     var exportWidth: Int = 0
+
+    /// Canvas width divided by height after orientation; `nil` keeps the photo's own ratio.
+    var canvasWidthOverHeight: Double? {
+        aspectRatio.widthOverHeight.map { isLandscape ? 1 / $0 : $0 }
+    }
+}
+
+nonisolated extension BorderSettings {
+    /// Missing keys fall back to the defaults, so settings saved by an older version,
+    /// before a field existed, still load instead of being discarded.
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let fallback = BorderSettings()
+        aspectRatio = try container.decodeIfPresent(AspectRatio.self, forKey: .aspectRatio) ?? fallback.aspectRatio
+        isLandscape = try container.decodeIfPresent(Bool.self, forKey: .isLandscape) ?? fallback.isLandscape
+        paddingFraction = try container.decodeIfPresent(Double.self, forKey: .paddingFraction) ?? fallback.paddingFraction
+        borderColor = try container.decodeIfPresent(Color.Resolved.self, forKey: .borderColor) ?? fallback.borderColor
+        exportWidth = try container.decodeIfPresent(Int.self, forKey: .exportWidth) ?? fallback.exportWidth
+    }
 }
 
 nonisolated enum ImageComposer {
@@ -94,7 +126,7 @@ nonisolated enum ImageComposer {
         guard sourceSize.width > 0, sourceSize.height > 0 else {
             return Layout(canvasSize: .zero, imageRect: .zero)
         }
-        let ratio = settings.aspectRatio.widthOverHeight ?? sourceSize.width / sourceSize.height
+        let ratio = settings.canvasWidthOverHeight ?? sourceSize.width / sourceSize.height
         let padding = min(max(settings.paddingFraction, 0), 0.45)
         // Padding per unit of canvas width (it is measured on the shorter side).
         let paddingPerWidth = padding * min(1, 1 / ratio)

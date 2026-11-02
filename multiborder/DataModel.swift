@@ -197,6 +197,31 @@ enum TabbedItems: Int, CaseIterable {
         }
     }
 
+    // MARK: - Review request
+
+    private static let completedExportsKey = "completedExports"
+    private static let reviewRequestVersionKey = "reviewRequestVersion"
+    /// Exports that must succeed before the app asks for a review.
+    static let exportsBeforeReview = 3
+
+    /// Exports that saved every photo, counted across launches.
+    var completedExports: Int { defaults.integer(forKey: Self.completedExportsKey) }
+
+    /// True after a few successful exports, at most once per app version.
+    /// The system also limits how often the prompt actually appears.
+    var isReviewRequestDue: Bool {
+        completedExports >= Self.exportsBeforeReview
+            && defaults.string(forKey: Self.reviewRequestVersionKey) != appVersion
+    }
+
+    func recordReviewRequest() {
+        defaults.set(appVersion, forKey: Self.reviewRequestVersionKey)
+    }
+
+    private var appVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+    }
+
     /// Renders every photo not yet saved with the current settings and adds it to the
     /// photo library, one at a time to bound memory use. Stops early when cancelled.
     private func export() async {
@@ -245,6 +270,7 @@ enum TabbedItems: Int, CaseIterable {
         }
         saveStatus = .result(failures: failures, total: pending.count)
         if failures == 0 {
+            defaults.set(completedExports + 1, forKey: Self.completedExportsKey)
             // The batch is done; another Download deliberately saves it again.
             savedIDs.removeAll()
         }

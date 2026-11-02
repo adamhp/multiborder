@@ -20,23 +20,32 @@ private func isClose(_ a: Color.Resolved, _ b: Color.Resolved) -> Bool {
 }
 
 private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
-    a.aspectRatio == b.aspectRatio && a.paddingFraction == b.paddingFraction
+    a.aspectRatio == b.aspectRatio && a.isLandscape == b.isLandscape && a.paddingFraction == b.paddingFraction
         && a.exportWidth == b.exportWidth && isClose(a.borderColor, b.borderColor)
 }
 
 @Suite struct AspectRatioTests {
 
     @Test func ratios() {
-        #expect(AspectRatio.allCases == [.original, .twoByThree, .threeByFour, .fourByFive, .square])
+        #expect(AspectRatio.allCases == [.original, .twoByThree, .threeByFour, .fourByFive, .square, .nineBySixteen])
         #expect(AspectRatio.original.widthOverHeight == nil)
         #expect(AspectRatio.twoByThree.widthOverHeight == 2.0 / 3.0)
         #expect(AspectRatio.threeByFour.widthOverHeight == 0.75)
         #expect(AspectRatio.fourByFive.widthOverHeight == 0.8)
         #expect(AspectRatio.square.widthOverHeight == 1)
+        #expect(AspectRatio.nineBySixteen.widthOverHeight == 9.0 / 16.0)
     }
 
     @Test func titles() {
-        #expect(AspectRatio.allCases.map(\.title) == ["Original", "2:3", "3:4", "4:5", "1:1"])
+        #expect(AspectRatio.allCases.map { $0.title(landscape: false) } == ["Original", "2:3", "3:4", "4:5", "1:1", "9:16"])
+        #expect(AspectRatio.allCases.map { $0.title(landscape: true) } == ["Original", "3:2", "4:3", "5:4", "1:1", "16:9"])
+    }
+
+    @Test func landscapeTurnsTheCanvasSideways() {
+        #expect(BorderSettings(aspectRatio: .fourByFive, isLandscape: true).canvasWidthOverHeight == 1.25)
+        #expect(BorderSettings(aspectRatio: .fourByFive).canvasWidthOverHeight == 0.8)
+        #expect(BorderSettings(aspectRatio: .original, isLandscape: true).canvasWidthOverHeight == nil)
+        #expect(BorderSettings(aspectRatio: .square, isLandscape: true).canvasWidthOverHeight == 1)
     }
 }
 
@@ -66,11 +75,12 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
         #expect(abs(layout.imageRect.midY - 675) < 0.5)
     }
 
-    @Test(arguments: AspectRatio.allCases)
-    func canvasMatchesAspectRatio(_ ratio: AspectRatio) {
+    @Test(arguments: AspectRatio.allCases, [false, true])
+    func canvasMatchesAspectRatio(_ ratio: AspectRatio, landscape: Bool) {
         let source = CGSize(width: 3024, height: 4032)
-        let layout = ImageComposer.layout(sourceSize: source, settings: BorderSettings(aspectRatio: ratio, paddingFraction: 0.05))
-        let expected = ratio.widthOverHeight ?? source.width / source.height
+        let settings = BorderSettings(aspectRatio: ratio, isLandscape: landscape, paddingFraction: 0.05)
+        let layout = ImageComposer.layout(sourceSize: source, settings: settings)
+        let expected = settings.canvasWidthOverHeight ?? source.width / source.height
         #expect(abs(layout.canvasSize.width / layout.canvasSize.height - expected) < 0.01)
         #expect(layout.imageRect.width <= source.width + 0.5)
         #expect(layout.imageRect.height <= source.height + 0.5)
@@ -226,6 +236,18 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
         #expect(isClose(settings.borderColor, Color.Resolved(red: 0, green: 0, blue: 0)))
     }
 
+    @Test func loadsSettingsSavedBeforeOrientationExisted() throws {
+        let defaults = makeDefaults()
+        var stored = BorderSettings(aspectRatio: .twoByThree, paddingFraction: 0.1, exportWidth: 1080)
+        var json = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(stored)) as? [String: Any])
+        json.removeValue(forKey: "isLandscape")
+        defaults.set(try JSONSerialization.data(withJSONObject: json), forKey: "borderSettings")
+
+        let loaded = BorderSettings.load(from: defaults)
+        stored.isLandscape = false
+        #expect(isClose(loaded, stored))
+    }
+
     @Test func defaultsWhenNothingStored() {
         #expect(BorderSettings.load(from: makeDefaults()) == BorderSettings())
     }
@@ -248,6 +270,21 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
         model.settings.borderColor = Color.Resolved(colorSpace: .displayP3, red: 0.1, green: 0.8, blue: 0.3)
 
         #expect(isClose(DataModel(defaults: defaults).settings, model.settings))
+    }
+
+    @Test func reviewIsRequestedAfterEnoughExportsOncePerVersion() {
+        let defaults = makeDefaults()
+        let model = DataModel(defaults: defaults)
+        defaults.set(DataModel.exportsBeforeReview - 1, forKey: "completedExports")
+        #expect(!model.isReviewRequestDue)
+
+        defaults.set(DataModel.exportsBeforeReview, forKey: "completedExports")
+        #expect(model.isReviewRequestDue)
+
+        model.recordReviewRequest()
+        #expect(!model.isReviewRequestDue)
+        defaults.set(DataModel.exportsBeforeReview + 10, forKey: "completedExports")
+        #expect(!DataModel(defaults: defaults).isReviewRequestDue)
     }
 
     @Test func modelsWithSeparateDefaultsAreIsolated() {

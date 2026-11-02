@@ -19,9 +19,9 @@ struct EditView: View {
                     DesiredPaddingSlider()
                     DesiredAspectRatioChooser()
                 }
-                .padding(.horizontal, 32)
+                .padding(.horizontal, 20)
                 .frame(minHeight: 128)
-                // Five ratio buttons must fit one row; beyond this size they would truncate.
+                // Six ratio buttons must fit one row; beyond this size they would truncate.
                 .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
             }
         }
@@ -87,27 +87,41 @@ struct DesiredAspectRatioChooser: View {
     @Environment(DataModel.self) private var data
     
     var body: some View {
+        let settings = data.settings
         GridRow {
-            Image(systemName: "aspectratio")
-                .frame(width: 32, height: 32)
-                .accessibilityHidden(true)
+            Button {
+                data.settings.isLandscape.toggle()
+            } label: {
+                Image(systemName: settings.isLandscape ? "rectangle.landscape.rotate" : "rectangle.portrait.rotate")
+                    .contentTransition(.symbolEffect(.replace))
+                    .frame(width: 32, height: 40)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            // Original and square look the same either way round.
+            .disabled(!settings.aspectRatio.hasOrientation)
+            .opacity(settings.aspectRatio.hasOrientation ? 1 : 0.4)
+            .accessibilityLabel("Orientation")
+            .accessibilityValue(settings.isLandscape ? "Landscape" : "Portrait")
+            .sensoryFeedback(.selection, trigger: settings.isLandscape)
             HStack(spacing: 4) {
                 ForEach(AspectRatio.allCases) { ratio in
+                    let title = ratio.title(landscape: settings.isLandscape)
                     Button {
                         data.settings.aspectRatio = ratio
                     } label: {
                         if ratio == .original {
                             Image(systemName: "photo.artframe")
                         } else {
-                            Text(ratio.title).font(.spaceMono(16))
+                            Text(title).font(.spaceMono(16))
                         }
                     }
-                    .buttonStyle(AspectRatioButton(active: data.settings.aspectRatio == ratio))
-                    .accessibilityLabel(ratio == .original ? "Original Aspect Ratio" : "Aspect Ratio \(ratio.title)")
-                    .accessibilityAddTraits(data.settings.aspectRatio == ratio ? .isSelected : [])
+                    .buttonStyle(AspectRatioButton(active: settings.aspectRatio == ratio))
+                    .accessibilityLabel(ratio == .original ? "Original Aspect Ratio" : "Aspect Ratio \(title)")
+                    .accessibilityAddTraits(settings.aspectRatio == ratio ? .isSelected : [])
                 }
             }
-            .sensoryFeedback(.selection, trigger: data.settings.aspectRatio)
+            .sensoryFeedback(.selection, trigger: settings.aspectRatio)
         }
         .frame(minHeight: 32)
     }
@@ -124,8 +138,11 @@ struct AspectRatioButton: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .foregroundStyle(active ? .accent : .white)
-            .padding(.horizontal, 6)
-            .frame(minWidth: 48, minHeight: 40)
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            .padding(.horizontal, 4)
+            // The buttons share the row equally.
+            .frame(maxWidth: .infinity, minHeight: 40)
             .background(active ? .stone800 : .stone600, in: .rect(cornerRadius: 12))
     }
 }

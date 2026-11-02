@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import StoreKit
 
 /// The export width presets offered as buttons below the slider.
 enum ExportSize: Int, CaseIterable, Identifiable {
@@ -172,6 +173,7 @@ struct KofiButton: View {
 struct DownloadButton: View {
     
     @Environment(DataModel.self) private var data
+    @Environment(\.requestReview) private var requestReview
     
     var body: some View {
         Button {
@@ -236,6 +238,11 @@ struct DownloadButton: View {
                 .task {
                     do { try await Task.sleep(for: .seconds(2)) } catch { return }
                     data.resetSaveStatus()
+                    // Ask once the confirmation is gone, so the prompt doesn't cover it.
+                    if data.isReviewRequestDue {
+                        data.recordReviewRequest()
+                        requestReview()
+                    }
                 }
             case .failed:
                 sized {

@@ -96,35 +96,108 @@ struct SelectButton: View {
     }
 }
 
+/// Tap to remove the current photo; hold until the ring fills to remove them all.
 struct ClearButton: View {
-    
+
+    /// A press shorter than this is a tap; a longer one starts the hold.
+    static let tapDuration: Duration = .milliseconds(250)
+    /// How long the ring takes to fill once the hold starts.
+    static let holdDuration: Duration = .seconds(1.5)
+    /// Haptic taps while the ring fills, each a little stronger than the last.
+    static let holdTicks = 20
+
     let data: DataModel
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var tap = false
-    
+    /// True while the finger is down; resets on its own if the system cancels the touch,
+    /// so an interrupted hold can't go on to remove everything.
+    @GestureState private var isPressed = false
+    /// When the current press began, to tell a tap from an abandoned hold.
+    @State private var pressStart: ContinuousClock.Instant?
+    /// How full the ring is, 0...1.
+    @State private var holdProgress = 0.0
+    /// Haptic taps played so far in the current hold.
+    @State private var holdTick = 0
+
     var body: some View {
-        Button {
-            data.removeCurrent()
-            tap = true
-        } label: {
-            ZStack {
-                Circle()
-                    .fill(.gray.opacity(0.25))
-                    .frame(width: 64, height: 64)
-                Image(systemName: "xmark")
-                    .foregroundStyle(.gray.opacity(0.5))
-                    .font(.system(size: 32, weight: .semibold))
-            }
+        ZStack {
+            Circle()
+                .fill(.gray.opacity(0.25))
+            Circle()
+                .trim(from: 0, to: holdProgress)
+                .stroke(.accent, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+            Image(systemName: "xmark")
+                .foregroundStyle(holdProgress > 0 ? Color.accent : Color.gray.opacity(0.5))
+                .font(.system(size: 32, weight: .semibold))
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Remove Photo")
+        .frame(width: 64, height: 64)
+        .contentShape(.circle)
+        .scaleEffect(tap ? 1.2 : 1 + (reduceMotion ? 0 : 0.3 * holdProgress))
+        .animation(.spring(response: 0.4, dampingFraction: 0.6), value: tap)
+        .gesture(press)
+        .task(id: isPressed) {
+            guard isPressed else {
+                pressStart = nil
+                holdTick = 0
+                withAnimation(.easeOut(duration: 0.2)) { holdProgress = 0 }
+                return
+            }
+            do {
+                try await Task.sleep(for: Self.tapDuration)
+                withAnimation(.linear(duration: Self.holdDuration / .seconds(1))) { holdProgress = 1 }
+                for tick in 1...Self.holdTicks {
+                    try await Task.sleep(for: Self.holdDuration / Self.holdTicks)
+                    holdTick = tick
+                }
+            } catch {
+                return
+            }
+            data.clearSelection()
+        }
         .task(id: tap) {
             guard tap else { return }
             do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
             tap = false
         }
-        .scaleEffect(tap ? 1.2 : 1)
-        .animation(.spring(response: 0.4, dampingFraction: 0.6), value: tap)
         .sensoryFeedback(.success, trigger: tap)
+        .sensoryFeedback(trigger: holdTick) { _, tick in
+            guard tick > 0 else { return nil }
+            let fraction = Double(tick) / Double(Self.holdTicks)
+            // Firm from the first tap, so the hold is unmistakable, then heavier as the ring fills.
+            let weight: SensoryFeedback.Weight = fraction < 1.0 / 3 ? .light : fraction < 2.0 / 3 ? .medium : .heavy
+            return .impact(weight: weight, intensity: 0.5 + 0.5 * fraction)
+        }
+        .accessibilityElement()
+        .accessibilityLabel("Remove Photo")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityHint("Hold to remove all photos")
+        .accessibilityAction { removeCurrent() }
+        .accessibilityAction(named: "Remove All Photos") { data.clearSelection() }
+    }
+
+    /// Tracks the finger directly, so a quick release is a tap and an
+    /// abandoned hold does nothing instead of falling back to a tap.
+    private var press: some Gesture {
+        DragGesture(minimumDistance: 0)
+            .updating($isPressed) { _, pressed, _ in pressed = true }
+            .onChanged { _ in
+                if pressStart == nil {
+                    pressStart = .now
+                }
+            }
+            .onEnded { _ in
+                guard let start = pressStart else { return }
+                pressStart = nil
+                if ContinuousClock.now - start < Self.tapDuration {
+                    removeCurrent()
+                }
+            }
+    }
+
+    private func removeCurrent() {
+        data.removeCurrent()
+        tap = true
     }
 }

@@ -53,6 +53,7 @@ extension View {
 struct TabBar: View {
 
     @Environment(DataModel.self) private var data
+    @Namespace private var glassNamespace
 
     var body: some View {
         let items = HStack {
@@ -67,7 +68,7 @@ struct TabBar: View {
                         AccessibilityNotification.Announcement("Select some photos first").post()
                     }
                 } label: {
-                    TabItem(item: item, isActive: data.selectedTab == item)
+                    TabItem(item: item, isActive: data.selectedTab == item, glassNamespace: glassNamespace)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(item.title)
@@ -81,16 +82,18 @@ struct TabBar: View {
         // Like the system tab bar: capped size, with the large content viewer beyond it.
         .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
 
-        if #available(iOS 26, *) {
-            GlassEffectContainer {
+        Group {
+            if #available(iOS 26, *) {
+                // Groups the tab pills so the active one morphs from tab to tab.
+                // The bar itself isn't glass: glass can't sample glass layered on it.
+                GlassEffectContainer {
+                    items
+                }
+            } else {
                 items
             }
-            .glassEffect(.regular.tint(.accent.opacity(0.2)), in: .rect(cornerRadius: 20))
-        } else {
-            items
-                .background(.accent.opacity(0.2))
-                .clipShape(.rect(cornerRadius: 20))
         }
+        .background(.accent.opacity(0.2), in: .rect(cornerRadius: 20))
     }
 }
 
@@ -98,6 +101,8 @@ struct TabItem: View {
 
     let item: TabbedItems
     let isActive: Bool
+    /// Shared by every tab, so the one active pill moves between them.
+    let glassNamespace: Namespace.ID
 
     var body: some View {
         let content = HStack {
@@ -117,6 +122,7 @@ struct TabItem: View {
             if #available(iOS 26, *), isActive {
                 content
                     .glassEffect(.regular.tint(.accent.opacity(0.5)).interactive(), in: .rect(cornerRadius: 16))
+                    .glassEffectID("activeTab", in: glassNamespace)
             } else {
                 content
                     .background(isActive ? .accent.opacity(0.5) : .clear)
