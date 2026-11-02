@@ -77,12 +77,20 @@ nonisolated enum ImageComposer {
     /// Bytes the export canvas may use; keeps a 48MP photo with a wide border from exhausting memory.
     static let maxCanvasBytes = 400_000_000.0
 
+    /// Canvas pixels that fit in `maxCanvasBytes` for a photo with `bitsPerComponent` bits per channel.
+    /// Deeper photos (e.g. 10-bit HEIC) are composited in a 16-bit RGBA canvas (8 bytes per pixel);
+    /// everything else uses 8-bit RGBA (4 bytes per pixel).
+    static func maxCanvasPixels(bitsPerComponent: Int) -> Double {
+        maxCanvasBytes / (bitsPerComponent > 8 ? 8 : 4)
+    }
+
     /// Canvas and photo placement for a photo of `sourceSize` pixels.
     ///
     /// The canvas is as large as needed to draw the photo at its native resolution
     /// (never upscaled), then shrunk to `exportWidth` or `maxPixels` if needed. Everything
     /// scales linearly, so the preview uses the same layout scaled to fit its container.
-    static func layout(sourceSize: CGSize, settings: BorderSettings, maxPixels: Double = maxCanvasBytes / 4) -> Layout {
+    /// The default `maxPixels` is the 8-bit budget; `render` passes the budget for the photo's depth.
+    static func layout(sourceSize: CGSize, settings: BorderSettings, maxPixels: Double = maxCanvasPixels(bitsPerComponent: 8)) -> Layout {
         guard sourceSize.width > 0, sourceSize.height > 0 else {
             return Layout(canvasSize: .zero, imageRect: .zero)
         }
@@ -156,14 +164,18 @@ nonisolated enum ImageComposer {
               let pixelSize = uprightPixelSize(of: source) else {
             throw ComposeError.unreadable
         }
-        let layout = layout(sourceSize: pixelSize, settings: settings)
+        // Budget the canvas for the depth it will be composited at, so 16-bit canvases stay within maxCanvasBytes.
+        let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
+        let deep = (properties?[kCGImagePropertyDepth] as? Int ?? 8) > 8
+        let layout = layout(sourceSize: pixelSize, settings: settings,
+                            maxPixels: maxCanvasPixels(bitsPerComponent: deep ? 16 : 8))
         let longestSide = Int(max(layout.imageRect.width, layout.imageRect.height).rounded(.up))
         // Scoped so the decoded photo is freed before encoding.
         let canvas = try {
             guard let image = downsample(source, maxPixelSize: longestSide) else {
                 throw ComposeError.unreadable
             }
-            return try composite(image, layout: layout, borderColor: settings.borderColor.cgColor)
+            return try composite(image, layout: layout, borderColor: settings.borderColor.cgColor, allowDeep: deep)
         }()
 
         let metadata = exportMetadata(source)
@@ -201,14 +213,16 @@ nonisolated enum ImageComposer {
         return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
     }
 
-    private static func composite(_ image: CGImage, layout: Layout, borderColor: CGColor) throws -> CGImage {
+    /// Draws `image` on a border-colored canvas. A 16-bit canvas is used only when the decoded image
+    /// is deeper than 8 bits and `allowDeep` says the layout was budgeted for 8 bytes per pixel.
+    private static func composite(_ image: CGImage, layout: Layout, borderColor: CGColor, allowDeep: Bool) throws -> CGImage {
         let width = Int(layout.canvasSize.width)
         let height = Int(layout.canvasSize.height)
         // Draw in the photo's own RGB color space (e.g. Display P3) so wide color survives.
         let sourceSpace = image.colorSpace.flatMap { $0.model == .rgb && $0.supportsOutput ? $0 : nil }
         let sRGB = CGColorSpace(name: CGColorSpace.sRGB)!
         let context: CGContext?
-        if image.bitsPerComponent > 8 {
+        if allowDeep && image.bitsPerComponent > 8 {
             context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 16, bytesPerRow: 0,
                                 space: sourceSpace ?? sRGB, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
         } else {
@@ -235,6 +249,8 @@ nonisolated enum ImageComposer {
 
     /// Source metadata minus what no longer applies (pixels are already upright and resized)
     /// and minus location and maker notes, which a photo posted online shouldn't carry.
+    /// Location means GPS plus the IPTC place fields (city, state, country, sublocation and
+    /// the IPTC Extension location structures); other IPTC fields such as creator and copyright are kept.
     private static func exportMetadata(_ source: CGImageSource) -> [CFString: Any] {
         var metadata = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any] ?? [:]
         for key in [kCGImagePropertyOrientation, kCGImagePropertyPixelWidth, kCGImagePropertyPixelHeight,
@@ -244,6 +260,19 @@ nonisolated enum ImageComposer {
         if var tiff = metadata[kCGImagePropertyTIFFDictionary] as? [CFString: Any] {
             tiff.removeValue(forKey: kCGImagePropertyTIFFOrientation)
             metadata[kCGImagePropertyTIFFDictionary] = tiff
+        }
+        if var iptc = metadata[kCGImagePropertyIPTCDictionary] as? [CFString: Any] {
+            for key in [kCGImagePropertyIPTCCity, kCGImagePropertyIPTCSubLocation, kCGImagePropertyIPTCProvinceState,
+                        kCGImagePropertyIPTCCountryPrimaryLocationName, kCGImagePropertyIPTCCountryPrimaryLocationCode,
+                        kCGImagePropertyIPTCContentLocationName, kCGImagePropertyIPTCContentLocationCode,
+                        kCGImagePropertyIPTCExtLocationCreated, kCGImagePropertyIPTCExtLocationShown] {
+                iptc.removeValue(forKey: key)
+            }
+            if iptc.isEmpty {
+                metadata.removeValue(forKey: kCGImagePropertyIPTCDictionary)
+            } else {
+                metadata[kCGImagePropertyIPTCDictionary] = iptc
+            }
         }
         if var exif = metadata[kCGImagePropertyExifDictionary] as? [CFString: Any] {
             exif.removeValue(forKey: kCGImagePropertyExifPixelXDimension)

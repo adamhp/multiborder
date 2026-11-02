@@ -49,7 +49,9 @@ struct SelectView: View {
                         .frame(height: 64)
                 }
             }
-            .sensoryFeedback(.success, trigger: !data.selection.isEmpty)
+            .sensoryFeedback(.success, trigger: data.selection.isEmpty) { wasEmpty, isEmpty in
+                wasEmpty && !isEmpty
+            }
             .task(id: data.helpTextShown) {
                 guard data.helpTextShown else { return }
                 do { try await Task.sleep(for: .seconds(2)) } catch { return }

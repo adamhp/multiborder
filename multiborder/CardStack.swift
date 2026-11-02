@@ -7,140 +7,181 @@
 import SwiftUI
 
 public struct CardStack<Data, Content>: View where Data: RandomAccessCollection, Data.Element: Identifiable, Content: View {
-    
-    @State private var currentIndex: Double = 0.0
-    @State private var previousIndex: Double = 0.0
-    
+
+    /// How far the in-flight drag has moved the stack, in cards (positive moves towards later cards).
+    /// Reset to zero with the snap spring when the drag ends or is cancelled.
+    @GestureState(resetTransaction: Transaction(animation: .interpolatingSpring(stiffness: 300, damping: 40)))
+    private var dragOffset: Double = 0
+
     private var data: Data
-    
+
     @ViewBuilder private let content: (Data.Element) -> Content
-    @Binding var finalCurrentIndex: Int
-    
+    /// The resting index of the topmost card; the single source of truth for the stack's position.
+    @Binding private var currentIndex: Int
+
     /// Creates a stack with the given content
     /// - Parameters:
     ///   - data: The identifiable data for computing the list.
-    ///   - currentIndex: The index of the topmost card in the stack
+    ///   - currentIndex: The index of the topmost card in the stack. Dragging or using the
+    ///     VoiceOver adjustable action updates it, and the stack follows changes made to it.
     ///   - content: A view builder that creates the view for a single card
-    public init(_ data: Data, currentIndex: Binding<Int> = .constant(0), @ViewBuilder content: @escaping (Data.Element) -> Content) {
+    public init(_ data: Data, currentIndex: Binding<Int>, @ViewBuilder content: @escaping (Data.Element) -> Content) {
         self.data = data
         self.content = content
-        _finalCurrentIndex = currentIndex
+        _currentIndex = currentIndex
     }
-    
+
     public var body: some View {
+        let position = self.position
         ZStack {
-            ForEach(Array(data.enumerated()), id: \.element.id) { (index, element) in
-                content(element)
-                    .zIndex(zIndex(for: index))
-                    .offset(x: xOffset(for: index), y: 0)
-                    .scaleEffect(scale(for: index), anchor: .center)
-                    .rotationEffect(.degrees(rotationDegrees(for: index)))
+            // Only cards near the current position can be seen, so the rest aren't built.
+            ForEach(visibleCards(around: position), id: \.element.id) { card in
+                content(card.element)
+                    .zIndex(zIndex(for: card.index, position: position))
+                    .offset(x: xOffset(for: card.index, position: position), y: 0)
+                    .scaleEffect(scale(for: card.index, position: position), anchor: .center)
+                    .rotationEffect(.degrees(rotationDegrees(for: card.index, position: position)))
             }
         }
-        .onChange(of: data.count, {
-            if (data.count == Int(currentIndex)) {
-                self.goTo(Double(finalCurrentIndex))
-                if (self.previousIndex >= 1) {
-                    self.previousIndex -= 1
-                }
+        // Keep the binding valid when cards are removed, or when the stack appears with a stale index.
+        .onChange(of: data.count, initial: true) {
+            let clamped = restingIndex
+            if currentIndex != clamped {
+                currentIndex = clamped
             }
-        })
-        .onChange(of: finalCurrentIndex, {
-            if (self.currentIndex != Double(finalCurrentIndex)) {
-                self.goTo(Double(finalCurrentIndex))
-                self.previousIndex = self.currentIndex
-            }
-        })
+        }
         .highPriorityGesture(dragGesture)
         // VoiceOver can't drag the stack, so it moves between cards by swiping up or down.
         .accessibilityElement(children: .ignore)
         .accessibilityAdjustableAction { direction in
-            let step: Double
+            let step: Int
             switch direction {
             case .increment: step = 1
             case .decrement: step = -1
             @unknown default: return
             }
             withAnimation(.interpolatingSpring(stiffness: 300, damping: 40)) {
-                goTo(round(currentIndex) + step)
+                currentIndex = CardStackLayout.clampedIndex(restingIndex + step, count: data.count)
             }
-            previousIndex = currentIndex
         }
     }
-    
+
+    /// The bound index clamped to the cards that exist.
+    private var restingIndex: Int {
+        CardStackLayout.clampedIndex(currentIndex, count: data.count)
+    }
+
+    /// The fractional index of the topmost card, including any in-flight drag.
+    private var position: Double {
+        Double(restingIndex) + dragOffset
+    }
+
+    private func visibleCards(around position: Double) -> [(index: Int, element: Data.Element)] {
+        CardStackLayout.visibleRange(around: position, count: data.count).map { index in
+            (index, data[data.index(data.startIndex, offsetBy: index)])
+        }
+    }
+
     private var dragGesture: some Gesture {
         DragGesture()
-            .onChanged { value in
-                withAnimation(.interactiveSpring()) {
-                    let x = (value.translation.width / 300) - self.previousIndex
-                    self.currentIndex = -x
-                }
+            .updating($dragOffset) { value, state, transaction in
+                transaction.animation = .interactiveSpring()
+                state = CardStackLayout.dragOffset(forTranslation: value.translation.width)
             }
             .onEnded { value in
-                self.snapToNearestAbsoluteIndex(value.predictedEndTranslation)
-                self.previousIndex = self.currentIndex
-            }
-    }
-    
-    private func snapToNearestAbsoluteIndex(_ predictedEndTranslation: CGSize) {
-        withAnimation(.interpolatingSpring(stiffness: 300, damping: 40)) {
-            let translation = predictedEndTranslation.width
-            if abs(translation) > 200 {
-                if translation > 0 {
-                    self.goTo(round(self.previousIndex) - 1)
-                } else {
-                    self.goTo(round(self.previousIndex) + 1)
+                let target = CardStackLayout.snapTarget(
+                    restingIndex: restingIndex,
+                    translation: value.translation.width,
+                    predictedEndTranslation: value.predictedEndTranslation.width,
+                    count: data.count
+                )
+                withAnimation(.interpolatingSpring(stiffness: 300, damping: 40)) {
+                    currentIndex = target
                 }
-            } else {
-                self.currentIndex = round(currentIndex)
             }
-        }
     }
-    
-    private func goTo(_ index: Double) {
-        let maxIndex = Double(data.count - 1)
-        if index < 0 {
-            self.currentIndex = 0
-        } else if index > maxIndex {
-            self.currentIndex = maxIndex
-        } else {
-            self.currentIndex = index
-        }
-        self.finalCurrentIndex = Int(self.currentIndex)
-    }
-    
-    private func zIndex(for index: Int) -> Double {
-        if (Double(index) + 0.5) < currentIndex {
+
+    private func zIndex(for index: Int, position: Double) -> Double {
+        if (Double(index) + 0.5) < position {
             return -Double(data.count - index)
         } else {
             return Double(data.count - index)
         }
     }
-    
-    private func xOffset(for index: Int) -> CGFloat {
-        let topCardProgress = currentPosition(for: index)
+
+    private func xOffset(for index: Int, position: Double) -> CGFloat {
+        let topCardProgress = currentPosition(for: index, position: position)
         let padding = 35.0
-        let x = ((CGFloat(index) - currentIndex) * padding)
+        let x = ((CGFloat(index) - position) * padding)
         if topCardProgress > 0 && topCardProgress < 0.99 && index < (data.count - 1) {
             return x * swingOutMultiplier(topCardProgress)
         }
         return x
     }
-    
-    private func scale(for index: Int) -> CGFloat {
-        return 1.0 - (0.1 * abs(currentPosition(for: index)))
+
+    private func scale(for index: Int, position: Double) -> CGFloat {
+        return 1.0 - (0.1 * abs(currentPosition(for: index, position: position)))
     }
-    
-    private func rotationDegrees(for index: Int) -> Double {
-        return -currentPosition(for: index) * 2
+
+    private func rotationDegrees(for index: Int, position: Double) -> Double {
+        return -currentPosition(for: index, position: position) * 2
     }
-    
-    private func currentPosition(for index: Int) -> Double {
-        currentIndex - Double(index)
+
+    private func currentPosition(for index: Int, position: Double) -> Double {
+        position - Double(index)
     }
-    
+
     private func swingOutMultiplier(_ progress: Double) -> Double {
         return sin(Double.pi * progress) * 5
+    }
+}
+
+/// The index arithmetic behind `CardStack`, kept separate so it can be unit tested.
+nonisolated enum CardStackLayout {
+
+    /// Points of horizontal drag that move the stack by one card.
+    static let pointsPerCard = 300.0
+    /// A drag whose predicted end is further than this, in points, moves exactly one card.
+    static let flingThreshold = 200.0
+    /// Cards rendered on each side of the current position. Cards more than a few away are
+    /// off screen; the extra margin keeps cards from popping in or out during a drag or the
+    /// spring animation after one.
+    static let windowRadius = 7
+
+    /// `index` clamped to `0..<count`, or 0 when there are no cards.
+    static func clampedIndex(_ index: Int, count: Int) -> Int {
+        guard count > 0 else { return 0 }
+        return min(max(index, 0), count - 1)
+    }
+
+    /// The drag offset in cards for a horizontal translation; dragging left moves to later cards.
+    static func dragOffset(forTranslation translation: Double) -> Double {
+        -translation / pointsPerCard
+    }
+
+    /// The indices to render for a stack whose topmost card is at the fractional `position`.
+    static func visibleRange(around position: Double, count: Int) -> Range<Int> {
+        guard count > 0 else { return 0..<0 }
+        // Clamp first so a drag past either end still shows the end cards and can't overflow `Int`.
+        let clamped = position.isNaN ? 0 : min(max(position, 0), Double(count - 1))
+        let lower = max(Int(clamped.rounded(.down)) - windowRadius, 0)
+        let upper = min(Int(clamped.rounded(.up)) + windowRadius, count - 1)
+        return lower..<(upper + 1)
+    }
+
+    /// The index a drag settles on: one card forwards or back for a fling, otherwise the
+    /// card nearest to where the drag was released. Always a valid index (0 when empty).
+    static func snapTarget(restingIndex: Int, translation: Double, predictedEndTranslation: Double, count: Int) -> Int {
+        guard count > 0 else { return 0 }
+        let target: Int
+        if abs(predictedEndTranslation) > flingThreshold {
+            target = predictedEndTranslation > 0 ? restingIndex - 1 : restingIndex + 1
+        } else {
+            let released = Double(restingIndex) + dragOffset(forTranslation: translation)
+            let clamped = released.isNaN ? Double(restingIndex) : min(max(released, 0), Double(count - 1))
+            target = Int(clamped.rounded())
+        }
+        return clampedIndex(target, count: count)
     }
 }
 

@@ -13,26 +13,32 @@ struct ImageStack: View {
 
     var body: some View {
         @Bindable var data = data
-        if data.attachments.isEmpty {
-            Image(systemName: "photo")
-                .resizable()
-                .scaledToFit()
-                .padding(96)
-                .opacity(0.1)
-                .foregroundStyle(.accent)
-        } else {
-            CardStack(data.attachments, currentIndex: $data.currentIndex) { imageAttachment in
-                ImageContainerView(imageAttachment: imageAttachment)
+        Group {
+            if data.attachments.isEmpty {
+                Image(systemName: "photo")
+                    .resizable()
+                    .scaledToFit()
+                    .padding(96)
+                    .opacity(0.1)
+                    .foregroundStyle(.accent)
+            } else {
+                CardStack(data.attachments, currentIndex: $data.currentIndex) { imageAttachment in
+                    ImageContainerView(imageAttachment: imageAttachment)
+                }
+                .padding(8)
+                .accessibilityLabel("Photo")
+                .accessibilityValue(accessibilityValue)
+                // Re-run when the visible card or the number of cards changes.
+                .task(id: [data.currentIndex, data.attachments.count]) {
+                    await data.loadThumbnails(around: data.currentIndex)
+                }
             }
-            .padding(8)
-            .accessibilityLabel("Photo")
-            .accessibilityValue(accessibilityValue)
-            .task {
+        }
+        // A new selection starts at the first photo. Only a change resets it, so switching
+        // between the Select and Edit pages keeps the current card.
+        .onChange(of: data.attachments.isEmpty) { _, isEmpty in
+            if !isEmpty {
                 data.currentIndex = 0
-            }
-            // Re-run when the visible card or the number of cards changes.
-            .task(id: [data.currentIndex, data.attachments.count]) {
-                await data.loadThumbnails(around: data.currentIndex)
             }
         }
     }

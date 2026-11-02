@@ -118,11 +118,14 @@ enum TabbedItems: Int, CaseIterable {
     var selectedTab: TabbedItems = .select
     var currentIndex = 0
 
-    var selection = [PhotosPickerItem]() {
-        didSet {
+    /// The picked photos, derived from `attachments` so the two can't drift apart.
+    /// Setting it starts a new batch.
+    var selection: [PhotosPickerItem] {
+        get { attachments.map(\.item) }
+        set {
             exportTask?.cancel()
             savedIDs.removeAll()
-            attachments = selection.map(ImageAttachment.init)
+            attachments = newValue.map(ImageAttachment.init)
             resetSaveStatus()
         }
     }
@@ -130,7 +133,8 @@ enum TabbedItems: Int, CaseIterable {
     private(set) var attachments = [ImageAttachment]()
 
     @ObservationIgnored private let defaults: UserDefaults
-    @ObservationIgnored private var exportTask: Task<Void, Never>?
+    /// The running export, if any; cleared when it finishes.
+    @ObservationIgnored private(set) var exportTask: Task<Void, Never>?
     /// Photos already added to the library with the current settings, so retrying after
     /// a partial failure only saves the rest.
     @ObservationIgnored private var savedIDs = Set<ImageAttachment.ID>()
@@ -183,10 +187,14 @@ enum TabbedItems: Int, CaseIterable {
         }
     }
 
-    /// Starts saving the photos in the background; see `export()`.
+    /// Starts saving the photos in the background; see `export()`. Does nothing while an
+    /// export is pending or running, so `exportTask` always refers to the one that runs.
     func startExport() {
-        guard saveStatus != .saving else { return }
-        exportTask = Task { await export() }
+        guard exportTask == nil else { return }
+        exportTask = Task {
+            await export()
+            exportTask = nil
+        }
     }
 
     /// Renders every photo not yet saved with the current settings and adds it to the

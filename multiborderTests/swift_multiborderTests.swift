@@ -7,6 +7,7 @@
 
 import Foundation
 import ImageIO
+import PhotosUI
 import SwiftUI
 import Testing
 import UniformTypeIdentifiers
@@ -128,6 +129,28 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
         #expect(layout.imageRect.width < source.width)
     }
 
+    @Test func deepCanvasBudgetIsHalved() {
+        #expect(ImageComposer.maxCanvasPixels(bitsPerComponent: 8) == ImageComposer.maxCanvasBytes / 4)
+        #expect(ImageComposer.maxCanvasPixels(bitsPerComponent: 10) == ImageComposer.maxCanvasBytes / 8)
+        #expect(ImageComposer.maxCanvasPixels(bitsPerComponent: 16) == ImageComposer.maxCanvasBytes / 8)
+    }
+
+    @Test func sixteenBitBudgetCapsCanvasBytes() {
+        // 48MP photo with a wide border: well over the budget at native size.
+        let source = CGSize(width: 8064, height: 6048)
+        let settings = BorderSettings(aspectRatio: .square, paddingFraction: 0.16)
+        let maxPixels = ImageComposer.maxCanvasPixels(bitsPerComponent: 16)
+        let deep = ImageComposer.layout(sourceSize: source, settings: settings, maxPixels: maxPixels)
+        // Rounding can add at most about one row and column.
+        let slack = 8 * (deep.canvasSize.width + deep.canvasSize.height + 1)
+        #expect(deep.canvasSize.width * deep.canvasSize.height * 8 <= ImageComposer.maxCanvasBytes + slack)
+        // Same proportions as the 8-bit (preview/default) layout, only smaller.
+        let shallow = ImageComposer.layout(sourceSize: source, settings: settings)
+        #expect(deep.canvasSize.width < shallow.canvasSize.width)
+        #expect(abs(deep.canvasSize.width / deep.canvasSize.height - shallow.canvasSize.width / shallow.canvasSize.height) < 0.01)
+        #expect(abs(deep.imageRect.width / deep.canvasSize.width - shallow.imageRect.width / shallow.canvasSize.width) < 0.01)
+    }
+
     @Test func emptySourceHasEmptyLayout() {
         let layout = ImageComposer.layout(sourceSize: .zero, settings: BorderSettings())
         #expect(layout.canvasSize == .zero)
@@ -232,6 +255,66 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
         model.settings.aspectRatio = .square
         #expect(DataModel(defaults: makeDefaults()).settings.aspectRatio == BorderSettings().aspectRatio)
     }
+
+    @Test func startExportTwiceKeepsOneExport() async throws {
+        let model = DataModel(defaults: makeDefaults())
+        model.startExport()
+        let first = try #require(model.exportTask)
+        // A second tap in the same run-loop turn must not replace the pending export.
+        model.startExport()
+        #expect(model.exportTask == first)
+
+        await first.value
+        // The finished export clears itself so a later Download can start again.
+        #expect(model.exportTask == nil)
+        #expect(model.saveStatus == .unsaved)
+
+        model.startExport()
+        let second = try #require(model.exportTask)
+        #expect(second != first)
+        await second.value
+        #expect(model.exportTask == nil)
+    }
+
+    @Test func removeCurrentKeepsSelectionInSync() {
+        let model = DataModel(defaults: makeDefaults())
+        let items = ["a", "b", "c"].map { PhotosPickerItem(itemIdentifier: $0) }
+        model.selection = items
+        #expect(model.attachments.map(\.id) == ["a", "b", "c"])
+        #expect(model.selection == items)
+
+        let remaining = [model.attachments[0], model.attachments[2]]
+        model.currentIndex = 1
+        model.removeCurrent()
+        #expect(model.selection == [items[0], items[2]])
+        #expect(model.attachments.map(\.id) == ["a", "c"])
+        // The remaining attachments are the same objects, so their loaded thumbnails survive.
+        let sameObjects = model.attachments.elementsEqual(remaining, by: ===)
+        #expect(sameObjects)
+        #expect(model.currentIndex == 0)
+    }
+
+    @Test func removingTheLastPhotoClearsTheSelection() {
+        let model = DataModel(defaults: makeDefaults())
+        model.selection = [PhotosPickerItem(itemIdentifier: "only")]
+        model.removeCurrent()
+        #expect(model.selection.isEmpty)
+        #expect(model.attachments.isEmpty)
+        #expect(model.currentIndex == 0)
+        #expect(model.saveStatus == .unsaved)
+    }
+
+    @Test func settingSelectionRebuildsAttachments() {
+        let model = DataModel(defaults: makeDefaults())
+        model.selection = [PhotosPickerItem(itemIdentifier: "x")]
+        let before = model.attachments
+        model.selection = [PhotosPickerItem(itemIdentifier: "x"), PhotosPickerItem(itemIdentifier: "y")]
+        #expect(model.attachments.map(\.id) == ["x", "y"])
+        #expect(model.attachments.first !== before.first)
+        model.clearSelection()
+        #expect(model.selection.isEmpty)
+        #expect(model.attachments.isEmpty)
+    }
 }
 
 @Suite struct SaveStatusTests {
@@ -324,6 +407,38 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
         #expect(properties[kCGImagePropertyGPSDictionary] == nil)
     }
 
+    @Test func renderDropsIPTCLocationButKeepsCopyright() async throws {
+        let input = try makeJPEG(width: 40, height: 30)
+        let source = try #require(CGImageSourceCreateWithData(input as CFData, nil))
+        let tagged = NSMutableData()
+        let destination = try #require(CGImageDestinationCreateWithData(tagged, UTType.jpeg.identifier as CFString, 1, nil))
+        let iptc: [CFString: Any] = [
+            kCGImagePropertyIPTCCity: "Cupertino",
+            kCGImagePropertyIPTCProvinceState: "CA",
+            kCGImagePropertyIPTCCountryPrimaryLocationName: "USA",
+            kCGImagePropertyIPTCSubLocation: "Apple Park",
+            kCGImagePropertyIPTCCopyrightNotice: "(c) Example",
+        ]
+        CGImageDestinationAddImageFromSource(destination, source, 0, [kCGImagePropertyIPTCDictionary: iptc] as CFDictionary)
+        #expect(CGImageDestinationFinalize(destination))
+
+        // Sanity check: the fixture really carries IPTC location.
+        let taggedSource = try #require(CGImageSourceCreateWithData(tagged as CFData, nil))
+        let taggedProps = try #require(CGImageSourceCopyPropertiesAtIndex(taggedSource, 0, nil) as? [CFString: Any])
+        let taggedIPTC = try #require(taggedProps[kCGImagePropertyIPTCDictionary] as? [CFString: Any])
+        #expect(taggedIPTC[kCGImagePropertyIPTCCity] != nil)
+
+        let output = try await ImageComposer.render(tagged as Data, settings: BorderSettings())
+        let exported = try #require(CGImageSourceCreateWithData(output as CFData, nil))
+        let properties = try #require(CGImageSourceCopyPropertiesAtIndex(exported, 0, nil) as? [CFString: Any])
+        let exportedIPTC = properties[kCGImagePropertyIPTCDictionary] as? [CFString: Any] ?? [:]
+        #expect(exportedIPTC[kCGImagePropertyIPTCCity] == nil)
+        #expect(exportedIPTC[kCGImagePropertyIPTCProvinceState] == nil)
+        #expect(exportedIPTC[kCGImagePropertyIPTCCountryPrimaryLocationName] == nil)
+        #expect(exportedIPTC[kCGImagePropertyIPTCSubLocation] == nil)
+        #expect(exportedIPTC[kCGImagePropertyIPTCCopyrightNotice] as? String == "(c) Example")
+    }
+
     @Test func renderRespectsExportWidthAndOrientation() async throws {
         let settings = BorderSettings(aspectRatio: .fourByFive, paddingFraction: 0.05, exportWidth: 200)
         let output = try await ImageComposer.render(makeJPEG(width: 400, height: 300, orientation: 6), settings: settings)
@@ -334,5 +449,55 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
         let (image, _) = try decode(output)
         #expect(image.width == 200)
         #expect(image.height == 250)
+    }
+}
+
+@Suite struct CardStackLayoutTests {
+
+    @Test func clampedIndexStaysInRange() {
+        #expect(CardStackLayout.clampedIndex(-3, count: 5) == 0)
+        #expect(CardStackLayout.clampedIndex(2, count: 5) == 2)
+        #expect(CardStackLayout.clampedIndex(9, count: 5) == 4)
+        #expect(CardStackLayout.clampedIndex(3, count: 0) == 0)
+    }
+
+    @Test func draggingLeftMovesToLaterCards() {
+        #expect(CardStackLayout.dragOffset(forTranslation: -300) == 1)
+        #expect(CardStackLayout.dragOffset(forTranslation: 150) == -0.5)
+    }
+
+    @Test func visibleRangeIsAWindowAroundThePosition() {
+        #expect(CardStackLayout.visibleRange(around: 0, count: 300) == 0..<8)
+        #expect(CardStackLayout.visibleRange(around: 100, count: 300) == 93..<108)
+        // A fractional position during a drag widens the window to cover both neighbours.
+        #expect(CardStackLayout.visibleRange(around: 100.4, count: 300) == 93..<109)
+        #expect(CardStackLayout.visibleRange(around: 299, count: 300) == 292..<300)
+    }
+
+    @Test func visibleRangeHandlesSmallEmptyAndOverdraggedStacks() {
+        #expect(CardStackLayout.visibleRange(around: 1, count: 3) == 0..<3)
+        #expect(CardStackLayout.visibleRange(around: 0, count: 0).isEmpty)
+        // Dragging far past either end still renders the end cards.
+        #expect(CardStackLayout.visibleRange(around: -50, count: 20) == 0..<8)
+        #expect(CardStackLayout.visibleRange(around: 1e30, count: 20) == 12..<20)
+        #expect(CardStackLayout.visibleRange(around: .nan, count: 20) == 0..<8)
+    }
+
+    @Test func flingMovesExactlyOneCard() {
+        #expect(CardStackLayout.snapTarget(restingIndex: 2, translation: -900, predictedEndTranslation: -1200, count: 10) == 3)
+        #expect(CardStackLayout.snapTarget(restingIndex: 2, translation: 50, predictedEndTranslation: 250, count: 10) == 1)
+    }
+
+    @Test func slowDragSnapsToNearestCard() {
+        #expect(CardStackLayout.snapTarget(restingIndex: 2, translation: -100, predictedEndTranslation: -120, count: 10) == 2)
+        #expect(CardStackLayout.snapTarget(restingIndex: 2, translation: -160, predictedEndTranslation: -180, count: 10) == 3)
+        #expect(CardStackLayout.snapTarget(restingIndex: 2, translation: 0, predictedEndTranslation: 0, count: 10) == 2)
+    }
+
+    @Test func snapTargetIsClampedAtTheEnds() {
+        #expect(CardStackLayout.snapTarget(restingIndex: 0, translation: 100, predictedEndTranslation: 400, count: 5) == 0)
+        #expect(CardStackLayout.snapTarget(restingIndex: 4, translation: -100, predictedEndTranslation: -400, count: 5) == 4)
+        #expect(CardStackLayout.snapTarget(restingIndex: 4, translation: -3000, predictedEndTranslation: -150, count: 5) == 4)
+        #expect(CardStackLayout.snapTarget(restingIndex: 0, translation: 0, predictedEndTranslation: 0, count: 0) == 0)
     }
 }
