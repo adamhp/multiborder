@@ -139,7 +139,7 @@ enum TabbedItems: Int, CaseIterable {
     /// a partial failure only saves the rest.
     @ObservationIgnored private var savedIDs = Set<ImageAttachment.ID>()
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = .appGroup) {
         self.defaults = defaults
         self.settings = BorderSettings.load(from: defaults)
     }
@@ -282,16 +282,6 @@ enum TabbedItems: Int, CaseIterable {
     }
 }
 
-/// The change block runs on a Photos queue, so it must not be main-actor isolated.
-private nonisolated func addToPhotoLibrary(_ data: Data) async throws {
-    try await PHPhotoLibrary.shared().performChanges {
-        let request = PHAssetCreationRequest.forAsset()
-        // Keep exports at the top of Recents rather than at the original capture date.
-        request.creationDate = Date()
-        request.addResource(with: .photo, data: data, options: nil)
-    }
-}
-
 /// A picked photo with a border, rendered only when a share destination asks for it.
 /// Shared as JPEG, which every destination accepts, even when the source is HEIC.
 ///
@@ -348,40 +338,4 @@ nonisolated struct BorderedPhoto: Transferable {
     }
 
     private static let log = Logger(subsystem: "com.adamhp.multiborder", category: "Share")
-}
-
-extension BorderSettings {
-    private static let storageKey = "borderSettings"
-
-    func save(to defaults: UserDefaults) {
-        if let data = try? JSONEncoder().encode(self) {
-            defaults.set(data, forKey: Self.storageKey)
-        }
-    }
-
-    /// Loads saved settings, migrating the keys used before 2.0.1.
-    static func load(from defaults: UserDefaults) -> BorderSettings {
-        if let data = defaults.data(forKey: storageKey),
-           let settings = try? JSONDecoder().decode(BorderSettings.self, from: data) {
-            return settings
-        }
-        var settings = BorderSettings()
-        if let ratio = defaults.object(forKey: "desiredAspectRatio") as? Double, ratio != 0 {
-            settings.aspectRatio = AspectRatio(legacyValue: ratio)
-        }
-        if let points = defaults.object(forKey: "desiredPadding") as? Double {
-            // Padding used to be points on a preview roughly 400pt wide.
-            let fraction = points / 400
-            settings.paddingFraction = min(max(fraction, paddingRange.lowerBound), paddingRange.upperBound)
-        }
-        settings.exportWidth = max(defaults.integer(forKey: "desiredSize"), 0)
-        if defaults.bool(forKey: "colorStored") {
-            settings.borderColor = Color.Resolved(
-                red: defaults.float(forKey: "colorR"),
-                green: defaults.float(forKey: "colorG"),
-                blue: defaults.float(forKey: "colorB")
-            )
-        }
-        return settings
-    }
 }

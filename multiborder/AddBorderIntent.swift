@@ -19,7 +19,7 @@ struct AddBorderIntent: AppIntent, ProgressReportingIntent {
     }
 
     @MainActor func perform() async throws -> some IntentResult & ReturnsValue<[IntentFile]> {
-        let settings = BorderSettings.load(from: .standard)
+        let settings = BorderSettings.load(from: .appGroup)
         progress.totalUnitCount = Int64(photos.count)
         var bordered: [IntentFile] = []
         for photo in photos {

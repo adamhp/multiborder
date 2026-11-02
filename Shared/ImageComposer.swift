@@ -252,7 +252,9 @@ nonisolated enum ImageComposer {
     private static let backdropPixelSize = 512
 
     /// Bytes the export canvas may use; keeps a 48MP photo with a wide border from exhausting memory.
-    static let maxCanvasBytes = 400_000_000.0
+    /// App extensions get far less memory than the app (Apple doesn't publish the limit), so the
+    /// Share-sheet action renders into a smaller canvas: about 10MP at 8 bits per channel.
+    static let maxCanvasBytes = Bundle.main.bundleURL.pathExtension == "appex" ? 40_000_000.0 : 400_000_000.0
 
     /// Canvas pixels that fit in `maxCanvasBytes` for a photo with `bitsPerComponent` bits per channel.
     /// Deeper photos (e.g. 10-bit HEIC) are composited in a 16-bit RGBA canvas (8 bytes per pixel);
