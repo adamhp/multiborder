@@ -7,17 +7,36 @@
 
 import SwiftUI
 
+/// The export width presets offered as buttons below the slider.
+enum ExportSize: Int, CaseIterable, Identifiable {
+    case original = 0
+    case small = 1024
+    case medium = 2048
+    case large = 4096
+
+    var id: Self { self }
+
+    /// Pixel width; 0 keeps the photo's own width.
+    var width: Int { rawValue }
+
+    var title: String {
+        switch self {
+        case .original: "Orig."
+        case .small: "Sm."
+        case .medium: "Med."
+        case .large: "Lg."
+        }
+    }
+
+    var subtitle: LocalizedStringKey { self == .original ? "~" : "\(width)px" }
+
+    var accessibilityLabel: LocalizedStringKey { self == .original ? "Original Size" : "\(width) Pixels Wide" }
+}
+
 struct ExportView: View {
     
     @Environment(DataModel.self) private var data
     @Environment(\.openURL) private var openURL
-    
-    let sizes = [
-        ("Orig.", 0),
-        ("Sm.", 1024),
-        ("Med.", 2048),
-        ("Lg.", 4096)
-    ]
     
     var body: some View {
         DefaultPage {
@@ -26,11 +45,10 @@ struct ExportView: View {
                 Spacer(minLength: 128)
                 
                 VStack(spacing: 16) {
-                    Text(data.settings.exportWidth == 0 ? "Original" : "\(data.settings.exportWidth)px").font(Font.custom("SpaceMono-Regular", size: 16))
+                    Text(data.settings.exportWidth == 0 ? "Original" : "\(data.settings.exportWidth)px").font(.spaceMono(16))
                         .contentTransition(.numericText(value: Double(data.settings.exportWidth)))
                         .fixedSize()
                         .frame(width: 64, height: 32)
-                        .gesture(DragGesture())
                     
                     Slider(
                         value: Binding(
@@ -45,22 +63,22 @@ struct ExportView: View {
                     ) {
                         Text("Export Width")
                     } minimumValueLabel: {
-                        Text("Orig.").font(Font.custom("SpaceMono-Regular", size: 16))
+                        Text("Orig.").font(.spaceMono(16))
                     } maximumValueLabel: {
-                        Text("8192px").font(Font.custom("SpaceMono-Regular", size: 16))
+                        Text("8192px").font(.spaceMono(16))
                     }
                     .accessibilityValue(data.settings.exportWidth == 0 ? "Original" : "\(data.settings.exportWidth) pixels")
                     .sensoryFeedback(.selection, trigger: data.settings.exportWidth)
                     .frame(height: 32)
                     
                     HStack(spacing: 8) {
-                        ForEach(sizes, id: \.self.0) { size in
+                        ForEach(ExportSize.allCases) { size in
                             Button {
-                                data.settings.exportWidth = size.1
+                                data.settings.exportWidth = size.width
                             } label: {
                                 VStack {
-                                    Text("\(size.0)").font(Font.custom("SpaceMono-Regular", size: 16)).foregroundStyle(.stone200)
-                                    Text(size.1 == 0 ? "~" : "\(size.1)px").font(Font.custom("SpaceMono-Regular", size: 14)).foregroundStyle(.stone400)
+                                    Text(size.title).font(.spaceMono(16)).foregroundStyle(.stone200)
+                                    Text(size.subtitle).font(.spaceMono(14)).foregroundStyle(.stone400)
                                 }
                                 .padding(.vertical, 4)
                                 .frame(minWidth: 80, minHeight: 48)
@@ -68,13 +86,13 @@ struct ExportView: View {
                                 .clipShape(.rect(cornerRadius: 12))
                             }
                             .buttonStyle(.plain)
-                            .accessibilityLabel(size.1 == 0 ? "Original Size" : "\(size.1) Pixels Wide")
-                            .accessibilityAddTraits(data.settings.exportWidth == size.1 ? .isSelected : [])
+                            .accessibilityLabel(size.accessibilityLabel)
+                            .accessibilityAddTraits(data.settings.exportWidth == size.width ? .isSelected : [])
                         }
                     }
-                    .gesture(DragGesture())
                 }
-                .gesture(DragGesture())
+                // Keeps the paged TabView from swiping while the slider and buttons are in use.
+                .blocksSwipe(true)
                 .padding(.horizontal, 48)
                 
                 Spacer()
@@ -129,10 +147,10 @@ struct KofiButton: View {
                     .accessibilityHidden(true)
                 VStack(spacing: 4) {
                     Text("Support me on Ko-fi!")
-                        .font(Font.custom("SpaceMono-Regular", size: 16))
+                        .font(.spaceMono(16))
                         .foregroundStyle(.stone200)
                     Text("and consider leaving a review")
-                        .font(Font.custom("SpaceMono-Regular", size: 11))
+                        .font(.spaceMono(11))
                         .foregroundStyle(.stone200)
                 }
                 
@@ -232,7 +250,7 @@ struct DownloadButton: View {
     /// Grows with Dynamic Type instead of clipping at a fixed size.
     private func sized(@ViewBuilder _ content: () -> some View) -> some View {
         HStack(spacing: 8, content: content)
-            .font(Font.custom("SpaceMono-Regular", size: 18))
+            .font(.spaceMono(18))
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
             .frame(minWidth: 200, minHeight: 52)

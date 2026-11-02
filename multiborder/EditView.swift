@@ -60,7 +60,7 @@ struct DesiredPaddingSlider: View {
                     .accessibilityValue("\(paddingLabel)")
                     .sensoryFeedback(.selection, trigger: data.settings.paddingFraction)
                     .frame(height: 32)
-                    Text("\(paddingLabel)").font(Font.custom("SpaceMono-Regular", size: 16))
+                    Text("\(paddingLabel)").font(.spaceMono(16))
                         .contentTransition(.numericText(value: Double(paddingLabel)))
                         .padding(.leading, 8.0)
                         .padding(.bottom, 44)
@@ -99,7 +99,7 @@ struct DesiredAspectRatioChooser: View {
                         if ratio == .original {
                             Image(systemName: "photo.artframe")
                         } else {
-                            Text(ratio.title).font(Font.custom("SpaceMono-Regular", size: 16))
+                            Text(ratio.title).font(.spaceMono(16))
                         }
                     }
                     .buttonStyle(AspectRatioButton(active: data.settings.aspectRatio == ratio))

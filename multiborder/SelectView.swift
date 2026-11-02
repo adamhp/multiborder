@@ -20,12 +20,12 @@ struct SelectView: View {
                 if data.attachments.count > 0 {
                     Text("\(data.currentIndex+1) of \(data.attachments.count)")
                         .contentTransition(.numericText(value: Double(data.currentIndex)))
-                        .font(Font.custom("SpaceMono-Regular", size: 14))
+                        .font(.spaceMono(14))
                         .foregroundStyle(.accent)
                         .padding(.top, 16)
                     Text("(Preview Resolution)")
                         .contentTransition(.numericText(value: Double(data.currentIndex)))
-                        .font(Font.custom("SpaceMono-Regular", size: 12))
+                        .font(.spaceMono(12))
                         .foregroundStyle(.stone500)
                         .padding(.top, 16)
                 }
@@ -74,7 +74,7 @@ struct SelectPickerLabel: View {
                 Text("Select some photos first!")
                     .kerning(0)
                     .animation(.easeInOut(duration:1), value: data.helpTextShown)
-                    .font(Font.custom("SpaceMono-Regular", size: 16))
+                    .font(.spaceMono(16))
                     .foregroundStyle(.accent)
                     .padding(.bottom, 128)
             }

@@ -42,7 +42,7 @@ struct MainView: View {
     }
 }
 
-private extension View {
+extension View {
     /// A drag gesture on the page takes precedence over the page view's swipe.
     func blocksSwipe(_ blocked: Bool) -> some View {
         contentShape(Rectangle())
@@ -106,7 +106,7 @@ struct TabItem: View {
                 .animation(.interactiveSpring, value: isActive)
             if isActive {
                 Text(item.title)
-                    .font(Font.custom("SpaceMono-Regular", size: 16))
+                    .font(.spaceMono(16))
                     .foregroundStyle(.white)
             }
         }
