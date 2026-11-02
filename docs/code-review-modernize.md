@@ -22,6 +22,12 @@ Added after `6f2dd49`:
 
 Both were checked on the iPhone 16 Pro.
 
+- **Photo details around the photo:** a caption button next to Border Width prints the photo's details in a row just above and a row just below it, the same in the preview, Download and Share. The details are the date taken, the title (IPTC or XMP title or caption), the filename, a handle (Instagram, Flickr, @, website or text only), the camera, focal length, aperture, shutter speed and ISO. Each is a pill above the border controls: drag it within or between the rows, and tap it for its options. A button at the start of each row spreads the row across the photo's width or groups it at the left, center or right. Text shrinks to fit the borders and the photo's width, and icons are as tall as the text's capitals. The work is in `PhotoCaption`, and its options are in `BorderSettings`.
+- **Caption font and icons:** a cog to the right of the pills opens a menu with the caption's font and a switch for every icon at once. The fonts are DM Mono, DM Sans, IBM Plex Mono, Inter, JetBrains Mono, Space Grotesk and Space Mono (the default), all from Google Fonts and bundled through `UIAppFonts`. A saved font that's no longer offered falls back to Space Mono. Turning icons off keeps each detail's own icon setting for when they come back on.
+  - Open: the fonts are under the SIL Open Font License, which asks for the licence text to ship with them. The repo doesn't include it yet, even for Space Mono.
+
+Both were checked on the iPhone 16 Pro.
+
 The Liquid Glass morph, hold-to-clear and the share sheet have since been checked on the iPhone 16 Pro.
 
 Tried and dropped:
@@ -38,7 +44,6 @@ Tried and dropped:
 
 ## Feature ideas
 
-- **EXIF caption:** you already keep EXIF, so you could print camera, lens, focal length, aperture, shutter speed and ISO in the border. That fits the Space Mono look well.
 - **Rounded corners or a shadow** on the photo inside the border.
 - **Export options:** format (JPEG, HEIC or PNG), "save to album 'multiborder'", and an option to keep the original date. You currently set the date to now on purpose, and some users will want the other choice.
 - **Match orientation per photo:** the landscape toggle applies to the whole batch, so a mix of portrait and landscape photos still shares one canvas shape. An option for each photo to follow its own orientation would fix that.
