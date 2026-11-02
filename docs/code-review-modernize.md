@@ -34,7 +34,17 @@ The Liquid Glass morph, hold-to-clear and the share sheet have since been checke
 - **Background export (iOS 26):** Download asks the system to let the batch finish if you leave the app, and the system shows its progress ("Saving 12 photos", "3 of 12 saved") with a cancel button that stops the export. `ContinuedExport` submits a `BGContinuedProcessingTask` with a new `com.adamhp.multiborder.export.*` identifier for each export and mirrors the export's progress into it. The export itself still runs in `DataModel` as before, so on iOS 17–18, or when the system declines, it simply runs while the app is open. If the export finishes before the system starts the task, the request is cancelled.
 - **Shortcuts action (iOS 18+):** "Add Border to Photos" takes images and returns them bordered as JPEG files, with the settings last used in the app, so a shortcut can save them with "Save to Photo Album" or share them. It doesn't save to the library itself, which leaves the date choice to the shortcut. It reports progress, and a file it can't read fails the run with that file's name. Spotlight and Siri get it through `MultiborderShortcuts`. It's iOS 18+ because iOS 17 can't limit a list of files to images. Unit tests run the action on a HEIC and a JPEG and on a file that isn't a photo.
 
-Both build and pass their unit tests on the iOS 26.5 simulator; neither has been checked on the iPhone 16 Pro yet, in particular leaving the app mid-export and a long batch run from Shortcuts.
+Both build and pass their unit tests on the iOS 26.5 simulator, and both have been checked on the iPhone 16 Pro, including leaving the app mid-export.
+
+- **Share extension:** "multiborder" appears in the share sheet's row of apps, with the app icon, for up to 100 images. It borders them with the settings last used in the app and saves them to the photo library, with a small progress sheet and Cancel. It's a share extension rather than an action extension because only share extensions get the full-color app icon; action extensions get a one-color template image. The code is in `AddBorderExtension/`.
+  - The same code also ships as an action extension, "Add borders with multiborder", in the share sheet's list of actions. Its target (`AddBorderAction/`) compiles `AddBorderExtension/` and `Shared/` and adds its own Info.plist and icon, since an extension can only appear in one place. The icon is the app icon's seven squares redrawn as a one-color template with thicker outlines so they read at list size. `scripts/make-action-icon.swift` draws it from measurements of the app icon.
+  - Before saving, both ask "Add borders with your last settings?", noting that they use the settings last used in the app and save at up to about 10 MP, with Cancel and Continue. A summary lists the ratio, the border (on the Border Width slider's 0–64 scale, each side when they differ, with the color or "blurred photo"), the download size, and the number of photos with their combined file size, which is counted while the question shows. A "Don't show this again" switch skips the question from then on, in both entries (`shareExtensionSkipsIntro` in the App Group). Nothing in the app turns it back on yet.
+  - The renderer, captions, fonts and settings storage moved to `Shared/`, which both targets compile.
+  - Settings live in the `group.com.adamhp.multiborder` App Group, so the app, the Shortcuts action and the extension share them. The first launch after updating copies the app's own saved defaults into the group; until the app has been opened once, the extension uses default settings.
+  - Extensions get much less memory than the app, so inside the extension `ImageComposer.maxCanvasBytes` is 40 MB, about a 10 MP canvas, instead of 400 MB. Exports from the share sheet are smaller than Download's for that reason.
+  - The project now sets a build number (`CURRENT_PROJECT_VERSION = 1`) at the project level, because iOS won't install an extension without one and it must match the app's.
+
+The share extension was checked on the iPhone 16 Pro, including nine 47 MP photos in one go. The action entry and the intro haven't been checked there yet.
 
 Tried and dropped:
 
@@ -44,7 +54,7 @@ Tried and dropped:
 ## iOS features worth adopting
 
 - **HDR export (iOS 18+):** you deliberately export SDR today. ImageIO can now decode HDR (`kCGImageSourceDecodeRequest: kCGImageSourceDecodeToHDR`) and write ISO gain maps (`kCGImageDestinationEncodeRequest: kCGImageDestinationEncodeToISOGainmap`). If you fill the border at SDR reference white, the border's color stays put while the photo keeps its HDR highlights. That would set the app apart from similar ones.
-- **Photo Editing Extension:** this is also in your TODO. The compositor can be reused unchanged, and it lets people add a border from inside Photos.
+- **Photo Editing Extension:** this is also in your TODO. The compositor can be reused unchanged, and it lets people add a border from inside Photos. `Shared/`, the App Group and the extension memory limit from the share extension carry over.
 
 ## Feature ideas
 
