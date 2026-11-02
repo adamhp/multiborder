@@ -7,6 +7,12 @@
 	<key>UIAppFonts</key>
 	<array>
 		<string>SpaceMono.ttf</string>
+		<string>IBMPlexMono-Regular.ttf</string>
+		<string>JetBrainsMono-Regular.ttf</string>
+		<string>DMMono-Regular.ttf</string>
+		<string>Inter-Regular.ttf</string>
+		<string>DMSans-Regular.ttf</string>
+		<string>SpaceGrotesk-Regular.ttf</string>
 	</array>
 </dict>
 </plist>

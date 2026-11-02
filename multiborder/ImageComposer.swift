@@ -128,6 +128,9 @@ nonisolated struct BorderSettings: Codable, Equatable, Sendable {
     /// How each caption row is arranged across the photo's width.
     var captionAlignmentAbove = CaptionAlignment.spread
     var captionAlignmentBelow = CaptionAlignment.spread
+    var captionFont = CaptionFont.spaceMono
+    /// Whether any caption icons are printed; when on, `captionHiddenIcons` still hides single ones.
+    var showsCaptionIcons = true
     /// Maximum output width in pixels; 0 exports at the photo's full resolution.
     var exportWidth: Int = 0
 
@@ -216,6 +219,9 @@ nonisolated extension BorderSettings {
             ?? fallback.captionAlignmentAbove
         captionAlignmentBelow = try container.decodeIfPresent(CaptionAlignment.self, forKey: .captionAlignmentBelow)
             ?? fallback.captionAlignmentBelow
+        // A font that's since been dropped from the list falls back to the default rather than discarding every setting.
+        captionFont = (try? container.decodeIfPresent(CaptionFont.self, forKey: .captionFont)) ?? fallback.captionFont
+        showsCaptionIcons = try container.decodeIfPresent(Bool.self, forKey: .showsCaptionIcons) ?? fallback.showsCaptionIcons
         exportWidth = try container.decodeIfPresent(Int.self, forKey: .exportWidth) ?? fallback.exportWidth
     }
 }

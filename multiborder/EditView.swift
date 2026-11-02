@@ -352,6 +352,7 @@ struct CaptionFieldsRow: View {
     @State private var dragStart = CGPoint.zero
     /// The field whose options popover is open: the handle's or the camera's.
     @State private var editing: CaptionField?
+    @State private var isEditingStyle = false
 
     var body: some View {
         let settings = data.settings
@@ -376,6 +377,19 @@ struct CaptionFieldsRow: View {
             .frame(maxWidth: .infinity)
             .onGeometryChange(for: Double.self) { $0.size.width } action: { width = $0 }
             .coordinateSpace(.named(Self.coordinateSpace))
+            Button {
+                isEditingStyle = true
+            } label: {
+                Image(systemName: "gearshape")
+                    .frame(width: 32, height: 40)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Caption Style")
+            .popover(isPresented: $isEditingStyle) {
+                CaptionStyleEditor()
+                    .presentationCompactAdaptation(.popover)
+            }
         }
         .frame(height: Self.rowHeight * 2)
         .padding(.horizontal, 20)
@@ -580,6 +594,8 @@ private struct FieldEditor: View {
                             data.settings.captionHiddenIcons.insert(field)
                         }
                     }))
+                    // Overruled while every icon is turned off in the caption's style.
+                    .disabled(!data.settings.showsCaptionIcons)
             }
             if field == .camera || field.icon != nil {
                 Divider()
@@ -589,6 +605,45 @@ private struct FieldEditor: View {
         .font(.spaceMono(15))
         .padding(16)
         .frame(width: 220)
+    }
+}
+
+/// The caption's look as a whole: its font, and whether icons are printed at all.
+private struct CaptionStyleEditor: View {
+
+    @Environment(DataModel.self) private var data
+
+    var body: some View {
+        @Bindable var data = data
+        VStack(alignment: .leading, spacing: 14) {
+            ForEach(CaptionFont.allCases, id: \.self) { font in
+                Button {
+                    data.settings.captionFont = font
+                } label: {
+                    HStack {
+                        // Each name in its own font, as a preview.
+                        Text(font.title)
+                            .font(.custom(font.postScriptName, fixedSize: 16))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                        Spacer()
+                        if data.settings.captionFont == font {
+                            Image(systemName: "checkmark")
+                                .foregroundStyle(.accent)
+                        }
+                    }
+                    .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(data.settings.captionFont == font ? .isSelected : [])
+            }
+            Divider()
+            Toggle("Icons", isOn: $data.settings.showsCaptionIcons)
+                .font(.spaceMono(15))
+        }
+        .padding(16)
+        .frame(width: 260)
+        .sensoryFeedback(.selection, trigger: data.settings.captionFont)
     }
 }
 

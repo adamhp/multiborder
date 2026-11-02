@@ -98,6 +98,46 @@ nonisolated enum CaptionField: String, CaseIterable, Codable, Sendable {
     }
 }
 
+/// The typeface the caption is printed in, each bundled with the app (see `UIAppFonts` in Info.plist).
+nonisolated enum CaptionFont: String, CaseIterable, Codable, Sendable {
+    // Alphabetical, the order the font menu lists them in.
+    case dmMono
+    case dmSans
+    case ibmPlexMono
+    case inter
+    case jetBrainsMono
+    case spaceGrotesk
+    case spaceMono
+
+    var postScriptName: String {
+        switch self {
+        case .spaceMono: "SpaceMono-Regular"
+        case .ibmPlexMono: "IBMPlexMono-Regular"
+        case .jetBrainsMono: "JetBrainsMono-Regular"
+        case .dmMono: "DMMono-Regular"
+        case .inter: "Inter-Regular"
+        case .dmSans: "DMSans-Regular"
+        case .spaceGrotesk: "SpaceGrotesk-Regular"
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .spaceMono: "Space Mono"
+        case .ibmPlexMono: "IBM Plex Mono"
+        case .jetBrainsMono: "JetBrains Mono"
+        case .dmMono: "DM Mono"
+        case .inter: "Inter"
+        case .dmSans: "DM Sans"
+        case .spaceGrotesk: "Space Grotesk"
+        }
+    }
+
+    func ctFont(size: Double) -> CTFont {
+        CTFontCreateWithName(postScriptName as CFString, size, nil)
+    }
+}
+
 /// Where the handle points, shown as the icon before it.
 nonisolated enum HandleStyle: String, CaseIterable, Codable, Sendable {
     case instagram
@@ -195,6 +235,7 @@ nonisolated enum PhotoCaption {
         var below: [Item] = []
         var aboveAlignment = CaptionAlignment.spread
         var belowAlignment = CaptionAlignment.spread
+        var font = CaptionFont.spaceMono
     }
 
     /// Where each item goes, in canvas units (top-left origin). Both rows share one text size.
@@ -233,7 +274,6 @@ nonisolated enum PhotoCaption {
         }
     }
 
-    static let fontName = "SpaceMono-Regular"
     /// Font size as a share of the canvas's shorter side, before it's limited by the room available.
     private static let sizeShare = 0.022
     /// A border must be this many font sizes deep: the space beside the photo, the row, and some beyond.
@@ -330,14 +370,15 @@ nonisolated enum PhotoCaption {
                 default: photoItems.first { $0.field == field }
                 }
                 // The handle's icon comes from its style, which has its own text-only choice.
-                if field != .handle && settings.captionHiddenIcons.contains(field) {
+                if !settings.showsCaptionIcons || (field != .handle && settings.captionHiddenIcons.contains(field)) {
                     item?.icon = nil
                 }
                 return item
             }
         }
         return Rows(above: items(.above), below: items(.below),
-                    aboveAlignment: settings.captionAlignmentAbove, belowAlignment: settings.captionAlignmentBelow)
+                    aboveAlignment: settings.captionAlignmentAbove, belowAlignment: settings.captionAlignmentBelow,
+                    font: settings.captionFont)
     }
 
     /// A photo's camera as the settings ask: its make, its model, or both. The make isn't repeated
@@ -423,7 +464,8 @@ nonisolated enum PhotoCaption {
 
         // Every width grows in proportion to the font size, so measure at size 1 and scale.
         func widthsAtOne(_ items: [Item]) -> [Double] {
-            items.map { ($0.icon == nil ? 0 : capHeight(fontSize: 1) * iconAspect + iconGapShare) + textWidth($0.text, fontSize: 1) }
+            items.map { ($0.icon == nil ? 0 : capHeight(rows.font, fontSize: 1) * iconAspect + iconGapShare)
+                + textWidth($0.text, font: rows.font, fontSize: 1) }
         }
         var fontSize = min(canvas.width, canvas.height) * sizeShare
         for (_, items, gap, alignment) in printed {
@@ -458,7 +500,7 @@ nonisolated enum PhotoCaption {
                 x += width + spacing
             }
         }
-        let font = CTFontCreateWithName(fontName as CFString, fontSize, nil)
+        let font = rows.font.ctFont(size: fontSize)
         let cap = CTFontGetCapHeight(font)
         return Placement(fontSize: fontSize, iconSize: CGSize(width: cap * iconAspect, height: cap),
                          iconGap: fontSize * iconGapShare, entries: entries,
@@ -512,7 +554,7 @@ nonisolated enum PhotoCaption {
                 break
             }
             // The line box is centered in the frame, as SwiftUI centers the preview's `Text`.
-            let line = line(entry.item.text, fontSize: placement.fontSize, color: color)
+            let line = line(entry.item.text, font: rows.font, fontSize: placement.fontSize, color: color)
             context.textPosition = CGPoint(x: entry.frame.minX + placement.textOffset(for: entry.item),
                                            y: height - placement.baseline(in: entry.frame))
             CTLineDraw(line, context)
@@ -538,16 +580,16 @@ nonisolated enum PhotoCaption {
     }
 
     /// Height of the font's capital letters at `fontSize`.
-    private static func capHeight(fontSize: Double) -> Double {
-        CTFontGetCapHeight(CTFontCreateWithName(fontName as CFString, fontSize, nil))
+    private static func capHeight(_ font: CaptionFont, fontSize: Double) -> Double {
+        CTFontGetCapHeight(font.ctFont(size: fontSize))
     }
 
-    private static func textWidth(_ text: String, fontSize: Double) -> Double {
-        CTLineGetTypographicBounds(line(text, fontSize: fontSize, color: CGColor(gray: 0, alpha: 1)), nil, nil, nil)
+    private static func textWidth(_ text: String, font: CaptionFont, fontSize: Double) -> Double {
+        CTLineGetTypographicBounds(line(text, font: font, fontSize: fontSize, color: CGColor(gray: 0, alpha: 1)), nil, nil, nil)
     }
 
-    private static func line(_ text: String, fontSize: Double, color: CGColor) -> CTLine {
-        let font = CTFontCreateWithName(fontName as CFString, fontSize, nil)
+    private static func line(_ text: String, font: CaptionFont, fontSize: Double, color: CGColor) -> CTLine {
+        let font = font.ctFont(size: fontSize)
         let attributed = NSAttributedString(string: text, attributes: [
             NSAttributedString.Key(kCTFontAttributeName as String): font,
             NSAttributedString.Key(kCTForegroundColorAttributeName as String): color,

@@ -28,7 +28,8 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
         && a.captionAbove == b.captionAbove && a.captionBelow == b.captionBelow
         && a.handle == b.handle && a.handleStyle == b.handleStyle
         && a.captionHiddenIcons == b.captionHiddenIcons && a.cameraShowsMake == b.cameraShowsMake && a.cameraShowsModel == b.cameraShowsModel
-        && a.captionAlignmentAbove == b.captionAlignmentAbove && a.captionAlignmentBelow == b.captionAlignmentBelow && isClose(a.borderColor, b.borderColor)
+        && a.captionAlignmentAbove == b.captionAlignmentAbove && a.captionAlignmentBelow == b.captionAlignmentBelow
+        && a.captionFont == b.captionFont && a.showsCaptionIcons == b.showsCaptionIcons && isClose(a.borderColor, b.borderColor)
 }
 
 @Suite struct AspectRatioTests {
@@ -787,6 +788,34 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
         #expect(rows.below.first { $0.field == .camera }?.text == "Apple iPhone 16 Pro")
     }
 
+    @Test func iconsCanBeTurnedOffTogether() {
+        var settings = captionOn
+        settings.handle = "adam"
+        settings.showsCaptionIcons = false
+        let rows = PhotoCaption.rows(photoItems: PhotoCaption.photoItems(from: iPhone), settings: settings)
+        #expect(!(rows.above + rows.below).isEmpty)
+        #expect((rows.above + rows.below).allSatisfy { $0.icon == nil })
+    }
+
+    @Test func everyCaptionFontIsAvailableAndMeasuresDifferently() throws {
+        let layout = ImageComposer.Layout(canvasSize: CGSize(width: 1000, height: 1200),
+                                          imageRect: CGRect(x: 50, y: 50, width: 900, height: 900))
+        let items = [PhotoCaption.Item(field: .iso, text: "ISO 80")]
+        for font in CaptionFont.allCases {
+            // CoreText falls back to another font when the name isn't installed.
+            #expect(CTFontCopyPostScriptName(font.ctFont(size: 12)) as String == font.postScriptName)
+        }
+        func width(_ font: CaptionFont) throws -> Double {
+            try #require(PhotoCaption.placement(of: .init(below: items, font: font), layout: layout)).entries[0].frame.width
+        }
+        #expect(try width(.spaceMono) != width(.inter))
+
+        var settings = BorderSettings()
+        settings.showsCaption = true
+        settings.captionFont = .dmSans
+        #expect(PhotoCaption.rows(photoItems: [], settings: settings).font == .dmSans)
+    }
+
     @Test func handleFollowsItsStyle() {
         var settings = captionOn
         #expect(PhotoCaption.handleItem(settings) == nil)
@@ -895,6 +924,9 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
         let old = try JSONDecoder().decode(BorderSettings.self, from: Data("{}".utf8))
         #expect(old.captionAbove == [.date, .title, .filename, .handle] && old.captionBelow == [.camera, .focalLength, .aperture, .shutter, .iso])
         #expect(old.handle == "" && old.handleStyle == .instagram)
+        #expect(old.captionFont == .spaceMono && old.showsCaptionIcons)
+        let dropped = try JSONDecoder().decode(BorderSettings.self, from: Data(#"{"captionFont": "georgia", "handle": "adam"}"#.utf8))
+        #expect(dropped.captionFont == .spaceMono && dropped.handle == "adam")
     }
 
     @Test func rowsSpreadAcrossThePhotoJustBesideIt() throws {
@@ -952,7 +984,7 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
                                           imageRect: CGRect(x: 50, y: 50, width: 900, height: 900))
         let items = [PhotoCaption.Item(field: .aperture, text: "ƒ/1.8"), PhotoCaption.Item(field: .iso, text: "ISO 80")]
         let placement = try #require(PhotoCaption.placement(of: .init(below: items), layout: layout))
-        let font = CTFontCreateWithName(PhotoCaption.fontName as CFString, placement.fontSize, nil)
+        let font = CaptionFont.spaceMono.ctFont(size: placement.fontSize)
         let entry = placement.entries[0]
         let icon = placement.iconRect(for: entry)
         #expect(abs(icon.height - CTFontGetCapHeight(font)) < 0.001)

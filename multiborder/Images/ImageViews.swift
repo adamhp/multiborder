@@ -124,7 +124,7 @@ struct BorderedImage: View {
                                 .offset(x: box.minX * scale, y: box.minY * scale)
                         }
                         Text(entry.item.text)
-                            .font(.custom(PhotoCaption.fontName, fixedSize: placement.fontSize * scale))
+                            .font(.custom(rows.font.postScriptName, fixedSize: placement.fontSize * scale))
                             .lineLimit(1)
                             .fixedSize()
                             .frame(height: entry.frame.height * scale)
