@@ -9,6 +9,15 @@ import SwiftUI
 
 @main
 struct multiborderApp: App {
+
+    init() {
+        // Shown read-only on the app's page in the Settings app (see Settings.bundle/Root.plist).
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? "?"
+        let build = info?["CFBundleVersion"] as? String ?? "?"
+        UserDefaults.standard.set("\(version) (\(build))", forKey: "settingsBundleVersion")
+    }
+
     var body: some Scene {
         WindowGroup {
             MainView().environment(\.font, .spaceMono(14))
