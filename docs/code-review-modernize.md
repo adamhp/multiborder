@@ -15,6 +15,9 @@ Added after `6f2dd49`:
   - Shared copies are always JPEG for compatibility; Download still keeps HEIC.
   - `ImageComposer.render` now runs one render at a time, so the share sheet loading several photos at once can't hold several large canvases in memory.
   - Sharing logs to the `com.adamhp.multiborder` subsystem, category `Share`, which made the Instagram problem traceable from a device log.
+- **Inline picker:** the Select tab shows the system photo picker in the page instead of a sheet. Each tap adds a photo to the batch in the order tapped, and a ✓ below the picker switches to the card stack. Leaving the tab also counts as Done, and clearing every photo brings the picker back. "Select some photos first!" takes the ✓'s place so it's readable instead of sitting over the picker. iOS shows a one-time "Private Access to Photos" notice the first time the picker appears. Tested on an iPhone 16 Pro.
+
+The Liquid Glass morph, hold-to-clear and the share sheet have since been checked on the iPhone 16 Pro.
 
 Tried and dropped: blurring the cards behind the front one in `CardStack`, meant to make overlapping photos of different shapes less distracting.
 
@@ -24,7 +27,6 @@ Tried and dropped: blurring the cards behind the front one in `CardStack`, meant
 - **HDR export (iOS 18+):** you deliberately export SDR today. ImageIO can now decode HDR (`kCGImageSourceDecodeRequest: kCGImageSourceDecodeToHDR`) and write ISO gain maps (`kCGImageDestinationEncodeRequest: kCGImageDestinationEncodeToISOGainmap`). If you fill the border at SDR reference white, the border's color stays put while the photo keeps its HDR highlights. That would set the app apart from similar ones.
 - **Shortcuts and Siri (App Intents):** `ImageComposer` doesn't depend on the UI, so an "Add border to photos" intent is cheap to build. It works in Shortcuts and Siri, and with iOS 26 can appear in Spotlight actions.
 - **Photo Editing Extension:** this is also in your TODO. The compositor can be reused unchanged, and it lets people add a border from inside Photos.
-- **Inline picker (iOS 17):** `.photosPickerStyle(.inline)` with `.photosPickerDisabledCapabilities` can embed the picker in the Select tab instead of a modal, which saves a tap.
 
 ## Feature ideas
 

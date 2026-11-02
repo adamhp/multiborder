@@ -9,89 +9,126 @@ import SwiftUI
 import PhotosUI
 
 struct SelectView: View {
-    
+
     @Environment(DataModel.self) private var data
-    
+    /// True while the picker is showing. Done or leaving the tab ends picking;
+    /// clearing the batch starts it again.
+    @State private var picking = true
+
+    var body: some View {
+        DefaultPage {
+            if picking {
+                PickerPage { picking = false }
+            } else {
+                StackPage()
+            }
+        }
+        .animation(.default, value: picking)
+        .sensoryFeedback(.success, trigger: picking) { wasPicking, isPicking in
+            wasPicking && !isPicking
+        }
+        .onChange(of: data.attachments.isEmpty) { _, isEmpty in
+            if isEmpty { picking = true }
+        }
+        .onChange(of: data.selectedTab) { _, tab in
+            // Tabs only open once photos are picked, so leaving counts as Done.
+            if tab != .select && !data.attachments.isEmpty { picking = false }
+        }
+    }
+}
+
+/// The system photo picker embedded in the page, with Done below it.
+/// Each tap adds to the batch straight away.
+private struct PickerPage: View {
+
+    @Environment(DataModel.self) private var data
+    let done: () -> Void
+
     var body: some View {
         @Bindable var data = data
-        DefaultPage {
-            VStack(spacing: 0) {
-                Spacer()
-                if data.attachments.count > 0 {
-                    Text("\(data.currentIndex+1) of \(data.attachments.count)")
-                        .contentTransition(.numericText(value: Double(data.currentIndex)))
-                        .font(.spaceMono(14))
+        VStack(spacing: 16) {
+            PhotosPicker(
+                selection: $data.selection,
+                selectionBehavior: .continuousAndOrdered,
+                matching: .images,
+                preferredItemEncoding: .current,
+                photoLibrary: .shared()
+            ) {
+                EmptyView()
+            }
+            .photosPickerStyle(.inline)
+            .photosPickerAccessoryVisibility(.hidden, edges: .top)
+            .photosPickerDisabledCapabilities([.selectionActions, .stagingArea])
+            .ignoresSafeArea(edges: .top)
+
+            ZStack {
+                // Takes Done's place, which is always disabled when this shows, so the
+                // warning sits on the app's background instead of over the picker.
+                if data.helpTextShown {
+                    Text("Select some photos first!")
+                        .font(.spaceMono(16))
                         .foregroundStyle(.accent)
-                        .padding(.top, 16)
-                    Text("(Preview Resolution)")
-                        .contentTransition(.numericText(value: Double(data.currentIndex)))
-                        .font(.spaceMono(12))
-                        .foregroundStyle(.stone500)
-                        .padding(.top, 16)
-                }
-                Spacer()
-                ImageStack()
-                Spacer()
-                if data.attachments.isEmpty {
-                    PhotosPicker(
-                        selection: $data.selection,
-                        matching: .images,
-                        preferredItemEncoding: .current,
-                        photoLibrary: .shared()
-                    ) {
-                        // The picker's label closure is not main-actor isolated, so it reads the model in its own view.
-                        SelectPickerLabel()
-                    }
-                    .accessibilityLabel("Select Photos")
-                    .frame(height: 64)
+                        .transition(.opacity)
                 } else {
-                    ClearButton(data: data)
-                        .frame(height: 64)
+                    DoneButton(count: data.attachments.count, action: done)
+                        .transition(.opacity)
                 }
             }
-            .sensoryFeedback(.success, trigger: data.selection.isEmpty) { wasEmpty, isEmpty in
-                wasEmpty && !isEmpty
-            }
-            .task(id: data.helpTextShown) {
-                guard data.helpTextShown else { return }
-                do { try await Task.sleep(for: .seconds(2)) } catch { return }
-                withAnimation {
-                    data.helpTextShown = false
-                }
-            }
-        
+            .frame(height: 64)
+            .animation(.easeInOut(duration: 0.3), value: data.helpTextShown)
+        }
+        .task(id: data.helpTextShown) {
+            guard data.helpTextShown else { return }
+            do { try await Task.sleep(for: .seconds(2)) } catch { return }
+            data.helpTextShown = false
         }
     }
 }
 
-struct SelectPickerLabel: View {
+private struct DoneButton: View {
+
+    let count: Int
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            ZStack {
+                Circle()
+                    .fill(.accent.opacity(count == 0 ? 0.08 : 0.2))
+                Image(systemName: "checkmark")
+                    .foregroundStyle(.accent.opacity(count == 0 ? 0.3 : 1))
+                    .font(.system(size: 32, weight: .semibold))
+            }
+            .frame(width: 64, height: 64)
+        }
+        .disabled(count == 0)
+        .accessibilityLabel("Done")
+        .accessibilityValue(count == 0 ? "" : "\(count) selected")
+    }
+}
+
+/// The picked photos as a card stack, with the button that removes them.
+private struct StackPage: View {
 
     @Environment(DataModel.self) private var data
 
     var body: some View {
-        ZStack {
-            if data.helpTextShown {
-                Text("Select some photos first!")
-                    .kerning(0)
-                    .animation(.easeInOut(duration:1), value: data.helpTextShown)
-                    .font(.spaceMono(16))
-                    .foregroundStyle(.accent)
-                    .padding(.bottom, 128)
-            }
-            SelectButton().animation(.easeInOut(duration: 0.5), value: data.selection.isEmpty)
-        }
-    }
-}
-
-struct SelectButton: View {
-    var body: some View {
-        ZStack {
-            Circle()
-                .fill(.accent.opacity(0.2))
-                .frame(width: 64, height: 64)
-            Image(systemName: "plus")
+        VStack(spacing: 0) {
+            Spacer()
+            Text("\(data.currentIndex+1) of \(data.attachments.count)")
+                .contentTransition(.numericText(value: Double(data.currentIndex)))
+                .font(.spaceMono(14))
                 .foregroundStyle(.accent)
-                .font(.system(size: 32, weight: .semibold))
+                .padding(.top, 16)
+            Text("(Preview Resolution)")
+                .font(.spaceMono(12))
+                .foregroundStyle(.stone500)
+                .padding(.top, 16)
+            Spacer()
+            ImageStack()
+            Spacer()
+            ClearButton(data: data)
+                .frame(height: 64)
         }
     }
 }
