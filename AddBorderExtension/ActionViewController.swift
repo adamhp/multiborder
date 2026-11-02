@@ -75,7 +75,7 @@ final class ActionViewController: UIViewController {
     var photoCount: Int { providers.count }
 
     /// Shared by both extensions through the App Group.
-    private static let skipsIntroKey = "shareExtensionSkipsIntro"
+    private static let skipsIntroKey = shareExtensionSkipsIntroKey
 
     /// Shows the intro, or, if the user asked not to see it again, shows the settings summary
     /// for a moment and then saves.
@@ -118,8 +118,7 @@ final class ActionViewController: UIViewController {
 
     private func save() async {
         state = .working(done: 0, total: providers.count)
-        let authorization = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
-        guard authorization == .authorized || authorization == .limited else {
+        guard await PhotoLibrary.requestAccess(album: settings.savesToAlbum) else {
             state = .failed(String(localized: "Allow multiborder to add photos in Settings to save them."))
             return
         }
@@ -129,7 +128,7 @@ final class ActionViewController: UIViewController {
             do {
                 let photo = try await Self.loadPhoto(from: provider)
                 let output = try await ImageComposer.render(photo.data, filename: photo.filename, settings: settings)
-                try await addToPhotoLibrary(output)
+                try await PhotoLibrary.save(output, source: photo.data, settings: settings)
                 saved += 1
             } catch {
                 Self.log.error("Photo \(index + 1) failed: \(error, privacy: .public)")
@@ -190,8 +189,13 @@ struct AddBorderView: View {
                 .font(.custom("SpaceMono-Regular", size: 14))
                 .foregroundStyle(.secondary)
                 SettingsSummary(run: run)
-                Toggle("Don't show this again", isOn: $dontShowAgain)
-                    .font(.custom("SpaceMono-Regular", size: 14))
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle("Don't show this again", isOn: $dontShowAgain)
+                    Text("Turn it back on in multiborder's Settings tab.")
+                        .font(.custom("SpaceMono-Regular", size: 12))
+                        .foregroundStyle(.secondary)
+                }
+                .font(.custom("SpaceMono-Regular", size: 14))
                 Spacer()
                 HStack(spacing: 16) {
                     Button("Cancel", role: .cancel, action: cancel)
@@ -277,6 +281,10 @@ private struct SettingsSummary: View {
                 Text(settings.exportWidth == 0 ? "Original, up to ~10 MP" : "\(settings.exportWidth)px wide, up to ~10 MP")
             }
             GridRow {
+                Text("Saves").foregroundStyle(.secondary)
+                Text(saving(settings))
+            }
+            GridRow {
                 Text("Photos").foregroundStyle(.secondary)
                 if let bytes = run.totalBytes {
                     Text("\(run.photoCount), \(bytes.formatted(.byteCount(style: .file)))")
@@ -289,6 +297,14 @@ private struct SettingsSummary: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.white.opacity(0.06), in: .rect(cornerRadius: 12))
+    }
+
+    /// The format, and the album and date when they're on, e.g. "HEIC, in multiborder, original date".
+    private func saving(_ settings: BorderSettings) -> String {
+        var parts = [settings.exportFormat == .original ? String(localized: "Original format") : settings.exportFormat.title]
+        if settings.savesToAlbum { parts.append(String(localized: "in \(PhotoLibrary.albumTitle)")) }
+        if settings.keepsOriginalDate { parts.append(String(localized: "original date")) }
+        return parts.joined(separator: ", ")
     }
 
     /// The width on the Border Width slider's 0–64 scale, or each side's when they differ.

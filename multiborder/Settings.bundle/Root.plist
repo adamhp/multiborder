@@ -7,28 +7,6 @@
 	<key>PreferenceSpecifiers</key>
 	<array>
 		<dict>
-			<key>FooterText</key>
-			<string>Ask before adding borders from the share sheet, with a summary of the settings that will be used.</string>
-			<key>Title</key>
-			<string>Share Sheet</string>
-			<key>Type</key>
-			<string>PSGroupSpecifier</string>
-		</dict>
-		<dict>
-			<key>DefaultValue</key>
-			<false/>
-			<key>FalseValue</key>
-			<true/>
-			<key>Key</key>
-			<string>shareExtensionSkipsIntro</string>
-			<key>Title</key>
-			<string>Confirm Settings</string>
-			<key>TrueValue</key>
-			<false/>
-			<key>Type</key>
-			<string>PSToggleSwitchSpecifier</string>
-		</dict>
-		<dict>
 			<key>Title</key>
 			<string>About</string>
 			<key>Type</key>

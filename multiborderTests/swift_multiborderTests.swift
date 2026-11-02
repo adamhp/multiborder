@@ -31,6 +31,9 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
         && a.captionHiddenIcons == b.captionHiddenIcons && a.cameraShowsMake == b.cameraShowsMake && a.cameraShowsModel == b.cameraShowsModel
         && a.captionAlignmentAbove == b.captionAlignmentAbove && a.captionAlignmentBelow == b.captionAlignmentBelow
         && a.captionFont == b.captionFont && a.showsCaptionIcons == b.showsCaptionIcons && isClose(a.borderColor, b.borderColor)
+        && a.roundsCorners == b.roundsCorners && a.cornerFraction == b.cornerFraction
+        && a.hasShadow == b.hasShadow && a.shadowFraction == b.shadowFraction && a.exportFormat == b.exportFormat
+        && a.savesToAlbum == b.savesToAlbum && a.keepsOriginalDate == b.keepsOriginalDate
 }
 
 @Suite struct AspectRatioTests {
@@ -334,6 +337,49 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
         #expect(isClose(BorderSettings.load(from: defaults), stored))
     }
 
+    @Test func loadsSettingsSavedBeforeSaveOptionsExisted() throws {
+        let defaults = makeDefaults()
+        let stored = BorderSettings(aspectRatio: .square, roundsCorners: true, cornerFraction: 0.03, hasShadow: true,
+                                    shadowFraction: 0.02, exportFormat: .png, savesToAlbum: true, keepsOriginalDate: true)
+        var json = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(stored)) as? [String: Any])
+        for key in ["roundsCorners", "cornerFraction", "hasShadow", "shadowFraction", "exportFormat", "savesToAlbum", "keepsOriginalDate"] {
+            json.removeValue(forKey: key)
+        }
+        defaults.set(try JSONSerialization.data(withJSONObject: json), forKey: "borderSettings")
+        let loaded = BorderSettings.load(from: defaults)
+        #expect(loaded.aspectRatio == .square)
+        #expect(!loaded.roundsCorners && !loaded.hasShadow)
+        #expect(loaded.cornerFraction == BorderSettings().cornerFraction && loaded.shadowFraction == BorderSettings().shadowFraction)
+        #expect(loaded.exportFormat == .original && !loaded.savesToAlbum && !loaded.keepsOriginalDate)
+
+        stored.save(to: defaults)
+        #expect(isClose(BorderSettings.load(from: defaults), stored))
+    }
+
+    @Test func unknownExportFormatFallsBackToOriginal() throws {
+        let defaults = makeDefaults()
+        var json = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(BorderSettings(aspectRatio: .square))) as? [String: Any])
+        json["exportFormat"] = "webp"
+        defaults.set(try JSONSerialization.data(withJSONObject: json), forKey: "borderSettings")
+        let loaded = BorderSettings.load(from: defaults)
+        #expect(loaded.exportFormat == .original)
+        #expect(loaded.aspectRatio == .square)
+    }
+
+    @Test func cornerRadiusScalesWithTheShorterSideAndFitsThePhoto() {
+        let canvas = CGSize(width: 1000, height: 2000)
+        let photo = CGSize(width: 800, height: 600)
+        #expect(BorderSettings(roundsCorners: true, cornerFraction: 0.05).cornerRadius(canvasSize: canvas, photoSize: photo) == 50)
+        // Off keeps square corners, and the amount for when it's back on.
+        #expect(BorderSettings(roundsCorners: false, cornerFraction: 0.05).cornerRadius(canvasSize: canvas, photoSize: photo) == 0)
+        #expect(BorderSettings(hasShadow: false, shadowFraction: 0.02).shadowBlur(canvasSize: canvas) == 0)
+        #expect(BorderSettings(hasShadow: true, shadowFraction: 0.02).shadowBlur(canvasSize: canvas) == 20)
+        #expect(BorderSettings(roundsCorners: true, cornerFraction: 1).cornerRadius(canvasSize: canvas, photoSize: photo)
+                == BorderSettings.cornerRange.upperBound * 1000)
+        // Never more than half the photo's shorter side, or the corners would overlap.
+        #expect(BorderSettings(roundsCorners: true, cornerFraction: 0.08).cornerRadius(canvasSize: canvas, photoSize: CGSize(width: 100, height: 60)) == 30)
+    }
+
     @Test func blurRadiusScalesWithTheShorterSideAndIsClamped() {
         let canvas = CGSize(width: 1000, height: 2000)
         #expect(BorderSettings(blurFraction: 0.05).blurRadius(canvasSize: canvas) == 50)
@@ -603,8 +649,76 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
 
         let saved = try await ImageComposer.render(heic, settings: BorderSettings())
         #expect(try decode(saved).type == .heic)
-        let shared = try await ImageComposer.render(heic, settings: BorderSettings(), keepHEIC: false)
+        let shared = try await ImageComposer.render(heic, settings: BorderSettings(), format: .jpeg)
         #expect(try decode(shared).type == .jpeg)
+    }
+
+    @Test func exportFormatPicksTheFileType() async throws {
+        let jpeg = try makeImage(width: 40, height: 30)
+        let png = try makeImage(width: 40, height: 30, type: .png)
+        #expect(try decode(try await ImageComposer.render(jpeg, settings: BorderSettings())).type == .jpeg)
+        // Original keeps a PNG a PNG.
+        #expect(try decode(try await ImageComposer.render(png, settings: BorderSettings())).type == .png)
+        #expect(try decode(try await ImageComposer.render(jpeg, settings: BorderSettings(exportFormat: .png))).type == .png)
+        #expect(try decode(try await ImageComposer.render(png, settings: BorderSettings(exportFormat: .jpeg))).type == .jpeg)
+        // Sharing asks for JPEG whatever the setting.
+        #expect(try decode(try await ImageComposer.render(jpeg, settings: BorderSettings(exportFormat: .png), format: .jpeg)).type == .jpeg)
+        let heic = try await ImageComposer.render(jpeg, settings: BorderSettings(exportFormat: .heic))
+        #expect(try [UTType.heic, .jpeg].contains(decode(heic).type))
+    }
+
+    @Test func roundedCornersShowTheBorder() async throws {
+        // A red photo on a white border: the photo's corner pixel is white once rounded.
+        let red = try makeImage(width: 400, height: 300)
+        var settings = BorderSettings(aspectRatio: .square, paddingFraction: 0.1, exportFormat: .png)
+        let layout = ImageComposer.layout(sourceSize: CGSize(width: 400, height: 300), settings: settings)
+        let corner = (x: Int(layout.imageRect.minX) + 1, y: Int(layout.imageRect.minY) + 1)
+        let middle = (x: Int(layout.imageRect.midX), y: Int(layout.imageRect.minY) + 1)
+
+        let square = try decode(try await ImageComposer.render(red, settings: settings)).image
+        #expect(try pixel(of: square, x: corner.x, y: corner.y).green < 60)
+
+        settings.roundsCorners = true
+        settings.cornerFraction = 0.05
+        let rounded = try decode(try await ImageComposer.render(red, settings: settings)).image
+        #expect(try pixel(of: rounded, x: corner.x, y: corner.y).green > 240)
+        #expect(try pixel(of: rounded, x: middle.x, y: middle.y).green < 60)
+    }
+
+    @Test func shadowDarkensTheBorderBelowThePhoto() async throws {
+        let red = try makeImage(width: 400, height: 300)
+        var settings = BorderSettings(aspectRatio: .square, paddingFraction: 0.1, exportFormat: .png)
+        let layout = ImageComposer.layout(sourceSize: CGSize(width: 400, height: 300), settings: settings)
+        let below = (x: Int(layout.imageRect.midX), y: Int(layout.imageRect.maxY) + 4)
+        let farCorner = (x: 2, y: 2)
+
+        let plain = try decode(try await ImageComposer.render(red, settings: settings)).image
+        #expect(try pixel(of: plain, x: below.x, y: below.y).green > 240)
+
+        settings.hasShadow = true
+        settings.shadowFraction = 0.02
+        let shadowed = try decode(try await ImageComposer.render(red, settings: settings)).image
+        #expect(try pixel(of: shadowed, x: below.x, y: below.y).green < 230)
+        // The shadow fades out well before the canvas's corner, and the photo is still drawn on top.
+        #expect(try pixel(of: shadowed, x: farCorner.x, y: farCorner.y).green > 240)
+        #expect(try pixel(of: shadowed, x: Int(layout.imageRect.midX), y: Int(layout.imageRect.midY)).red > 200)
+    }
+
+    @Test func captureDateUsesTheRecordedOffset() throws {
+        let withOffset = try makeImage(width: 4, height: 4, metadata: [kCGImagePropertyExifDictionary: [
+            kCGImagePropertyExifDateTimeOriginal: "2026:11:02 14:05:09",
+            kCGImagePropertyExifOffsetTimeOriginal: "+01:00",
+        ]])
+        #expect(PhotoLibrary.captureDate(of: withOffset) == Date(timeIntervalSince1970: 1_793_624_709))
+
+        let local = try makeImage(width: 4, height: 4, metadata: [kCGImagePropertyExifDictionary: [
+            kCGImagePropertyExifDateTimeOriginal: "2026:11:02 14:05:09",
+        ]])
+        let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute, .second],
+                                                         from: try #require(PhotoLibrary.captureDate(of: local)))
+        #expect(components == DateComponents(year: 2026, month: 11, day: 2, hour: 14, minute: 5, second: 9))
+
+        #expect(PhotoLibrary.captureDate(of: try makeImage(width: 4, height: 4)) == nil)
     }
 
     @Test func concurrentRendersAllFinish() async throws {

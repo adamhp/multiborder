@@ -6,20 +6,26 @@ enum TabbedItems: Int, CaseIterable {
     case select
     case edit
     case export
+    case settings
 
     var title: String {
         switch self {
         case .select: "Select"
         case .edit: "Edit"
         case .export: "Export"
+        case .settings: "Settings"
         }
     }
+
+    /// Whether the tab has nothing to show until photos are picked.
+    var needsPhotos: Bool { self == .edit || self == .export }
 
     var iconName: String {
         switch self {
         case .select: "photo.badge.plus"
         case .edit: "slider.horizontal.3"
         case .export: "square.and.arrow.down"
+        case .settings: "gearshape"
         }
     }
 }
@@ -236,8 +242,7 @@ enum TabbedItems: Int, CaseIterable {
         saveStatus = .saving
         exportProgress = 0
 
-        let authorization = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
-        guard authorization == .authorized || authorization == .limited else {
+        guard await PhotoLibrary.requestAccess(album: settings.savesToAlbum) else {
             saveStatus = .failed("Allow adding photos in Settings to save")
             return
         }
@@ -256,7 +261,7 @@ enum TabbedItems: Int, CaseIterable {
                 let photo = try await attachment.item.loadPhoto()
                 let output = try await ImageComposer.render(photo.data, filename: photo.filename, settings: settings)
                 try Task.checkCancellation()
-                try await addToPhotoLibrary(output)
+                try await PhotoLibrary.save(output, source: photo.data, settings: settings)
                 // A copy made with settings changed since then doesn't count as saved.
                 if self.settings == settings {
                     savedIDs.insert(attachment.id)
@@ -327,7 +332,7 @@ nonisolated struct BorderedPhoto: Transferable {
             do {
                 let picked = try await photo.item.loadPhoto()
                 let output = try await ImageComposer.render(picked.data, filename: picked.filename,
-                                                            settings: photo.settings, keepHEIC: false)
+                                                            settings: photo.settings, format: .jpeg)
                 log.info("Shared photo \(photo.number) as \(output.count) bytes of data")
                 return output
             } catch {

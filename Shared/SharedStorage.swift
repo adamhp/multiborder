@@ -1,10 +1,11 @@
 import SwiftUI
 import Photos
+import ImageIO
 
 // Storage shared by the app and the Share-sheet action (AddBorderExtension).
 
 /// The app group the app and its extension share; must match both targets' entitlements.
-let appGroupID = "group.com.adamhp.multiborder"
+nonisolated let appGroupID = "group.com.adamhp.multiborder"
 
 extension UserDefaults {
     /// Defaults in the app group, so the Share-sheet action sees the settings last used in
@@ -66,12 +67,107 @@ extension BorderSettings {
     }
 }
 
-/// The change block runs on a Photos queue, so it must not be main-actor isolated.
-nonisolated func addToPhotoLibrary(_ data: Data) async throws {
-    try await PHPhotoLibrary.shared().performChanges {
-        let request = PHAssetCreationRequest.forAsset()
-        // Keep exports at the top of Recents rather than at the original capture date.
-        request.creationDate = Date()
-        request.addResource(with: .photo, data: data, options: nil)
+/// Shared by the app's Settings tab and both share-sheet entries through the App Group: when true,
+/// the share sheet skips its "Add borders with your last settings?" question.
+nonisolated let shareExtensionSkipsIntroKey = "shareExtensionSkipsIntro"
+
+/// Saves exports to the photo library, into the "multiborder" album and with the photo's own date
+/// when the settings ask for them. The change blocks run on a Photos queue, so nothing here is main-actor isolated.
+nonisolated enum PhotoLibrary {
+
+    static let albumTitle = "multiborder"
+    /// The album's local identifier, so renaming it in Photos doesn't make a second one.
+    private static let albumIDKey = "albumIdentifier"
+
+    /// Asks for the access a save needs and returns whether photos can be added. Putting photos in the album
+    /// needs full or limited access to the library; when that's refused, photos are still saved, just outside it.
+    static func requestAccess(album: Bool) async -> Bool {
+        if album, canUseAlbum(await PHPhotoLibrary.requestAuthorization(for: .readWrite)) {
+            return true
+        }
+        let status = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
+        return status == .authorized || status == .limited
+    }
+
+    /// Asks for the access the album needs and returns whether it was given.
+    static func requestAlbumAccess() async -> Bool {
+        canUseAlbum(await PHPhotoLibrary.requestAuthorization(for: .readWrite))
+    }
+
+    private static func canUseAlbum(_ status: PHAuthorizationStatus) -> Bool {
+        status == .authorized || status == .limited
+    }
+
+    /// Adds `output`, rendered from `source`, to the library. If it can't go in the album, it's saved without it.
+    static func save(_ output: Data, source: Data, settings: BorderSettings) async throws {
+        // Without the photo's own date, exports go to the top of Recents rather than among the originals.
+        let date = settings.keepsOriginalDate ? captureDate(of: source) ?? Date() : Date()
+        if settings.savesToAlbum, let album = try? await album() {
+            do {
+                try await add(output, date: date, to: album)
+                return
+            } catch {
+                // Falls through to saving without the album.
+            }
+        }
+        try await add(output, date: date, to: nil)
+    }
+
+    private static func add(_ data: Data, date: Date, to album: PHAssetCollection?) async throws {
+        try await PHPhotoLibrary.shared().performChanges {
+            let request = PHAssetCreationRequest.forAsset()
+            request.creationDate = date
+            request.addResource(with: .photo, data: data, options: nil)
+            if let album, let placeholder = request.placeholderForCreatedAsset {
+                PHAssetCollectionChangeRequest(for: album)?.addAssets([placeholder] as NSArray)
+            }
+        }
+    }
+
+    /// The "multiborder" album, created the first time. `nil` without the access to see albums.
+    private static func album() async throws -> PHAssetCollection? {
+        guard canUseAlbum(PHPhotoLibrary.authorizationStatus(for: .readWrite)) else { return nil }
+        // A fresh handle on the App Group, since `UserDefaults.appGroup` belongs to the main actor.
+        let defaults = UserDefaults(suiteName: appGroupID) ?? .standard
+        if let id = defaults.string(forKey: albumIDKey),
+           let album = PHAssetCollection.fetchAssetCollections(withLocalIdentifiers: [id], options: nil).firstObject {
+            return album
+        }
+        let options = PHFetchOptions()
+        options.predicate = NSPredicate(format: "title == %@", albumTitle)
+        func existing() -> PHAssetCollection? {
+            PHAssetCollection.fetchAssetCollections(with: .album, subtype: .albumRegular, options: options).firstObject
+        }
+        if existing() == nil {
+            try await PHPhotoLibrary.shared().performChanges {
+                PHAssetCollectionChangeRequest.creationRequestForAssetCollection(withTitle: albumTitle)
+            }
+        }
+        let album = existing()
+        if let album {
+            defaults.set(album.localIdentifier, forKey: albumIDKey)
+        }
+        return album
+    }
+
+    /// When the photo in `data` was taken, from its EXIF capture date. EXIF dates are local times; the offset
+    /// recorded with them is used when there is one, and the device's time zone otherwise.
+    static func captureDate(of data: Data) -> Date? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any] else { return nil }
+        let exif = properties[kCGImagePropertyExifDictionary] as? [CFString: Any] ?? [:]
+        let tiff = properties[kCGImagePropertyTIFFDictionary] as? [CFString: Any] ?? [:]
+        guard let stamp = exif[kCGImagePropertyExifDateTimeOriginal] as? String
+                ?? exif[kCGImagePropertyExifDateTimeDigitized] as? String
+                ?? tiff[kCGImagePropertyTIFFDateTime] as? String else { return nil }
+        let parser = DateFormatter()
+        parser.locale = Locale(identifier: "en_US_POSIX")
+        if let offset = exif[kCGImagePropertyExifOffsetTimeOriginal] as? String {
+            parser.dateFormat = "yyyy:MM:dd HH:mm:ssxxx"
+            if let date = parser.date(from: stamp + offset) { return date }
+        }
+        parser.dateFormat = "yyyy:MM:dd HH:mm:ss"
+        parser.timeZone = .current
+        return parser.date(from: stamp)
     }
 }

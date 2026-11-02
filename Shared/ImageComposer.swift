@@ -64,6 +64,39 @@ nonisolated enum BorderFill: String, Codable, Sendable {
     case blur
 }
 
+/// The file type exports are saved as.
+nonisolated enum ExportFormat: String, CaseIterable, Identifiable, Codable, Sendable {
+    /// HEIC and PNG photos keep their format; everything else becomes JPEG.
+    case original
+    case jpeg
+    case heic
+    case png
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .original: "Orig."
+        case .jpeg: "JPEG"
+        case .heic: "HEIC"
+        case .png: "PNG"
+        }
+    }
+
+    /// Types to try encoding as, in order, for a photo of `sourceType`. JPEG is always the last resort.
+    func encodingTypes(source sourceType: UTType?) -> [UTType] {
+        switch self {
+        case .original:
+            if sourceType?.conforms(to: .heic) == true || sourceType?.conforms(to: .heif) == true { [.heic, .jpeg] }
+            else if sourceType?.conforms(to: .png) == true { [.png, .jpeg] }
+            else { [.jpeg] }
+        case .jpeg: [.jpeg]
+        case .heic: [.heic, .jpeg]
+        case .png: [.png, .jpeg]
+        }
+    }
+}
+
 /// Border thickness of each side, as fractions of the canvas's shorter side.
 nonisolated struct BorderInsets: Codable, Equatable, Sendable {
     var top: Double
@@ -93,6 +126,10 @@ nonisolated struct BorderSettings: Codable, Equatable, Sendable {
     static let paddingRange: ClosedRange<Double> = 0...0.16
     /// The slider shows this as 5–100 in steps of 5.
     static let blurRange: ClosedRange<Double> = 0.005...0.1
+    /// The slider shows this as 1–64, on the border width's scale.
+    static let cornerRange: ClosedRange<Double> = 0.00125...0.08
+    /// The slider shows this as 5–100% in steps of 5.
+    static let shadowRange: ClosedRange<Double> = 0.002...0.04
 
     var aspectRatio: AspectRatio = .fourByFive
     /// Turns the aspect ratio sideways (e.g. 4:5 becomes 5:4).
@@ -131,8 +168,22 @@ nonisolated struct BorderSettings: Codable, Equatable, Sendable {
     var captionFont = CaptionFont.spaceMono
     /// Whether any caption icons are printed; when on, `captionHiddenIcons` still hides single ones.
     var showsCaptionIcons = true
+    /// Whether the photo's corners are rounded by `cornerFraction`.
+    var roundsCorners = false
+    /// Corner radius of the photo as a fraction of the canvas's shorter side, kept while `roundsCorners` is off.
+    var cornerFraction: Double = 0.02
+    /// Whether the photo casts a shadow of `shadowFraction`.
+    var hasShadow = false
+    /// Blur of the shadow under the photo as a fraction of the canvas's shorter side, kept while `hasShadow` is off.
+    var shadowFraction: Double = 0.01
     /// Maximum output width in pixels; 0 exports at the photo's full resolution.
     var exportWidth: Int = 0
+    var exportFormat: ExportFormat = .original
+    /// Whether saved photos also go into the "multiborder" album (see `PhotoLibrary`).
+    var savesToAlbum = false
+    /// Whether saved photos are dated when they were taken rather than when they were saved,
+    /// so they sort next to the original instead of at the top of Recents.
+    var keepsOriginalDate = false
 
     /// Canvas width divided by height after orientation; `nil` keeps the photo's own ratio.
     var canvasWidthOverHeight: Double? {
@@ -168,6 +219,23 @@ nonisolated struct BorderSettings: Codable, Equatable, Sendable {
         } else {
             captionBelow.insert(field, at: min(max(index, 0), captionBelow.count))
         }
+    }
+
+    /// Corner radius in points or pixels for a canvas of `canvasSize`, at most half of `photoSize`'s shorter side;
+    /// 0 while `roundsCorners` is off.
+    func cornerRadius(canvasSize: CGSize, photoSize: CGSize) -> Double {
+        guard roundsCorners else { return 0 }
+        return min(min(max(cornerFraction, Self.cornerRange.lowerBound), Self.cornerRange.upperBound)
+                * min(canvasSize.width, canvasSize.height),
+            min(photoSize.width, photoSize.height) / 2)
+    }
+
+    /// The shadow's blur in points or pixels for a canvas of `canvasSize` (Core Graphics' `blur`; SwiftUI's
+    /// shadow radius is about half of it). The shadow falls a quarter of this below the photo. 0 while `hasShadow` is off.
+    func shadowBlur(canvasSize: CGSize) -> Double {
+        guard hasShadow else { return 0 }
+        return min(max(shadowFraction, Self.shadowRange.lowerBound), Self.shadowRange.upperBound)
+            * min(canvasSize.width, canvasSize.height)
     }
 
     /// Blur standard deviation in points or pixels for a canvas of `canvasSize`.
@@ -222,7 +290,14 @@ nonisolated extension BorderSettings {
         // A font that's since been dropped from the list falls back to the default rather than discarding every setting.
         captionFont = (try? container.decodeIfPresent(CaptionFont.self, forKey: .captionFont)) ?? fallback.captionFont
         showsCaptionIcons = try container.decodeIfPresent(Bool.self, forKey: .showsCaptionIcons) ?? fallback.showsCaptionIcons
+        roundsCorners = try container.decodeIfPresent(Bool.self, forKey: .roundsCorners) ?? fallback.roundsCorners
+        cornerFraction = try container.decodeIfPresent(Double.self, forKey: .cornerFraction) ?? fallback.cornerFraction
+        hasShadow = try container.decodeIfPresent(Bool.self, forKey: .hasShadow) ?? fallback.hasShadow
+        shadowFraction = try container.decodeIfPresent(Double.self, forKey: .shadowFraction) ?? fallback.shadowFraction
         exportWidth = try container.decodeIfPresent(Int.self, forKey: .exportWidth) ?? fallback.exportWidth
+        exportFormat = (try? container.decodeIfPresent(ExportFormat.self, forKey: .exportFormat)) ?? fallback.exportFormat
+        savesToAlbum = try container.decodeIfPresent(Bool.self, forKey: .savesToAlbum) ?? fallback.savesToAlbum
+        keepsOriginalDate = try container.decodeIfPresent(Bool.self, forKey: .keepsOriginalDate) ?? fallback.keepsOriginalDate
     }
 }
 
@@ -341,8 +416,8 @@ nonisolated enum ImageComposer {
     }
 
     /// Draws the photo on its border and encodes it, keeping the source's color space
-    /// and metadata minus location. HEIC sources stay HEIC when `keepHEIC` is true;
-    /// everything else becomes JPEG.
+    /// and metadata minus location. Encodes as `format`, or `settings.exportFormat` when it's `nil`,
+    /// falling back to JPEG if that format can't be written.
     ///
     /// HDR photos are exported as their SDR rendition. The border is plain SDR color, and
     /// re-encoding with a gain map tone-maps the whole canvas, which shifts both the photo's
@@ -350,15 +425,16 @@ nonisolated enum ImageComposer {
     ///
     /// Renders run one at a time, whoever calls (a Download, or the share sheet loading
     /// several photos at once), so only one canvas of up to `maxCanvasBytes` exists at a time.
-    static func render(_ data: Data, filename: String? = nil, settings: BorderSettings, keepHEIC: Bool = true) async throws -> Data {
-        try await renderQueue.run {
-            try await renderNow(data, filename: filename, settings: settings, keepHEIC: keepHEIC)
+    static func render(_ data: Data, filename: String? = nil, settings: BorderSettings, format: ExportFormat? = nil) async throws -> Data {
+        let format = format ?? settings.exportFormat
+        return try await renderQueue.run {
+            try await renderNow(data, filename: filename, settings: settings, format: format)
         }
     }
 
     private static let renderQueue = SerialQueue()
 
-    @concurrent private static func renderNow(_ data: Data, filename: String?, settings: BorderSettings, keepHEIC: Bool) async throws -> Data {
+    @concurrent private static func renderNow(_ data: Data, filename: String?, settings: BorderSettings, format: ExportFormat) async throws -> Data {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil),
               let pixelSize = uprightPixelSize(of: source) else {
             throw ComposeError.unreadable
@@ -387,8 +463,7 @@ nonisolated enum ImageComposer {
 
         let metadata = exportMetadata(source)
         let sourceType = CGImageSourceGetType(source).flatMap { UTType($0 as String) }
-        let isHEIC = sourceType?.conforms(to: .heic) == true || sourceType?.conforms(to: .heif) == true
-        for type in isHEIC && keepHEIC ? [UTType.heic, .jpeg] : [.jpeg] {
+        for type in format.encodingTypes(source: sourceType) {
             if let encoded = encode(canvas, as: type, metadata: metadata) {
                 return encoded
             }
@@ -478,7 +553,32 @@ nonisolated enum ImageComposer {
         // Core Graphics has a bottom-left origin.
         var drawRect = layout.imageRect
         drawRect.origin.y = layout.canvasSize.height - layout.imageRect.maxY
-        context.draw(image, in: drawRect)
+        let radius = settings.cornerRadius(canvasSize: layout.canvasSize, photoSize: drawRect.size)
+        let photoShape = CGPath(roundedRect: drawRect, cornerWidth: radius, cornerHeight: radius, transform: nil)
+        let shadowBlur = settings.shadowBlur(canvasSize: layout.canvasSize)
+        if shadowBlur > 0 {
+            // Only the shadow should land on the canvas: the shape is drawn a canvas width off to the side and its
+            // shadow offset back under the photo. A transparency layer would do the same with a second full-size canvas.
+            // The context's base space is unflipped, so a negative offset moves the shadow down.
+            let away = layout.canvasSize.width * 2
+            context.saveGState()
+            context.setShadow(offset: CGSize(width: -away, height: -shadowBlur / 4), blur: shadowBlur,
+                              color: CGColor(gray: 0, alpha: 0.5))
+            context.translateBy(x: away, y: 0)
+            context.addPath(photoShape)
+            context.setFillColor(gray: 0, alpha: 1)
+            context.fillPath()
+            context.restoreGState()
+        }
+        if radius > 0 {
+            context.saveGState()
+            context.addPath(photoShape)
+            context.clip()
+            context.draw(image, in: drawRect)
+            context.restoreGState()
+        } else {
+            context.draw(image, in: drawRect)
+        }
         PhotoCaption.draw(caption, in: context, layout: layout, border: settings.borderColor, fill: settings.fill)
         guard let result = context.makeImage() else {
             throw ComposeError.encodingFailed

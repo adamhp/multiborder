@@ -105,12 +105,19 @@ struct BorderedImage: View {
                     .blur(radius: settings.blurRadius(canvasSize: canvasSize), opaque: true)
                     .clipped()
             }
+            let photoSize = CGSize(width: layout.imageRect.width * scale, height: layout.imageRect.height * scale)
+            let shadowBlur = settings.shadowBlur(canvasSize: canvasSize)
             Image(uiImage: thumbnail.image)
                 .resizable()
-                .frame(width: layout.imageRect.width * scale, height: layout.imageRect.height * scale)
+                .frame(width: photoSize.width, height: photoSize.height)
+                .clipShape(.rect(cornerRadius: settings.cornerRadius(canvasSize: canvasSize, photoSize: photoSize)))
+                // SwiftUI's shadow radius is about half of Core Graphics' blur, which the export uses.
+                .shadow(color: .black.opacity(shadowBlur > 0 ? 0.5 : 0), radius: shadowBlur / 2, y: shadowBlur / 4)
                 .offset(x: layout.imageRect.minX * scale, y: layout.imageRect.minY * scale)
         }
         .frame(width: canvasSize.width, height: canvasSize.height)
+        // The shadow stops at the canvas's edge, as in the export.
+        .clipped()
         .overlay(alignment: .topLeading) {
             let rows = PhotoCaption.rows(photoItems: thumbnail.captionItems, settings: settings)
             if let placement = PhotoCaption.placement(of: rows, layout: layout) {

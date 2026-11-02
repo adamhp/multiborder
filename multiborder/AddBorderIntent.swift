@@ -27,7 +27,7 @@ struct AddBorderIntent: AppIntent, ProgressReportingIntent {
             let output: Data
             do {
                 output = try await ImageComposer.render(photo.data, filename: photo.filename,
-                                                        settings: settings, keepHEIC: false)
+                                                        settings: settings, format: .jpeg)
             } catch ImageComposer.ComposeError.unreadable {
                 throw UnreadablePhoto(filename: photo.filename)
             }

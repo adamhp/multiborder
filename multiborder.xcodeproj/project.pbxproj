@@ -7,9 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		AC00000000000000000000A2 /* AddBorderAction.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AC00000000000000000000A1 /* AddBorderAction.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		AB00000000000000000000A2 /* AddBorderExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AB00000000000000000000A1 /* AddBorderExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		6626B0CC2C8C93F7009501CF /* PhotosUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6626B0CB2C8C93F7009501CF /* PhotosUI.framework */; };
+		AB00000000000000000000A2 /* AddBorderExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AB00000000000000000000A1 /* AddBorderExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		AC00000000000000000000A2 /* AddBorderAction.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AC00000000000000000000A1 /* AddBorderAction.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -68,30 +68,6 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		AC00000000000000000000A6 /* Exceptions for "AddBorderAction" folder in "AddBorderAction" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				AddBorderAction.entitlements,
-				Info.plist,
-			);
-			target = AC00000000000000000000A8 /* AddBorderAction */;
-		};
-		AC00000000000000000000A7 /* Exceptions for "AddBorderExtension" folder in "AddBorderAction" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				AddBorderExtension.entitlements,
-				Info.plist,
-			);
-			target = AC00000000000000000000A8 /* AddBorderAction */;
-		};
-		AB00000000000000000000A7 /* Exceptions for "AddBorderExtension" folder in "AddBorderExtension" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				AddBorderExtension.entitlements,
-				Info.plist,
-			);
-			target = AB00000000000000000000A8 /* AddBorderExtension */;
-		};
 		4FBDAFD8038CBBFD0BADCD5A /* Exceptions for "multiborderUITests" folder in "multiborderUITests" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -108,31 +84,30 @@
 			);
 			target = 660EB6BF2C1C6E8900033C60 /* multiborder */;
 		};
+		AB00000000000000000000A7 /* Exceptions for "AddBorderExtension" folder in "AddBorderExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = AB00000000000000000000A8 /* AddBorderExtension */;
+		};
+		AC00000000000000000000A6 /* Exceptions for "AddBorderAction" folder in "AddBorderAction" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = AC00000000000000000000A8 /* AddBorderAction */;
+		};
+		AC00000000000000000000A7 /* Exceptions for "AddBorderExtension" folder in "AddBorderAction" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = AC00000000000000000000A8 /* AddBorderAction */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		AC00000000000000000000A5 /* AddBorderAction */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				AC00000000000000000000A6 /* Exceptions for "AddBorderAction" folder in "AddBorderAction" target */,
-			);
-			path = AddBorderAction;
-			sourceTree = "<group>";
-		};
-		AB00000000000000000000A6 /* AddBorderExtension */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				AB00000000000000000000A7 /* Exceptions for "AddBorderExtension" folder in "AddBorderExtension" target */,
-				AC00000000000000000000A7 /* Exceptions for "AddBorderExtension" folder in "AddBorderAction" target */,
-			);
-			path = AddBorderExtension;
-			sourceTree = "<group>";
-		};
-		AB00000000000000000000A5 /* Shared */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Shared;
-			sourceTree = "<group>";
-		};
 		660EB6C22C1C6E8900033C60 /* multiborder */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -152,6 +127,28 @@
 				4FBDAFD8038CBBFD0BADCD5A /* Exceptions for "multiborderUITests" folder in "multiborderUITests" target */,
 			);
 			path = multiborderUITests;
+			sourceTree = "<group>";
+		};
+		AB00000000000000000000A5 /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		AB00000000000000000000A6 /* AddBorderExtension */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				AB00000000000000000000A7 /* Exceptions for "AddBorderExtension" folder in "AddBorderExtension" target */,
+				AC00000000000000000000A7 /* Exceptions for "AddBorderExtension" folder in "AddBorderAction" target */,
+			);
+			path = AddBorderExtension;
+			sourceTree = "<group>";
+		};
+		AC00000000000000000000A5 /* AddBorderAction */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				AC00000000000000000000A6 /* Exceptions for "AddBorderAction" folder in "AddBorderAction" target */,
+			);
+			path = AddBorderAction;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -233,49 +230,6 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		AC00000000000000000000A8 /* AddBorderAction */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = AC00000000000000000000AE /* Build configuration list for PBXNativeTarget "AddBorderAction" */;
-			buildPhases = (
-				AC00000000000000000000A9 /* Sources */,
-				AC00000000000000000000AA /* Frameworks */,
-				AC00000000000000000000AB /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			fileSystemSynchronizedGroups = (
-				AC00000000000000000000A5 /* AddBorderAction */,
-				AB00000000000000000000A6 /* AddBorderExtension */,
-				AB00000000000000000000A5 /* Shared */,
-			);
-			name = AddBorderAction;
-			productName = AddBorderAction;
-			productReference = AC00000000000000000000A1 /* AddBorderAction.appex */;
-			productType = "com.apple.product-type.app-extension";
-		};
-		AB00000000000000000000A8 /* AddBorderExtension */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = AB00000000000000000000AE /* Build configuration list for PBXNativeTarget "AddBorderExtension" */;
-			buildPhases = (
-				AB00000000000000000000A9 /* Sources */,
-				AB00000000000000000000AA /* Frameworks */,
-				AB00000000000000000000AB /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			fileSystemSynchronizedGroups = (
-				AB00000000000000000000A6 /* AddBorderExtension */,
-				AB00000000000000000000A5 /* Shared */,
-			);
-			name = AddBorderExtension;
-			productName = AddBorderExtension;
-			productReference = AB00000000000000000000A1 /* AddBorderExtension.appex */;
-			productType = "com.apple.product-type.app-extension";
-		};
 		660EB6BF2C1C6E8900033C60 /* multiborder */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 660EB6E42C1C6E8A00033C60 /* Build configuration list for PBXNativeTarget "multiborder" */;
@@ -341,6 +295,49 @@
 			productName = "swift-multiborderUITests";
 			productReference = 660EB6DA2C1C6E8A00033C60 /* multiborderUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		AB00000000000000000000A8 /* AddBorderExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AB00000000000000000000AE /* Build configuration list for PBXNativeTarget "AddBorderExtension" */;
+			buildPhases = (
+				AB00000000000000000000A9 /* Sources */,
+				AB00000000000000000000AA /* Frameworks */,
+				AB00000000000000000000AB /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				AB00000000000000000000A5 /* Shared */,
+				AB00000000000000000000A6 /* AddBorderExtension */,
+			);
+			name = AddBorderExtension;
+			productName = AddBorderExtension;
+			productReference = AB00000000000000000000A1 /* AddBorderExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		AC00000000000000000000A8 /* AddBorderAction */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AC00000000000000000000AE /* Build configuration list for PBXNativeTarget "AddBorderAction" */;
+			buildPhases = (
+				AC00000000000000000000A9 /* Sources */,
+				AC00000000000000000000AA /* Frameworks */,
+				AC00000000000000000000AB /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				AB00000000000000000000A5 /* Shared */,
+				AB00000000000000000000A6 /* AddBorderExtension */,
+				AC00000000000000000000A5 /* AddBorderAction */,
+			);
+			name = AddBorderAction;
+			productName = AddBorderAction;
+			productReference = AC00000000000000000000A1 /* AddBorderAction.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -493,7 +490,6 @@
 		660EB6E22C1C6E8A00033C60 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 1;
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -525,6 +521,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -557,7 +554,6 @@
 		660EB6E32C1C6E8A00033C60 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 1;
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -589,6 +585,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -627,6 +624,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = multiborder;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.photography";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "multiborder requires access to your photo library to save edited photos.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "multiborder needs access to your photo library to add saved photos to the multiborder album.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = SplashScreen.storyboard;
@@ -666,6 +664,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = multiborder;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.photography";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "multiborder requires access to your photo library to save edited photos.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "multiborder needs access to your photo library to add saved photos to the multiborder album.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = SplashScreen.storyboard;
@@ -793,6 +792,7 @@
 				INFOPLIST_FILE = AddBorderExtension/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = multiborder;
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "multiborder requires access to your photo library to save edited photos.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "multiborder needs access to your photo library to add saved photos to the multiborder album.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -823,6 +823,7 @@
 				INFOPLIST_FILE = AddBorderExtension/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = multiborder;
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "multiborder requires access to your photo library to save edited photos.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "multiborder needs access to your photo library to add saved photos to the multiborder album.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -854,6 +855,7 @@
 				INFOPLIST_FILE = AddBorderAction/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Add borders with multiborder";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "multiborder requires access to your photo library to save edited photos.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "multiborder needs access to your photo library to add saved photos to the multiborder album.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -885,6 +887,7 @@
 				INFOPLIST_FILE = AddBorderAction/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Add borders with multiborder";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "multiborder requires access to your photo library to save edited photos.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "multiborder needs access to your photo library to add saved photos to the multiborder album.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

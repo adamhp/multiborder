@@ -22,6 +22,8 @@ struct MainView: View {
                 ExportView()
                     .tag(TabbedItems.export)
                     .disabled(data.attachments.isEmpty)
+                SettingsView()
+                    .tag(TabbedItems.settings)
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             // No swiping between pages until photos are picked. The picker shows until then,
@@ -59,7 +61,7 @@ struct TabBar: View {
         let items = HStack {
             ForEach(TabbedItems.allCases, id: \.self) { item in
                 Button {
-                    if item == .select || !data.attachments.isEmpty {
+                    if !item.needsPhotos || !data.attachments.isEmpty {
                         data.selectedTab = item
                     } else {
                         withAnimation {
@@ -72,7 +74,7 @@ struct TabBar: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(item.title)
-                .accessibilityHint(item != .select && data.attachments.isEmpty ? "Select some photos first" : "")
+                .accessibilityHint(item.needsPhotos && data.attachments.isEmpty ? "Select some photos first" : "")
                 .accessibilityAddTraits(data.selectedTab == item ? .isSelected : [])
                 .accessibilityShowsLargeContentViewer()
                 .animation(.interactiveSpring, value: data.selectedTab)

@@ -44,6 +44,21 @@ struct EditView: View {
                         .transition(.opacity)
                 }
                 Grid(horizontalSpacing: 16, verticalSpacing: 0) {
+                    EditToggles()
+                    if data.settings.roundsCorners {
+                        // Shows 1–64, on the border width's scale.
+                        let cornerMax = BorderSettings.cornerRange.upperBound
+                        EditOptionSlider(title: "Corner Radius", systemImage: "app", keyPath: \.cornerFraction,
+                                         range: BorderSettings.cornerRange, step: cornerMax / 64,
+                                         displayScale: 64 / cornerMax)
+                    }
+                    if data.settings.hasShadow {
+                        // Shows 5–100% in steps of 5.
+                        let shadowMax = BorderSettings.shadowRange.upperBound
+                        EditOptionSlider(title: "Shadow", systemImage: "shadow", keyPath: \.shadowFraction,
+                                         range: BorderSettings.shadowRange, step: shadowMax / 20,
+                                         displayScale: 100 / shadowMax, suffix: "%")
+                    }
                     DesiredPaddingSlider()
                     DesiredAspectRatioChooser()
                 }
@@ -55,32 +70,120 @@ struct EditView: View {
     }
 }
 
-struct DesiredPaddingSlider: View {
-    
+/// Switches for the border's options, in a row above the sliders: separate sides, rounded corners,
+/// the shadow, the caption and the blurred fill. Corners and shadow add a slider row while on.
+struct EditToggles: View {
+
     @Environment(DataModel.self) private var data
-    
+
     var body: some View {
+        let settings = data.settings
         GridRow {
-            let isPerSide = data.settings.isPerSide
-            Button {
-                withAnimation {
-                    if !isPerSide && data.settings.sides == nil {
+            HStack(spacing: 0) {
+                EditToggle("Separate Border for Each Side", systemImage: "square.dashed", isOn: settings.isPerSide) {
+                    if !settings.isPerSide && settings.sides == nil {
                         // The first time, each side starts at the current width so nothing jumps.
-                        data.settings.sides = BorderInsets(uniform: data.settings.paddingFraction)
+                        data.settings.sides = BorderInsets(uniform: settings.paddingFraction)
                     }
                     data.settings.isPerSide.toggle()
                 }
-            } label: {
-                Image(systemName: "square.dashed")
-                    .foregroundStyle(isPerSide ? .accent : .white)
-                    .frame(width: 32, height: 40)
-                    .contentShape(.rect)
+                EditToggle("Rounded Corners", systemImage: "app", isOn: settings.roundsCorners) {
+                    data.settings.roundsCorners.toggle()
+                }
+                EditToggle("Shadow", systemImage: "shadow", isOn: settings.hasShadow) {
+                    data.settings.hasShadow.toggle()
+                }
+                EditToggle("Camera Settings Caption", systemImage: "text.below.photo", isOn: settings.showsCaption) {
+                    data.settings.showsCaption.toggle()
+                }
+                EditToggle("Blurred Photo Border", systemImage: settings.fill == .blur ? "drop.halffull" : "drop",
+                           isOn: settings.fill == .blur) {
+                    data.settings.fill = settings.fill == .blur ? .color : .blur
+                }
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Separate Border for Each Side")
-            .accessibilityAddTraits(isPerSide ? .isSelected : [])
-            .sensoryFeedback(.selection, trigger: isPerSide)
-            HStack(spacing: 0) {
+            .gridCellColumns(2)
+        }
+        .frame(height: EditView.controlRowHeight)
+    }
+}
+
+/// One of `EditToggles`' switches: an icon, accent while on, sharing the row equally with the others.
+private struct EditToggle: View {
+
+    let title: LocalizedStringKey
+    let systemImage: String
+    let isOn: Bool
+    let action: () -> Void
+
+    init(_ title: LocalizedStringKey, systemImage: String, isOn: Bool, action: @escaping () -> Void) {
+        self.title = title
+        self.systemImage = systemImage
+        self.isOn = isOn
+        self.action = action
+    }
+
+    var body: some View {
+        Button {
+            withAnimation { action() }
+        } label: {
+            Image(systemName: systemImage)
+                .contentTransition(.symbolEffect(.replace))
+                .foregroundStyle(isOn ? .accent : .white)
+                .frame(maxWidth: .infinity, minHeight: 40)
+                .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(isOn ? .isSelected : [])
+        .sensoryFeedback(.selection, trigger: isOn)
+    }
+}
+
+/// The strength of an option switched on in `EditToggles`, with the option's icon at the start of the row.
+struct EditOptionSlider: View {
+
+    @Environment(DataModel.self) private var data
+    let title: LocalizedStringKey
+    let systemImage: String
+    let keyPath: WritableKeyPath<BorderSettings, Double>
+    let range: ClosedRange<Double>
+    let step: Double
+    let displayScale: Double
+    var suffix = ""
+
+    var body: some View {
+        GridRow {
+            Image(systemName: systemImage)
+                .foregroundStyle(.stone400)
+                .frame(width: 32, height: 40)
+                .accessibilityHidden(true)
+            LabeledSlider(title,
+                          value: Binding(
+                            get: { data.settings[keyPath: keyPath] },
+                            set: { newVal in
+                                withAnimation {
+                                    data.settings[keyPath: keyPath] = newVal
+                                }
+                            }),
+                          in: range, step: step, displayScale: displayScale, suffix: suffix)
+        }
+        .frame(height: EditView.controlRowHeight)
+        .transition(.opacity)
+    }
+}
+
+struct DesiredPaddingSlider: View {
+
+    @Environment(DataModel.self) private var data
+
+    var body: some View {
+        GridRow {
+            let isPerSide = data.settings.isPerSide
+            Image(systemName: "rectangle.inset.filled")
+                .foregroundStyle(.stone400)
+                .frame(width: 32, height: 40)
+                .accessibilityHidden(true)
+            HStack(spacing: 8) {
                 // Shows 0–64, the same scale the app used before padding became a fraction.
                 let paddingMax = BorderSettings.paddingRange.upperBound
                 LabeledSlider("Border Width",
@@ -96,38 +199,7 @@ struct DesiredPaddingSlider: View {
                 // The sliders around the preview set the width while each side is separate.
                 .disabled(isPerSide)
                 .opacity(isPerSide ? 0.4 : 1)
-                let showsCaption = data.settings.showsCaption
-                Button {
-                    withAnimation {
-                        data.settings.showsCaption.toggle()
-                    }
-                } label: {
-                    Image(systemName: "text.below.photo")
-                        .foregroundStyle(showsCaption ? .accent : .white)
-                        .frame(width: 40, height: 40)
-                        .contentShape(.rect)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Camera Settings Caption")
-                .accessibilityAddTraits(showsCaption ? .isSelected : [])
-                .sensoryFeedback(.selection, trigger: showsCaption)
-                let isBlurred = data.settings.fill == .blur
-                Button {
-                    withAnimation {
-                        data.settings.fill = isBlurred ? .color : .blur
-                    }
-                } label: {
-                    Image(systemName: isBlurred ? "drop.halffull" : "drop")
-                        .contentTransition(.symbolEffect(.replace))
-                        .foregroundStyle(isBlurred ? .accent : .white)
-                        .frame(width: 40, height: 40)
-                        .contentShape(.rect)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Blurred Photo Border")
-                .accessibilityAddTraits(isBlurred ? .isSelected : [])
-                .sensoryFeedback(.selection, trigger: data.settings.fill)
-                if isBlurred {
+                if data.settings.fill == .blur {
                     // Shows 5–100% in steps of 5.
                     LabeledSlider("Blur Strength", value: Bindable(data).settings.blurFraction,
                                   in: BorderSettings.blurRange, step: 0.005, displayScale: 1000, suffix: "%")
