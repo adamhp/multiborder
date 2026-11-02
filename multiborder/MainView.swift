@@ -13,21 +13,21 @@ struct MainView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            /// Tabbed views. Swiping between pages is blocked until photos are selected.
             TabView(selection: $data.selectedTab) {
                 SelectView()
                     .tag(TabbedItems.select)
-                    .blocksSwipe(data.attachments.isEmpty)
                 EditView()
                     .tag(TabbedItems.edit)
                     .disabled(data.attachments.isEmpty)
-                    .blocksSwipe(data.attachments.isEmpty)
                 ExportView()
                     .tag(TabbedItems.export)
                     .disabled(data.attachments.isEmpty)
-                    .blocksSwipe(data.attachments.isEmpty)
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
+            // No swiping between pages until photos are picked. The picker shows until then,
+            // and a sideways drag across it selects photos. Disabling the page view's scroll,
+            // rather than covering the page with a gesture, leaves that drag to the picker.
+            .scrollDisabled(data.attachments.isEmpty)
             .indexViewStyle(PageIndexViewStyle(backgroundDisplayMode: .never))
 
             TabBar()

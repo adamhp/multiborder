@@ -11,45 +11,38 @@ import PhotosUI
 struct SelectView: View {
 
     @Environment(DataModel.self) private var data
-    /// True while the picker is showing. Done or leaving the tab ends picking;
-    /// clearing the batch starts it again.
-    @State private var picking = true
 
     var body: some View {
         DefaultPage {
-            if picking {
-                PickerPage { picking = false }
+            // The picker shows until it hands over a batch, and again once the batch is cleared.
+            if data.attachments.isEmpty {
+                PickerPage()
             } else {
                 StackPage()
             }
         }
-        .animation(.default, value: picking)
-        .sensoryFeedback(.success, trigger: picking) { wasPicking, isPicking in
-            wasPicking && !isPicking
-        }
-        .onChange(of: data.attachments.isEmpty) { _, isEmpty in
-            if isEmpty { picking = true }
-        }
-        .onChange(of: data.selectedTab) { _, tab in
-            // Tabs only open once photos are picked, so leaving counts as Done.
-            if tab != .select && !data.attachments.isEmpty { picking = false }
+        .animation(.default, value: data.attachments.isEmpty)
+        .sensoryFeedback(.success, trigger: data.attachments.isEmpty) { wasEmpty, isEmpty in
+            wasEmpty && !isEmpty
         }
     }
 }
 
-/// The system photo picker embedded in the page, with Done below it.
-/// Each tap adds to the batch straight away.
+/// The system photo picker embedded in the page. People select photos by tapping or by
+/// dragging across them, then confirm with the picker's own check mark, which hands the
+/// batch over in one go.
 private struct PickerPage: View {
 
     @Environment(DataModel.self) private var data
-    let done: () -> Void
 
     var body: some View {
         @Bindable var data = data
         VStack(spacing: 16) {
             PhotosPicker(
                 selection: $data.selection,
-                selectionBehavior: .continuousAndOrdered,
+                // Drag-to-select works with this mode and the top bar showing; it didn't with
+                // .continuousAndOrdered or .ordered and the top bar hidden (iPhone 16 Pro, iOS 26).
+                selectionBehavior: .default,
                 matching: .images,
                 preferredItemEncoding: .current,
                 photoLibrary: .shared()
@@ -57,53 +50,27 @@ private struct PickerPage: View {
                 EmptyView()
             }
             .photosPickerStyle(.inline)
-            .photosPickerAccessoryVisibility(.hidden, edges: .top)
+            // The top bar holds the picker's check mark, so it stays visible. Disabling the
+            // selection actions hides its cancel X, which does nothing in an embedded picker,
+            // and keeps the check mark (as in Apple's inline picker sample).
             .photosPickerDisabledCapabilities([.selectionActions, .stagingArea])
             .ignoresSafeArea(edges: .top)
 
-            ZStack {
-                // Takes Done's place, which is always disabled when this shows, so the
-                // warning sits on the app's background instead of over the picker.
-                if data.helpTextShown {
-                    Text("Select some photos first!")
-                        .font(.spaceMono(16))
-                        .foregroundStyle(.accent)
-                        .transition(.opacity)
-                } else {
-                    DoneButton(count: data.attachments.count, action: done)
-                        .transition(.opacity)
-                }
+            // Below the picker rather than over it, so it's readable.
+            if data.helpTextShown {
+                Text("Select some photos first!")
+                    .font(.spaceMono(16))
+                    .foregroundStyle(.accent)
+                    .frame(height: 48)
+                    .transition(.opacity)
             }
-            .frame(height: 64)
-            .animation(.easeInOut(duration: 0.3), value: data.helpTextShown)
         }
+        .animation(.easeInOut(duration: 0.3), value: data.helpTextShown)
         .task(id: data.helpTextShown) {
             guard data.helpTextShown else { return }
             do { try await Task.sleep(for: .seconds(2)) } catch { return }
             data.helpTextShown = false
         }
-    }
-}
-
-private struct DoneButton: View {
-
-    let count: Int
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            ZStack {
-                Circle()
-                    .fill(.accent.opacity(count == 0 ? 0.08 : 0.2))
-                Image(systemName: "checkmark")
-                    .foregroundStyle(.accent.opacity(count == 0 ? 0.3 : 1))
-                    .font(.system(size: 32, weight: .semibold))
-            }
-            .frame(width: 64, height: 64)
-        }
-        .disabled(count == 0)
-        .accessibilityLabel("Done")
-        .accessibilityValue(count == 0 ? "" : "\(count) selected")
     }
 }
 
