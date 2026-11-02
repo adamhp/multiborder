@@ -5,6 +5,7 @@
 //  Created by Adam Pearce on 6/14/24.
 //
 
+import AppIntents
 import CoreText
 import Foundation
 import ImageIO
@@ -492,6 +493,25 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
         ))
         context.draw(image, in: CGRect(x: -x, y: y - image.height + 1, width: image.width, height: image.height))
         return (bytes[0], bytes[1], bytes[2])
+    }
+
+    @available(iOS 18, *) @MainActor @Test func shortcutsActionReturnsABorderedJPEGForEachPhoto() async throws {
+        let intent = AddBorderIntent()
+        intent.photos = [
+            IntentFile(data: try makeImage(width: 40, height: 30, type: .heic), filename: "IMG_0001.HEIC"),
+            IntentFile(data: try makeImage(width: 30, height: 40), filename: "IMG_0002.JPG"),
+        ]
+        let output = try #require(try await intent.perform().value)
+        #expect(output.map(\.filename) == ["IMG_0001.jpg", "IMG_0002.jpg"])
+        for file in output {
+            #expect(try decode(file.data).type == .jpeg)
+        }
+    }
+
+    @available(iOS 18, *) @MainActor @Test func shortcutsActionNamesAPhotoItCantRead() async throws {
+        let intent = AddBorderIntent()
+        intent.photos = [IntentFile(data: Data("not a photo".utf8), filename: "notes.txt")]
+        await #expect(throws: UnreadablePhoto.self) { try await intent.perform() }
     }
 
     @Test func thumbnailIsDownsampled() async throws {
