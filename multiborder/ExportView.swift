@@ -103,7 +103,10 @@ struct ExportView: View {
                             ProgressView(value: data.exportProgress).padding(.horizontal, 32).tint(.accent).animation(.easeIn(duration: 1), value: data.exportProgress)
                         }
                     }.frame(height: 32).padding(.horizontal, 32)
-                    DownloadButton()
+                    HStack(spacing: 12) {
+                        DownloadButton()
+                        ShareButton()
+                    }
                 }.frame(minHeight: 84)
                 Spacer()
                 
@@ -203,20 +206,12 @@ struct DownloadButton: View {
     @ViewBuilder private var label: some View {
         switch data.saveStatus {
             case .unsaved:
-                let content = sized {
+                sized {
                     Text("Download")
                     Image(systemName: "arrow.down")
                 }
                 .foregroundStyle(.stone100)
-                Group {
-                    if #available(iOS 26, *) {
-                        content
-                            .glassEffect(.regular.tint(.stone700).interactive(), in: .rect(cornerRadius: 12))
-                    } else {
-                        content
-                            .background(.stone700, in: .rect(cornerRadius: 12))
-                    }
-                }
+                .actionBackground()
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
                         .stroke(Color.accent.opacity(0.5), lineWidth: 4)
@@ -261,5 +256,42 @@ struct DownloadButton: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
             .frame(minWidth: 200, minHeight: 52)
+    }
+}
+
+/// Opens the share sheet with every photo in the batch. Each photo is rendered when
+/// the chosen destination asks for it, so nothing is rendered just by opening the sheet.
+struct ShareButton: View {
+
+    @Environment(DataModel.self) private var data
+
+    var body: some View {
+        let settings = data.settings
+        let photos = data.attachments.enumerated().map { index, attachment in
+            BorderedPhoto(item: attachment.item, settings: settings, number: index + 1)
+        }
+        ShareLink(items: photos) { photo in
+            SharePreview("Photo \(photo.number)")
+        } label: {
+            Image(systemName: "square.and.arrow.up")
+                .font(.system(size: 18, weight: .medium))
+                .foregroundStyle(.stone100)
+                .frame(minWidth: 52, minHeight: 52)
+                .actionBackground()
+        }
+        .buttonStyle(.plain)
+        .disabled(photos.isEmpty)
+        .accessibilityLabel(photos.count == 1 ? "Share Photo" : "Share Photos")
+    }
+}
+
+private extension View {
+    /// The raised background of the export actions: Liquid Glass on iOS 26, a flat fill before.
+    @ViewBuilder func actionBackground() -> some View {
+        if #available(iOS 26, *) {
+            glassEffect(.regular.tint(.stone700).interactive(), in: .rect(cornerRadius: 12))
+        } else {
+            background(.stone700, in: .rect(cornerRadius: 12))
+        }
     }
 }

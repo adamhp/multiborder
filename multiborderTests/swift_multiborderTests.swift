@@ -365,8 +365,8 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
 
 @Suite struct ImageIOTests {
 
-    /// A solid-color Display P3 JPEG, optionally tagged with an EXIF orientation.
-    private func makeJPEG(width: Int, height: Int, orientation: Int = 1) throws -> Data {
+    /// A solid-color Display P3 image (JPEG unless `type` says otherwise), optionally tagged with an EXIF orientation.
+    private func makeImage(width: Int, height: Int, orientation: Int = 1, type: UTType = .jpeg) throws -> Data {
         let p3 = try #require(CGColorSpace(name: CGColorSpace.displayP3))
         let context = try #require(CGContext(
             data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
@@ -377,7 +377,7 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
         let image = try #require(context.makeImage())
 
         let output = NSMutableData()
-        let destination = try #require(CGImageDestinationCreateWithData(output, UTType.jpeg.identifier as CFString, 1, nil))
+        let destination = try #require(CGImageDestinationCreateWithData(output, type.identifier as CFString, 1, nil))
         CGImageDestinationAddImage(destination, image, [kCGImagePropertyOrientation: orientation] as CFDictionary)
         #expect(CGImageDestinationFinalize(destination))
         return output as Data
@@ -390,7 +390,7 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
     }
 
     @Test func thumbnailIsDownsampled() async throws {
-        let thumbnail = try await ImageComposer.thumbnail(from: makeJPEG(width: 400, height: 300), maxPixelSize: 100)
+        let thumbnail = try await ImageComposer.thumbnail(from: makeImage(width: 400, height: 300), maxPixelSize: 100)
         #expect(thumbnail.pixelSize == CGSize(width: 400, height: 300))
         let image = try #require(thumbnail.image.cgImage)
         #expect(image.width == 100)
@@ -399,7 +399,7 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
 
     @Test func thumbnailIsUpright() async throws {
         // EXIF orientation 6: stored landscape, displayed portrait.
-        let thumbnail = try await ImageComposer.thumbnail(from: makeJPEG(width: 400, height: 300, orientation: 6), maxPixelSize: 100)
+        let thumbnail = try await ImageComposer.thumbnail(from: makeImage(width: 400, height: 300, orientation: 6), maxPixelSize: 100)
         #expect(thumbnail.pixelSize == CGSize(width: 300, height: 400))
         let image = try #require(thumbnail.image.cgImage)
         #expect(image.width == 75)
@@ -417,7 +417,7 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
 
     @Test func renderMatchesLayoutAndKeepsColorSpace() async throws {
         let settings = BorderSettings(aspectRatio: .square, paddingFraction: 0.1)
-        let output = try await ImageComposer.render(makeJPEG(width: 400, height: 300), settings: settings)
+        let output = try await ImageComposer.render(makeImage(width: 400, height: 300), settings: settings)
         let (image, type) = try decode(output)
 
         let layout = ImageComposer.layout(sourceSize: CGSize(width: 400, height: 300), settings: settings)
@@ -428,9 +428,40 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
         #expect(image.colorSpace?.name == CGColorSpace.displayP3)
     }
 
+    @Test func heicStaysHEICUnlessSharing() async throws {
+        let heic = try makeImage(width: 40, height: 30, type: .heic)
+        try #require(decode(heic).type == .heic, "HEIC encoding is unavailable here")
+
+        let saved = try await ImageComposer.render(heic, settings: BorderSettings())
+        #expect(try decode(saved).type == .heic)
+        let shared = try await ImageComposer.render(heic, settings: BorderSettings(), keepHEIC: false)
+        #expect(try decode(shared).type == .jpeg)
+    }
+
+    @Test func concurrentRendersAllFinish() async throws {
+        let input = try makeImage(width: 40, height: 30)
+        let outputs = try await withThrowingTaskGroup(of: Data.self) { group in
+            for padding in [0, 0.05, 0.1, 0.15] {
+                group.addTask {
+                    try await ImageComposer.render(input, settings: BorderSettings(aspectRatio: .square, paddingFraction: padding))
+                }
+            }
+            var outputs = [Data]()
+            for try await output in group {
+                outputs.append(output)
+            }
+            return outputs
+        }
+        #expect(outputs.count == 4)
+        for output in outputs {
+            let image = try decode(output).image
+            #expect(image.width == image.height)
+        }
+    }
+
     @Test func renderDropsLocation() async throws {
         // A JPEG carrying GPS coordinates.
-        let input = try makeJPEG(width: 40, height: 30)
+        let input = try makeImage(width: 40, height: 30)
         let source = try #require(CGImageSourceCreateWithData(input as CFData, nil))
         let tagged = NSMutableData()
         let destination = try #require(CGImageDestinationCreateWithData(tagged, UTType.jpeg.identifier as CFString, 1, nil))
@@ -445,7 +476,7 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
     }
 
     @Test func renderDropsIPTCLocationButKeepsCopyright() async throws {
-        let input = try makeJPEG(width: 40, height: 30)
+        let input = try makeImage(width: 40, height: 30)
         let source = try #require(CGImageSourceCreateWithData(input as CFData, nil))
         let tagged = NSMutableData()
         let destination = try #require(CGImageDestinationCreateWithData(tagged, UTType.jpeg.identifier as CFString, 1, nil))
@@ -478,7 +509,7 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
 
     @Test func renderRespectsExportWidthAndOrientation() async throws {
         let settings = BorderSettings(aspectRatio: .fourByFive, paddingFraction: 0.05, exportWidth: 200)
-        let output = try await ImageComposer.render(makeJPEG(width: 400, height: 300, orientation: 6), settings: settings)
+        let output = try await ImageComposer.render(makeImage(width: 400, height: 300, orientation: 6), settings: settings)
         let source = try #require(CGImageSourceCreateWithData(output as CFData, nil))
         let properties = try #require(CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any])
         // Pixels are written upright, so no orientation tag remains.

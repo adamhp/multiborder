@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import os
 
 enum TabbedItems: Int, CaseIterable {
     case select
@@ -285,6 +286,37 @@ private nonisolated func addToPhotoLibrary(_ data: Data) async throws {
         request.creationDate = Date()
         request.addResource(with: .photo, data: data, options: nil)
     }
+}
+
+/// A picked photo with a border, rendered only when a share destination asks for it.
+/// Shared as JPEG, which every destination accepts, even when the source is HEIC.
+///
+/// Offered as data rather than a file: Instagram's share extension rejects a file
+/// representation with "Content currently unavailable" but accepts the same JPEG as data.
+nonisolated struct BorderedPhoto: Transferable {
+    let item: PhotosPickerItem
+    let settings: BorderSettings
+    /// 1-based position in the batch, shown in the share sheet's preview.
+    let number: Int
+
+    static var transferRepresentation: some TransferRepresentation {
+        DataRepresentation(exportedContentType: .jpeg) { photo in
+            log.info("Share requested photo \(photo.number)")
+            do {
+                guard let data = try await photo.item.loadTransferable(type: Data.self) else {
+                    throw ImageComposer.ComposeError.unreadable
+                }
+                let output = try await ImageComposer.render(data, settings: photo.settings, keepHEIC: false)
+                log.info("Shared photo \(photo.number) as \(output.count) bytes of data")
+                return output
+            } catch {
+                log.error("Sharing photo \(photo.number) failed: \(error, privacy: .public)")
+                throw error
+            }
+        }
+    }
+
+    private static let log = Logger(subsystem: "com.adamhp.multiborder", category: "Share")
 }
 
 extension BorderSettings {

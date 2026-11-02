@@ -186,12 +186,24 @@ nonisolated enum ImageComposer {
     }
 
     /// Draws the photo on its border and encodes it, keeping the source's color space
-    /// and metadata minus location. HEIC sources stay HEIC; everything else becomes JPEG.
+    /// and metadata minus location. HEIC sources stay HEIC when `keepHEIC` is true;
+    /// everything else becomes JPEG.
     ///
     /// HDR photos are exported as their SDR rendition. The border is plain SDR color, and
     /// re-encoding with a gain map tone-maps the whole canvas, which shifts both the photo's
     /// exposure and the border color.
-    @concurrent static func render(_ data: Data, settings: BorderSettings) async throws -> Data {
+    ///
+    /// Renders run one at a time, whoever calls (a Download, or the share sheet loading
+    /// several photos at once), so only one canvas of up to `maxCanvasBytes` exists at a time.
+    static func render(_ data: Data, settings: BorderSettings, keepHEIC: Bool = true) async throws -> Data {
+        try await renderQueue.run {
+            try await renderNow(data, settings: settings, keepHEIC: keepHEIC)
+        }
+    }
+
+    private static let renderQueue = SerialQueue()
+
+    @concurrent private static func renderNow(_ data: Data, settings: BorderSettings, keepHEIC: Bool) async throws -> Data {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil),
               let pixelSize = uprightPixelSize(of: source) else {
             throw ComposeError.unreadable
@@ -213,7 +225,7 @@ nonisolated enum ImageComposer {
         let metadata = exportMetadata(source)
         let sourceType = CGImageSourceGetType(source).flatMap { UTType($0 as String) }
         let isHEIC = sourceType?.conforms(to: .heic) == true || sourceType?.conforms(to: .heif) == true
-        for type in isHEIC ? [UTType.heic, .jpeg] : [.jpeg] {
+        for type in isHEIC && keepHEIC ? [UTType.heic, .jpeg] : [.jpeg] {
             if let encoded = encode(canvas, as: type, metadata: metadata) {
                 return encoded
             }
@@ -322,5 +334,21 @@ nonisolated enum ImageComposer {
         }
         CGImageDestinationAddImage(destination, image, metadata as CFDictionary)
         return CGImageDestinationFinalize(destination) ? output as Data : nil
+    }
+}
+
+/// Runs async work one job at a time, in the order it was submitted.
+private actor SerialQueue {
+    private var last: Task<Void, Never>?
+
+    func run<T: Sendable>(_ work: @escaping @Sendable () async throws -> T) async throws -> T {
+        // Chained before the first suspension, so submission order is preserved.
+        let previous = last
+        let job = Task<T, any Error> {
+            await previous?.value
+            return try await work()
+        }
+        last = Task { _ = try? await job.value }
+        return try await job.value
     }
 }
