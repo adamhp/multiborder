@@ -21,6 +21,7 @@ private func isClose(_ a: Color.Resolved, _ b: Color.Resolved) -> Bool {
 
 private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
     a.aspectRatio == b.aspectRatio && a.isLandscape == b.isLandscape && a.paddingFraction == b.paddingFraction
+        && a.isPerSide == b.isPerSide && a.sides == b.sides
         && a.exportWidth == b.exportWidth && a.fill == b.fill && a.blurFraction == b.blurFraction && isClose(a.borderColor, b.borderColor)
 }
 
@@ -128,6 +129,50 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
             let inset = (fraction * min(layout.canvasSize.width, layout.canvasSize.height)).rounded()
             #expect(min(layout.imageRect.minX, layout.imageRect.minY) >= inset)
         }
+    }
+
+    @Test func equalSidesMatchTheSingleWidth() {
+        let source = CGSize(width: 4032, height: 3024)
+        for exportWidth in [0, 1080] {
+            let single = BorderSettings(aspectRatio: .fourByFive, paddingFraction: 0.1, exportWidth: exportWidth)
+            var perSide = single
+            perSide.paddingFraction = 0
+            perSide.isPerSide = true
+            perSide.sides = BorderInsets(uniform: 0.1)
+            #expect(ImageComposer.layout(sourceSize: source, settings: perSide) == ImageComposer.layout(sourceSize: source, settings: single))
+        }
+    }
+
+    @Test func sidesAreIgnoredWhileOff() {
+        let source = CGSize(width: 4032, height: 3024)
+        let single = BorderSettings(aspectRatio: .square, paddingFraction: 0.05)
+        var withSides = single
+        withSides.sides = BorderInsets(top: 0, left: 0.1, bottom: 0.16, right: 0)
+        #expect(ImageComposer.layout(sourceSize: source, settings: withSides) == ImageComposer.layout(sourceSize: source, settings: single))
+    }
+
+    /// Native and capped exports: each side is at least its width, and the photo is centered between the borders.
+    @Test(arguments: [0, 1080])
+    func unevenSidesKeepEachWidthAndCenterBetweenThem(exportWidth: Int) {
+        let source = CGSize(width: 3024, height: 4032)
+        let insets = BorderInsets(top: 0.02, left: 0.04, bottom: 0.16, right: 0.08)
+        let settings = BorderSettings(aspectRatio: .square, paddingFraction: 0, isPerSide: true, sides: insets, exportWidth: exportWidth)
+        let layout = ImageComposer.layout(sourceSize: source, settings: settings)
+        let canvas = layout.canvasSize, rect = layout.imageRect
+        let shorter = min(canvas.width, canvas.height)
+        #expect(rect.minY >= insets.top * shorter - 0.5)
+        #expect(rect.minX >= insets.left * shorter - 0.5)
+        #expect(canvas.height - rect.maxY >= insets.bottom * shorter - 0.5)
+        #expect(canvas.width - rect.maxX >= insets.right * shorter - 0.5)
+        // A portrait photo on a square canvas fills the height, so the top and bottom are their widths,
+        // give or take the whole-pixel rounding of each inset and of the canvas.
+        #expect(abs(rect.minY - insets.top * shorter) <= 2)
+        #expect(abs(canvas.height - rect.maxY - insets.bottom * shorter) <= 2)
+        // The spare width is split evenly beyond each side's own width.
+        let spareLeft = rect.minX - insets.left * shorter
+        let spareRight = canvas.width - rect.maxX - insets.right * shorter
+        #expect(abs(spareLeft - spareRight) <= 1.5)
+        #expect(abs(rect.width / rect.height - source.width / source.height) < 0.001)
     }
 
     @Test func hugeCanvasIsCappedAndKeepsProportions() {
@@ -246,6 +291,24 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
         let loaded = BorderSettings.load(from: defaults)
         stored.isLandscape = false
         #expect(isClose(loaded, stored))
+    }
+
+    @Test func loadsSettingsSavedBeforePerSideBordersExisted() throws {
+        let defaults = makeDefaults()
+        var stored = BorderSettings(aspectRatio: .square, paddingFraction: 0.1, isPerSide: true,
+                                    sides: BorderInsets(top: 0.01, left: 0.02, bottom: 0.03, right: 0.04))
+        var json = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(stored)) as? [String: Any])
+        json.removeValue(forKey: "isPerSide")
+        json.removeValue(forKey: "sides")
+        defaults.set(try JSONSerialization.data(withJSONObject: json), forKey: "borderSettings")
+        let loaded = BorderSettings.load(from: defaults)
+        #expect(!loaded.isPerSide)
+        #expect(loaded.sides == nil)
+
+        stored.save(to: defaults)
+        #expect(isClose(BorderSettings.load(from: defaults), stored))
+        stored.isPerSide = false
+        #expect(stored.insets == BorderInsets(uniform: 0.1))
     }
 
     @Test func loadsSettingsSavedBeforeFillExisted() throws {

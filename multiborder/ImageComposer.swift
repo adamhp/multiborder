@@ -64,6 +64,31 @@ nonisolated enum BorderFill: String, Codable, Sendable {
     case blur
 }
 
+/// Border thickness of each side, as fractions of the canvas's shorter side.
+nonisolated struct BorderInsets: Codable, Equatable, Sendable {
+    var top: Double
+    var left: Double
+    var bottom: Double
+    var right: Double
+
+    init(top: Double, left: Double, bottom: Double, right: Double) {
+        self.top = top
+        self.left = left
+        self.bottom = bottom
+        self.right = right
+    }
+
+    init(uniform value: Double) {
+        self.init(top: value, left: value, bottom: value, right: value)
+    }
+
+    /// Each side limited to `range`.
+    func clamped(to range: ClosedRange<Double>) -> BorderInsets {
+        func clamp(_ value: Double) -> Double { min(max(value, range.lowerBound), range.upperBound) }
+        return BorderInsets(top: clamp(top), left: clamp(left), bottom: clamp(bottom), right: clamp(right))
+    }
+}
+
 nonisolated struct BorderSettings: Codable, Equatable, Sendable {
     static let paddingRange: ClosedRange<Double> = 0...0.16
     /// The slider shows this as 5–100 in steps of 5.
@@ -74,6 +99,11 @@ nonisolated struct BorderSettings: Codable, Equatable, Sendable {
     var isLandscape = false
     /// Border thickness as a fraction of the canvas's shorter side.
     var paddingFraction: Double = 0
+    /// Whether each side uses its own thickness from `sides` instead of `paddingFraction`.
+    var isPerSide = false
+    /// Per-side thicknesses, kept while `isPerSide` is off so turning it back on restores them.
+    /// `nil` until per-side borders are first turned on.
+    var sides: BorderInsets?
     var borderColor: Color.Resolved = Color.Resolved(red: 1, green: 1, blue: 1)
     var fill: BorderFill = .color
     /// Strength of the `.blur` fill: the Gaussian blur's standard deviation as a fraction of the
@@ -85,6 +115,11 @@ nonisolated struct BorderSettings: Codable, Equatable, Sendable {
     /// Canvas width divided by height after orientation; `nil` keeps the photo's own ratio.
     var canvasWidthOverHeight: Double? {
         aspectRatio.widthOverHeight.map { isLandscape ? 1 / $0 : $0 }
+    }
+
+    /// The thickness of each side that the layout uses.
+    var insets: BorderInsets {
+        isPerSide ? sides ?? BorderInsets(uniform: paddingFraction) : BorderInsets(uniform: paddingFraction)
     }
 
     /// Blur standard deviation in points or pixels for a canvas of `canvasSize`.
@@ -103,6 +138,8 @@ nonisolated extension BorderSettings {
         aspectRatio = try container.decodeIfPresent(AspectRatio.self, forKey: .aspectRatio) ?? fallback.aspectRatio
         isLandscape = try container.decodeIfPresent(Bool.self, forKey: .isLandscape) ?? fallback.isLandscape
         paddingFraction = try container.decodeIfPresent(Double.self, forKey: .paddingFraction) ?? fallback.paddingFraction
+        isPerSide = try container.decodeIfPresent(Bool.self, forKey: .isPerSide) ?? fallback.isPerSide
+        sides = try container.decodeIfPresent(BorderInsets.self, forKey: .sides) ?? fallback.sides
         borderColor = try container.decodeIfPresent(Color.Resolved.self, forKey: .borderColor) ?? fallback.borderColor
         fill = try container.decodeIfPresent(BorderFill.self, forKey: .fill) ?? fallback.fill
         blurFraction = try container.decodeIfPresent(Double.self, forKey: .blurFraction) ?? fallback.blurFraction
@@ -154,11 +191,11 @@ nonisolated enum ImageComposer {
             return Layout(canvasSize: .zero, imageRect: .zero)
         }
         let ratio = settings.canvasWidthOverHeight ?? sourceSize.width / sourceSize.height
-        let padding = min(max(settings.paddingFraction, 0), 0.45)
-        // Padding per unit of canvas width (it is measured on the shorter side).
-        let paddingPerWidth = padding * min(1, 1 / ratio)
-        let innerWidthPerWidth = 1 - 2 * paddingPerWidth
-        let innerHeightPerWidth = 1 / ratio - 2 * paddingPerWidth
+        let insets = settings.insets.clamped(to: 0...0.45)
+        // Padding is measured on the shorter side; this converts it to units of canvas width.
+        let shorterPerWidth = min(1, 1 / ratio)
+        let innerWidthPerWidth = 1 - (insets.left + insets.right) * shorterPerWidth
+        let innerHeightPerWidth = 1 / ratio - (insets.top + insets.bottom) * shorterPerWidth
 
         let nativeWidth = max(sourceSize.width / innerWidthPerWidth, sourceSize.height / innerHeightPerWidth)
         var widthLimit = (maxPixels * ratio).squareRoot()
@@ -175,11 +212,15 @@ nonisolated enum ImageComposer {
             // Rounding the inset can steal a pixel; grow until the photo fits (a few steps at most).
             while width <= widthLimit.rounded() {
                 let height = roundUp(width / ratio)
-                let inset = (padding * min(width, height)).rounded()
-                if width - 2 * inset >= sourceSize.width, height - 2 * inset >= sourceSize.height {
+                let shorter = min(width, height)
+                let left = (insets.left * shorter).rounded(), right = (insets.right * shorter).rounded()
+                let top = (insets.top * shorter).rounded(), bottom = (insets.bottom * shorter).rounded()
+                let innerWidth = width - left - right, innerHeight = height - top - bottom
+                if innerWidth >= sourceSize.width, innerHeight >= sourceSize.height {
+                    // Centered between the borders, so a heavier side pushes the photo away from it.
                     let origin = CGPoint(
-                        x: ((width - sourceSize.width) / 2).rounded(.down),
-                        y: ((height - sourceSize.height) / 2).rounded(.down)
+                        x: left + ((innerWidth - sourceSize.width) / 2).rounded(.down),
+                        y: top + ((innerHeight - sourceSize.height) / 2).rounded(.down)
                     )
                     return Layout(canvasSize: CGSize(width: width, height: height),
                                   imageRect: CGRect(origin: origin, size: sourceSize))
@@ -190,12 +231,14 @@ nonisolated enum ImageComposer {
 
         let width = max(min(nativeWidth, widthLimit).rounded(), 1)
         let height = max((width / ratio).rounded(), 1)
-        let inset = padding * min(width, height)
-        let scale = min((width - 2 * inset) / sourceSize.width, (height - 2 * inset) / sourceSize.height, 1)
+        let shorter = min(width, height)
+        let innerWidth = width - (insets.left + insets.right) * shorter
+        let innerHeight = height - (insets.top + insets.bottom) * shorter
+        let scale = min(innerWidth / sourceSize.width, innerHeight / sourceSize.height, 1)
         let imageSize = CGSize(width: sourceSize.width * scale, height: sourceSize.height * scale)
         let imageRect = CGRect(
-            x: (width - imageSize.width) / 2,
-            y: (height - imageSize.height) / 2,
+            x: insets.left * shorter + (innerWidth - imageSize.width) / 2,
+            y: insets.top * shorter + (innerHeight - imageSize.height) / 2,
             width: imageSize.width,
             height: imageSize.height
         )
