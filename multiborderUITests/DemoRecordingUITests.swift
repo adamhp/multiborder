@@ -86,6 +86,10 @@ nonisolated final class DemoRecordingUITests: XCTestCase {
         drag(app.sliders["Shadow"], to: 0.7)
         hold(0.8)
         snapshot("03-corners-shadow")
+        // Only screen 3 is about corners and shadows; the rest show plain square photos.
+        app.buttons["Rounded Corners"].tap()
+        app.buttons["Shadow"].tap()
+        hold(0.6)
 
         app.buttons["Separate Border for Each Side"].tap()
         hold(0.6)
