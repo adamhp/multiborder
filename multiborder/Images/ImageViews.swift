@@ -61,17 +61,7 @@ struct ImageContainerView: View {
 
     var body: some View {
         ZStack {
-            switch imageAttachment.thumbnail {
-            case .unloaded:
-                EmptyView()
-            case .loading:
-                ProgressView()
-            case .loaded(let thumbnail):
-                BorderedPreview(thumbnail: thumbnail, settings: data.settings)
-            case .failed:
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .accessibilityLabel("Photo couldn't be loaded")
-            }
+            ThumbnailPreview(state: imageAttachment.thumbnail, settings: data.settings)
         }
     }
 }

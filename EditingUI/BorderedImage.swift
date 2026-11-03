@@ -7,6 +7,35 @@
 
 import SwiftUI
 
+/// Where a preview's thumbnail is in loading.
+enum ThumbnailState {
+    case unloaded
+    case loading
+    case loaded(ImageComposer.Thumbnail)
+    case failed
+}
+
+/// The bordered photo once its thumbnail has loaded, or a spinner or warning until then.
+struct ThumbnailPreview: View {
+
+    let state: ThumbnailState
+    let settings: BorderSettings
+
+    var body: some View {
+        switch state {
+        case .unloaded:
+            EmptyView()
+        case .loading:
+            ProgressView()
+        case .loaded(let thumbnail):
+            BorderedPreview(thumbnail: thumbnail, settings: settings)
+        case .failed:
+            Image(systemName: "exclamationmark.triangle.fill")
+                .accessibilityLabel("Photo couldn't be loaded")
+        }
+    }
+}
+
 /// The photo with its border, centered in the space it's given, with an HDR badge for HDR photos.
 struct BorderedPreview: View {
 

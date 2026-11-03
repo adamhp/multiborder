@@ -32,13 +32,6 @@ enum TabbedItems: Int, CaseIterable {
 
 @MainActor @Observable final class ImageAttachment: Identifiable {
 
-    enum ThumbnailState {
-        case unloaded
-        case loading
-        case loaded(ImageComposer.Thumbnail)
-        case failed
-    }
-
     static let thumbnailPixelSize = 1024
 
     let item: PhotosPickerItem
@@ -227,12 +220,13 @@ enum TabbedItems: Int, CaseIterable {
     }
 
     /// Due when the last sheet seen was for an earlier release. Before 3.0 nothing was recorded, so
-    /// then saved settings mark someone updating; a new install has none, and skips this release's sheet.
-    private static func isWhatsNewDue(in defaults: UserDefaults) -> Bool {
+    /// then saved settings mark someone updating, and until `WhatsNew.showsEveryoneUntil` everyone gets it;
+    /// after that, a new install skips this release's sheet.
+    static func isWhatsNewDue(in defaults: UserDefaults, now: Date = .now) -> Bool {
         if let seen = defaults.string(forKey: whatsNewVersionKey) {
             return seen.compare(WhatsNew.release, options: .numeric) == .orderedAscending
         }
-        guard BorderSettings.isSaved(in: defaults) else {
+        guard BorderSettings.isSaved(in: defaults) || now < WhatsNew.showsEveryoneUntil else {
             defaults.set(WhatsNew.release, forKey: whatsNewVersionKey)
             return false
         }

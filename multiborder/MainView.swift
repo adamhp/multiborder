@@ -196,6 +196,7 @@ struct TabBar: View {
     private func clearAll() {
         ClearTip().invalidate(reason: .actionPerformed)
         data.clearSelection()
+        // Clearing leaves Edit and Export by itself; this also brings the picker back from the Settings tab.
         data.selectedTab = .select
         clearCount += 1
     }

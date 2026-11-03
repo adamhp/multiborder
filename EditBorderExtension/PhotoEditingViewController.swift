@@ -93,12 +93,18 @@ final class PhotoEditingViewController: UIViewController, PHContentEditingContro
         work = Task {
             // Done can come before the photo has loaded.
             await loading?.value
+            // Photos has already closed the session after cancelContentEditing, so it gets no answer.
+            guard !Task.isCancelled else { return }
             guard let original else {
+                Self.log.error("Done was tapped, but the photo couldn't be read")
+                session.isSaving = false
                 completionHandler(nil)
                 return
             }
             do {
                 let rendered = try await ImageComposer.render(original, filename: filename, settings: settings, format: format)
+                // The render doesn't stop when cancelled, so check again before writing it.
+                guard !Task.isCancelled else { return }
                 let output = PHContentEditingOutput(contentEditingInput: input)
                 try rendered.write(to: try output.renderedContentURL(for: type))
                 output.adjustmentData = try PhotoEditing.adjustmentData(for: settings)

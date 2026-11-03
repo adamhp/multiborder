@@ -471,12 +471,23 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
         #expect(model.selectedTab == .settings)
     }
 
-    @Test func whatsNewIsSkippedOnNewInstalls() {
+    @Test func whatsNewIsSkippedOnNewInstallsAfterTheCutoff() {
         let defaults = makeDefaults()
-        #expect(!DataModel(defaults: defaults).showsWhatsNew)
+        let after = WhatsNew.showsEveryoneUntil
+        #expect(!DataModel.isWhatsNewDue(in: defaults, now: after))
         // Settings saved later, under this release, don't make it look like an update.
         DataModel(defaults: defaults).settings.aspectRatio = .square
-        #expect(!DataModel(defaults: defaults).showsWhatsNew)
+        #expect(!DataModel.isWhatsNewDue(in: defaults, now: after))
+    }
+
+    @Test func whatsNewShowsOnNewInstallsBeforeTheCutoff() {
+        let defaults = makeDefaults()
+        let before = WhatsNew.showsEveryoneUntil.addingTimeInterval(-1)
+        #expect(DataModel.isWhatsNewDue(in: defaults, now: before))
+        // Still due until the sheet is closed.
+        #expect(DataModel.isWhatsNewDue(in: defaults, now: before))
+        DataModel(defaults: defaults).recordWhatsNewSeen()
+        #expect(!DataModel.isWhatsNewDue(in: defaults, now: before))
     }
 
     @Test(arguments: ["borderSettings", "desiredAspectRatio"])

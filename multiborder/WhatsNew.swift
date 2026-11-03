@@ -11,6 +11,9 @@ enum WhatsNew {
     /// The release the sheet describes. Raise it, and update `features`, for the next release worth a sheet;
     /// people who saw an earlier one then see it once more.
     static let release = "3.0"
+    /// Until this day the sheet shows even on new installs, since everyone getting 3.0 early is new to its features.
+    /// 2.x recorded nothing that marks every update, so this also catches people who never changed a setting.
+    static let showsEveryoneUntil = DateComponents(calendar: .current, year: 2026, month: 11, day: 15).date!
 
     struct Feature: Identifiable {
         let systemImage: String

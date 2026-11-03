@@ -99,6 +99,8 @@ nonisolated enum FeatureTips {
 extension View {
     /// Shows `tip` as a popover above this view, on iOS 18 and later (see `FeatureTips.current`).
     @ViewBuilder func featureTip(_ tip: (any Tip)?) -> some View {
+        // The calls look the same but each picks a different overload: iOS 26's, 18.4's, and 18.0's
+        // (obsoleted in 18.4), since TipKit replaced popoverTip(_:arrowEdge:) at each of these versions.
         if #available(iOS 26, *) {
             popoverTip(tip, arrowEdge: .bottom)
         } else if #available(iOS 18.4, *) {

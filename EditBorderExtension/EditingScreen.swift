@@ -10,15 +10,9 @@ import SwiftUI
 /// What the screen shows, filled in by `PhotoEditingViewController` as Photos hands over the photo.
 @MainActor @Observable final class EditingSession {
 
-    enum Preview {
-        case loading
-        case loaded(ImageComposer.Thumbnail)
-        case failed
-    }
-
     /// Set once Photos has handed over the photo and its settings are known.
     var editor: BorderEditor?
-    var preview = Preview.loading
+    var preview = ThumbnailState.loading
     /// The photo's latest edit isn't a border, so the border goes on top of it.
     var hasOtherEdits = false
     /// Done was tapped and the full-size photo is being drawn.
@@ -43,7 +37,7 @@ struct EditingScreen: View {
                             .padding(.top, 12)
                     }
                     EditView {
-                        preview(settings: editor.settings)
+                        ThumbnailPreview(state: session.preview, settings: editor.settings)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                 }
@@ -67,17 +61,5 @@ struct EditingScreen: View {
         .background(LinearGradient(colors: [Color(.stone800), Color(.stone900)], startPoint: .top, endPoint: .bottom))
         .preferredColorScheme(.dark)
         .environment(\.font, .spaceMono(14))
-    }
-
-    @ViewBuilder private func preview(settings: BorderSettings) -> some View {
-        switch session.preview {
-        case .loading:
-            ProgressView()
-        case .loaded(let thumbnail):
-            BorderedPreview(thumbnail: thumbnail, settings: settings)
-        case .failed:
-            Image(systemName: "exclamationmark.triangle.fill")
-                .accessibilityLabel("Photo couldn't be loaded")
-        }
     }
 }

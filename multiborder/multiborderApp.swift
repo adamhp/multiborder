@@ -21,7 +21,8 @@ struct multiborderApp: App {
         // Launch with -resetFeatureIntro to see the What's New sheet and every tip again.
         if ProcessInfo.processInfo.arguments.contains("-resetFeatureIntro") {
             try? Tips.resetDatastore()
-            UserDefaults.appGroup.removeObject(forKey: DataModel.whatsNewVersionKey)
+            // An earlier release rather than none, so the sheet is due even on an install with no saved settings.
+            UserDefaults.appGroup.set("0", forKey: DataModel.whatsNewVersionKey)
         }
         #endif
         FeatureTips.configure()

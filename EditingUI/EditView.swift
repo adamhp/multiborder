@@ -8,17 +8,17 @@
 import SwiftUI
 import TipKit
 
-struct EditView: View {
+/// Every row of controls below the preview gets this much height, so the rows are evenly spaced.
+private let controlRowHeight = 44.0
 
-    /// Every row of controls below the preview gets this much height, so the rows are evenly spaced.
-    static let controlRowHeight = 44.0
+struct EditView<Preview: View>: View {
 
     @Environment(BorderEditor.self) private var editor
     /// The bordered photo the controls change: the app's card stack, or the extension's one photo.
-    private let preview: AnyView
+    private let preview: Preview
 
-    init(@ViewBuilder preview: () -> some View) {
-        self.preview = AnyView(preview())
+    init(@ViewBuilder preview: () -> Preview) {
+        self.preview = preview()
     }
 
     var body: some View {
@@ -112,7 +112,7 @@ struct EditToggles: View {
             }
             .gridCellColumns(2)
         }
-        .frame(height: EditView.controlRowHeight)
+        .frame(height: controlRowHeight)
     }
 }
 
@@ -182,7 +182,7 @@ struct EditOptionSlider: View {
                             }),
                           in: range, step: step, displayScale: displayScale, suffix: suffix)
         }
-        .frame(height: EditView.controlRowHeight)
+        .frame(height: controlRowHeight)
         .transition(.opacity)
     }
 }
@@ -233,7 +233,7 @@ struct DesiredPaddingSlider: View {
                 }
             }
         }
-        .frame(height: EditView.controlRowHeight)
+        .frame(height: controlRowHeight)
     }
 }
 
@@ -426,7 +426,7 @@ struct CaptionFieldsRow: View {
 
     private static let pillSize = CGSize(width: 48, height: 28)
     private static let spacing = 6.0
-    private static let rowHeight = EditView.controlRowHeight
+    private static let rowHeight = controlRowHeight
     private static let coordinateSpace = "captionFields"
 
     @Environment(BorderEditor.self) private var editor
@@ -833,7 +833,7 @@ struct DesiredAspectRatioChooser: View {
             }
             .sensoryFeedback(.selection, trigger: settings.aspectRatio)
         }
-        .frame(height: EditView.controlRowHeight)
+        .frame(height: controlRowHeight)
     }
 }
 
