@@ -74,23 +74,26 @@ struct ExportView: View {
                     
                     HStack(spacing: 8) {
                         ForEach(ExportSize.allCases) { size in
+                            let isChosen = data.settings.exportWidth == size.width
                             Button {
                                 data.settings.exportWidth = size.width
                             } label: {
                                 VStack {
-                                    Text(size.title).font(.spaceMono(16)).foregroundStyle(.stone200)
-                                    Text(size.subtitle).font(.spaceMono(14)).foregroundStyle(.stone400)
+                                    Text(size.title).font(.spaceMono(16)).foregroundStyle(isChosen ? .white : .stone200)
+                                    Text(size.subtitle).font(.spaceMono(14)).foregroundStyle(isChosen ? .stone200 : .stone400)
                                 }
                                 .padding(.vertical, 4)
                                 .frame(minWidth: 80, minHeight: 48)
-                                .background(.stone700)
-                                .clipShape(.rect(cornerRadius: 12))
+                                // The chosen size is tinted like the active tab.
+                                .actionBackground(tint: isChosen ? .accent.opacity(0.5) : .stone700)
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel(size.accessibilityLabel)
-                            .accessibilityAddTraits(data.settings.exportWidth == size.width ? .isSelected : [])
+                            .accessibilityAddTraits(isChosen ? .isSelected : [])
+                            .animation(.interactiveSpring, value: isChosen)
                         }
                     }
+                    .glassGroup()
                 }
                 // Keeps the paged TabView from swiping while the slider and buttons are in use.
                 .blocksSwipe(true)
@@ -107,6 +110,7 @@ struct ExportView: View {
                         DownloadButton()
                         ShareButton()
                     }
+                    .glassGroup()
                 }.frame(minHeight: 84)
                 Spacer()
                 
@@ -211,24 +215,20 @@ struct DownloadButton: View {
                 }
                 .foregroundStyle(.stone100)
                 .actionBackground()
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.accent.opacity(0.5), lineWidth: 4)
-                )
             case .saving:
                 sized {
                     Text("Downloading")
                     ProgressView()
                 }
                 .foregroundStyle(.stone400)
-                .background(.stone700, in: .rect(cornerRadius: 12))
+                .actionBackground()
             case .success:
                 sized {
                     Text("Saved")
                     Image(systemName: "checkmark")
                 }
                 .foregroundStyle(.green)
-                .background(.green.opacity(0.5), in: .rect(cornerRadius: 12))
+                .actionBackground(tint: .green.opacity(0.5))
                 .task {
                     do { try await Task.sleep(for: .seconds(2)) } catch { return }
                     data.resetSaveStatus()
@@ -244,7 +244,7 @@ struct DownloadButton: View {
                     Image(systemName: "exclamationmark.triangle")
                 }
                 .foregroundStyle(.orange)
-                .background(.orange.opacity(0.5), in: .rect(cornerRadius: 12))
+                .actionBackground(tint: .orange.opacity(0.5))
         }
     }
 
@@ -285,12 +285,21 @@ struct ShareButton: View {
 }
 
 private extension View {
-    /// The raised background of the export actions: Liquid Glass on iOS 26, a flat fill before.
-    @ViewBuilder func actionBackground() -> some View {
+    /// The raised background of the export page's buttons: Liquid Glass tinted `tint` on iOS 26, a flat fill before.
+    @ViewBuilder func actionBackground(tint: Color = .stone700) -> some View {
         if #available(iOS 26, *) {
-            glassEffect(.regular.tint(.stone700).interactive(), in: .rect(cornerRadius: 12))
+            glassEffect(.regular.tint(tint).interactive(), in: .rect(cornerRadius: 12))
         } else {
-            background(.stone700, in: .rect(cornerRadius: 12))
+            background(tint, in: .rect(cornerRadius: 12))
+        }
+    }
+
+    /// Groups neighbouring glass buttons so they render and blend as one set on iOS 26.
+    @ViewBuilder func glassGroup() -> some View {
+        if #available(iOS 26, *) {
+            GlassEffectContainer { self }
+        } else {
+            self
         }
     }
 }
