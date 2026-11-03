@@ -20,16 +20,14 @@ enum WhatsNew {
     }
 
     static let features = [
+        Feature(systemImage: "square.and.arrow.up", title: "Borders from anywhere",
+                detail: "Add a border while editing in Photos (More > Extensions > multiborder) and change it later, or add borders from the share sheet or with Shortcuts."),
         Feature(systemImage: "square.dashed", title: "Borders your way",
-                detail: "Set a different width for each side, round the corners and add a shadow."),
-        Feature(systemImage: "drop.halffull", title: "Blurred borders",
-                detail: "Fill the border with a soft blur of the photo instead of a color."),
+                detail: "Set a different width for each side, round the corners, add a shadow, or fill the border with a soft blur of the photo."),
         Feature(systemImage: "text.below.photo", title: "Camera settings caption",
-                detail: "Add the date, camera and exposure to the border, read from the photo."),
+                detail: "Show the date taken, title, filename, your handle, camera, focal length, aperture, shutter speed and ISO above and below the photo. Drag them into place, and choose the font and icons."),
         Feature(systemImage: "gearshape", title: "Settings",
                 detail: "Save downloads to an album, choose their format and keep each photo’s original date."),
-        Feature(systemImage: "square.and.arrow.up", title: "Borders from anywhere",
-                detail: "Add borders from the share sheet in Photos, or with Shortcuts."),
     ]
 }
 
