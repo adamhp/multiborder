@@ -40,7 +40,9 @@ ffmpeg -v error -y -i renders/hero-demo.mp4 -an -c:v libx264 -preset slow -crf 2
 for name in border-styles camera-caption; do
   ffmpeg -v error -y -i "renders/$name.mp4" -an -c:v libx264 -preset slow -crf 24 -pix_fmt yuv420p \
     -movflags +faststart "$out/$name.mp4"
-  ffmpeg -v error -y -i "$out/$name.mp4" -frames:v 1 -q:v 3 "$out/$name.jpg"
+  # The poster is what loads first and what reduced-motion visitors see, so take it where the
+  # feature is fully showing (corners, shadow and deep border; the caption in DM Mono), not frame 0.
+  ffmpeg -v error -y -ss 5.8 -i "$out/$name.mp4" -frames:v 1 -q:v 3 "$out/$name.jpg"
 done
 
 # 5. Show what came out, to check against the limits in README.md.

@@ -17,23 +17,23 @@
       #card {
         position: relative;
         background: #ffffff;
-        padding: 44px;
+        padding: 56px;
         box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
       }
-      #photo { display: block; width: 840px; height: 559px; object-fit: cover; }
+      #photo { display: block; width: 1000px; height: 666px; object-fit: cover; }
       .row {
         position: absolute;
-        left: 44px;
-        right: 44px;
+        left: 56px;
+        right: 56px;
         display: grid;
         color: #44403c;
-        font-size: 25px;
+        font-size: 33px;
         letter-spacing: 0.01em;
         white-space: nowrap;
       }
       .row > span { grid-area: 1 / 1; justify-self: center; }
-      #date { top: 30px; font-size: 22px; opacity: 0; }
-      #details { bottom: 38px; clip-path: inset(0 100% 0 0); }
+      #date { top: 36px; font-size: 28px; opacity: 0; }
+      #details { bottom: 46px; clip-path: inset(0 100% 0 0); }
       .space { font-family: "Space Mono", ui-monospace, monospace; }
       .dm { font-family: "DM Mono", ui-monospace, monospace; opacity: 0; }
     </style>
@@ -55,7 +55,7 @@
     <script>
       const tl = gsap.timeline({ paused: true });
       const ease = "power2.inOut";
-      tl.to("#card", { paddingTop: 84, paddingBottom: 112, duration: 0.8, ease }, 0.6);
+      tl.to("#card", { paddingTop: 108, paddingBottom: 138, duration: 0.8, ease }, 0.6);
       // Typed in, character by character.
       tl.to("#details", { clipPath: "inset(0 0% 0 0)", duration: 2.0, ease: "steps(42)" }, 1.4);
       tl.to("#date", { opacity: 1, duration: 0.5, ease: "power1.out" }, 3.0);
@@ -64,7 +64,7 @@
       tl.to(".dm", { opacity: 1, duration: 0.5, ease }, 4.6);
       // Back to the first frame.
       tl.to(["#date", "#details"], { opacity: 0, duration: 0.5, ease }, 7.0);
-      tl.to("#card", { paddingTop: 44, paddingBottom: 44, duration: 0.9, ease }, 7.4);
+      tl.to("#card", { paddingTop: 56, paddingBottom: 56, duration: 0.9, ease }, 7.4);
       window.__timelines = window.__timelines || {};
       window.__timelines["camera-caption"] = tl;
       tl.seek(0);

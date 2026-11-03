@@ -12,13 +12,13 @@
       #root { width: 1440px; height: 1080px; display: flex; align-items: center; justify-content: center; }
       #card {
         background: #ffffff;
-        padding: 44px;
+        padding: 56px;
         box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
       }
       #photo {
         display: block;
-        width: 840px;
-        height: 559px;
+        width: 1040px;
+        height: 693px;
         object-fit: cover;
         border-radius: 0px;
         box-shadow: 0 0 0 rgba(0, 0, 0, 0);
@@ -34,12 +34,12 @@
     <script>
       const tl = gsap.timeline({ paused: true });
       const ease = "power2.inOut";
-      tl.to("#photo", { borderRadius: 34, duration: 1.4, ease }, 0.8);
-      tl.to("#photo", { boxShadow: "0 22px 44px rgba(0, 0, 0, 0.38)", duration: 1.4, ease }, 2.4);
-      tl.to("#card", { paddingLeft: 64, paddingRight: 64, paddingBottom: 150, duration: 1.6, ease }, 4.0);
+      tl.to("#photo", { borderRadius: 42, duration: 1.4, ease }, 0.8);
+      tl.to("#photo", { boxShadow: "0 26px 52px rgba(0, 0, 0, 0.38)", duration: 1.4, ease }, 2.4);
+      tl.to("#card", { paddingLeft: 80, paddingRight: 80, paddingBottom: 170, duration: 1.6, ease }, 4.0);
       // Back to the first frame.
       tl.to("#photo", { borderRadius: 0, boxShadow: "0 0 0 rgba(0, 0, 0, 0)", duration: 1.6, ease }, 6.8);
-      tl.to("#card", { paddingLeft: 44, paddingRight: 44, paddingBottom: 44, duration: 1.6, ease }, 6.8);
+      tl.to("#card", { paddingLeft: 56, paddingRight: 56, paddingBottom: 56, duration: 1.6, ease }, 6.8);
       window.__timelines = window.__timelines || {};
       window.__timelines["border-styles"] = tl;
       tl.seek(0);
