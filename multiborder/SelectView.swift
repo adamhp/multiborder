@@ -40,8 +40,9 @@ private struct PickerPage: View {
         VStack(spacing: 16) {
             PhotosPicker(
                 selection: $data.selection,
-                // Drag-to-select works with this mode and the top bar showing; it didn't with
-                // .continuousAndOrdered or .ordered and the top bar hidden (iPhone 16 Pro, iOS 26).
+                // Drag-to-select only works with this mode: it didn't with .continuousAndOrdered, with the
+                // top bar showing or hidden, or with .ordered and the top bar hidden (iPhone 16 Pro, iOS 26–27).
+                // So the app only learns the selection when the check mark hands it over, and can't clear it before.
                 selectionBehavior: .default,
                 matching: .images,
                 preferredItemEncoding: .current,
@@ -74,7 +75,7 @@ private struct PickerPage: View {
     }
 }
 
-/// The picked photos as a card stack, with the button that removes them.
+/// The picked photos as a card stack. The tab bar's Clear tab removes them.
 private struct StackPage: View {
 
     @Environment(DataModel.self) private var data
@@ -94,114 +95,6 @@ private struct StackPage: View {
             Spacer()
             ImageStack()
             Spacer()
-            ClearButton(data: data)
-                .frame(height: 64)
         }
-    }
-}
-
-/// Tap to remove the current photo; hold until the ring fills to remove them all.
-struct ClearButton: View {
-
-    /// A press shorter than this is a tap; a longer one starts the hold.
-    static let tapDuration: Duration = .milliseconds(250)
-    /// How long the ring takes to fill once the hold starts.
-    static let holdDuration: Duration = .seconds(1.5)
-    /// Haptic taps while the ring fills, each a little stronger than the last.
-    static let holdTicks = 20
-
-    let data: DataModel
-
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var tap = false
-    /// True while the finger is down; resets on its own if the system cancels the touch,
-    /// so an interrupted hold can't go on to remove everything.
-    @GestureState private var isPressed = false
-    /// When the current press began, to tell a tap from an abandoned hold.
-    @State private var pressStart: ContinuousClock.Instant?
-    /// How full the ring is, 0...1.
-    @State private var holdProgress = 0.0
-    /// Haptic taps played so far in the current hold.
-    @State private var holdTick = 0
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .fill(.gray.opacity(0.25))
-            Circle()
-                .trim(from: 0, to: holdProgress)
-                .stroke(.accent, style: StrokeStyle(lineWidth: 4, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-            Image(systemName: "xmark")
-                .foregroundStyle(holdProgress > 0 ? Color.accent : Color.gray.opacity(0.5))
-                .font(.system(size: 32, weight: .semibold))
-        }
-        .frame(width: 64, height: 64)
-        .contentShape(.circle)
-        .scaleEffect(tap ? 1.2 : 1 + (reduceMotion ? 0 : 0.3 * holdProgress))
-        .animation(.spring(response: 0.4, dampingFraction: 0.6), value: tap)
-        .gesture(press)
-        .task(id: isPressed) {
-            guard isPressed else {
-                pressStart = nil
-                holdTick = 0
-                withAnimation(.easeOut(duration: 0.2)) { holdProgress = 0 }
-                return
-            }
-            do {
-                try await Task.sleep(for: Self.tapDuration)
-                withAnimation(.linear(duration: Self.holdDuration / .seconds(1))) { holdProgress = 1 }
-                for tick in 1...Self.holdTicks {
-                    try await Task.sleep(for: Self.holdDuration / Self.holdTicks)
-                    holdTick = tick
-                }
-            } catch {
-                return
-            }
-            data.clearSelection()
-        }
-        .task(id: tap) {
-            guard tap else { return }
-            do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
-            tap = false
-        }
-        .sensoryFeedback(.success, trigger: tap)
-        .sensoryFeedback(trigger: holdTick) { _, tick in
-            guard tick > 0 else { return nil }
-            let fraction = Double(tick) / Double(Self.holdTicks)
-            // Firm from the first tap, so the hold is unmistakable, then heavier as the ring fills.
-            let weight: SensoryFeedback.Weight = fraction < 1.0 / 3 ? .light : fraction < 2.0 / 3 ? .medium : .heavy
-            return .impact(weight: weight, intensity: 0.5 + 0.5 * fraction)
-        }
-        .accessibilityElement()
-        .accessibilityLabel("Remove Photo")
-        .accessibilityAddTraits(.isButton)
-        .accessibilityHint("Hold to remove all photos")
-        .accessibilityAction { removeCurrent() }
-        .accessibilityAction(named: "Remove All Photos") { data.clearSelection() }
-    }
-
-    /// Tracks the finger directly, so a quick release is a tap and an
-    /// abandoned hold does nothing instead of falling back to a tap.
-    private var press: some Gesture {
-        DragGesture(minimumDistance: 0)
-            .updating($isPressed) { _, pressed, _ in pressed = true }
-            .onChanged { _ in
-                if pressStart == nil {
-                    pressStart = .now
-                }
-            }
-            .onEnded { _ in
-                guard let start = pressStart else { return }
-                pressStart = nil
-                if ContinuousClock.now - start < Self.tapDuration {
-                    removeCurrent()
-                }
-            }
-    }
-
-    private func removeCurrent() {
-        data.removeCurrent()
-        tap = true
     }
 }

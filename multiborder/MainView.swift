@@ -54,14 +54,35 @@ extension View {
 
 struct TabBar: View {
 
+    /// How long the Clear tab must be held to remove every photo.
+    static let clearHoldDuration = 1.0
+    /// Haptic taps while the Clear tab fills, each a little stronger than the last.
+    static let clearHoldTicks = 20
+
     @Environment(DataModel.self) private var data
     @Namespace private var glassNamespace
+    /// True while the Clear tab is held; resets on its own if the hold is abandoned or cancelled.
+    @GestureState private var isHoldingClear = false
+    /// How full the Clear tab is, 0...1.
+    @State private var clearProgress = 0.0
+    /// Haptic taps played so far in the current hold.
+    @State private var clearHoldTick = 0
+    /// Bumped when a hold clears the photos, for the haptic.
+    @State private var clearCount = 0
+    /// Bumped when a tap removes the current photo, for the haptic.
+    @State private var removeCount = 0
 
     var body: some View {
+        // With photos picked, the Select tab turns into Clear. A tap opens it, or once open removes the
+        // current photo; a hold removes every photo from any tab.
+        let clears = !data.attachments.isEmpty
         let items = HStack {
             ForEach(TabbedItems.allCases, id: \.self) { item in
+                let isClear = item == .select && clears
                 Button {
-                    if !item.needsPhotos || !data.attachments.isEmpty {
+                    if isClear && data.selectedTab == .select {
+                        removeCurrent()
+                    } else if !item.needsPhotos || !data.attachments.isEmpty {
                         data.selectedTab = item
                     } else {
                         withAnimation {
@@ -70,16 +91,26 @@ struct TabBar: View {
                         AccessibilityNotification.Announcement("Select some photos first").post()
                     }
                 } label: {
-                    TabItem(item: item, isActive: data.selectedTab == item, glassNamespace: glassNamespace)
+                    TabItem(item: item, isActive: data.selectedTab == item, isClear: isClear,
+                            clearProgress: isClear ? clearProgress : 0, glassNamespace: glassNamespace)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(item.title)
-                .accessibilityHint(item.needsPhotos && data.attachments.isEmpty ? "Select some photos first" : "")
+                .simultaneousGesture(holdToClear, including: isClear ? .all : .subviews)
+                .accessibilityLabel(isClear ? "Clear" : item.title)
+                .accessibilityHint(isClear ? (data.selectedTab == .select ? "Removes this photo. Hold to remove all photos."
+                                                                          : "Hold to remove all photos")
+                                   : item.needsPhotos && data.attachments.isEmpty ? "Select some photos first" : "")
                 .accessibilityAddTraits(data.selectedTab == item ? .isSelected : [])
                 .accessibilityShowsLargeContentViewer()
+                .accessibilityActions {
+                    if isClear {
+                        Button("Remove All Photos") { clearAll() }
+                    }
+                }
                 .animation(.interactiveSpring, value: data.selectedTab)
             }
         }
+        .animation(.interactiveSpring, value: clears)
         .frame(minHeight: 64)
         // Like the system tab bar: capped size, with the large content viewer beyond it.
         .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
@@ -96,6 +127,47 @@ struct TabBar: View {
             }
         }
         .background(.accent.opacity(0.2), in: .rect(cornerRadius: 20))
+        .onChange(of: isHoldingClear) { _, holding in
+            withAnimation(holding ? .linear(duration: Self.clearHoldDuration) : .easeOut(duration: 0.2)) {
+                clearProgress = holding ? 1 : 0
+            }
+        }
+        .task(id: isHoldingClear) {
+            clearHoldTick = 0
+            guard isHoldingClear else { return }
+            for tick in 1...Self.clearHoldTicks {
+                do { try await Task.sleep(for: .seconds(Self.clearHoldDuration) / Self.clearHoldTicks) } catch { return }
+                clearHoldTick = tick
+            }
+        }
+        .sensoryFeedback(trigger: clearHoldTick) { _, tick in
+            guard tick > 0 else { return nil }
+            let fraction = Double(tick) / Double(Self.clearHoldTicks)
+            // Firm from the first tap, so the hold is unmistakable, then heavier as the tab fills.
+            let weight: SensoryFeedback.Weight = fraction < 1.0 / 3 ? .light : fraction < 2.0 / 3 ? .medium : .heavy
+            return .impact(weight: weight, intensity: 0.5 + 0.5 * fraction)
+        }
+        .sensoryFeedback(.impact(weight: .heavy), trigger: clearCount)
+        .sensoryFeedback(.success, trigger: removeCount)
+    }
+
+    private var holdToClear: some Gesture {
+        LongPressGesture(minimumDuration: Self.clearHoldDuration)
+            .updating($isHoldingClear) { _, holding, _ in holding = true }
+            .onEnded { _ in clearAll() }
+    }
+
+    private func removeCurrent() {
+        // Also runs when a finger lifts after a hold has already cleared everything; there's nothing left to remove then.
+        guard !data.attachments.isEmpty else { return }
+        data.removeCurrent()
+        removeCount += 1
+    }
+
+    private func clearAll() {
+        data.clearSelection()
+        data.selectedTab = .select
+        clearCount += 1
     }
 }
 
@@ -103,34 +175,50 @@ struct TabItem: View {
 
     let item: TabbedItems
     let isActive: Bool
+    /// The Select tab standing in as Clear, in the destructive color.
+    var isClear = false
+    /// How far a hold on Clear has got, 0...1, shown as a fill across the tab.
+    var clearProgress = 0.0
     /// Shared by every tab, so the one active pill moves between them.
     let glassNamespace: Namespace.ID
 
     var body: some View {
+        let tint: Color = isClear ? .red : .accent
         let content = HStack {
-            Image(systemName: item.iconName)
-                .foregroundStyle(isActive ? .white : .stone500)
+            Image(systemName: isClear ? "trash" : item.iconName)
+                .contentTransition(.symbolEffect(.replace))
+                .foregroundStyle(isActive ? .white : isClear ? .red : .stone500)
                 .animation(.interactiveSpring, value: isActive)
             if isActive {
-                Text(item.title)
+                Text(isClear ? "Clear" : item.title)
                     .font(.spaceMono(16))
                     .foregroundStyle(.white)
+                    .contentTransition(.opacity)
             }
         }
         .padding(.horizontal, 8)
         .frame(minWidth: isActive ? 148 : 48, minHeight: 48)
+        .background(alignment: .leading) {
+            GeometryReader { geometry in
+                Rectangle()
+                    .fill(.red.opacity(0.6))
+                    .frame(width: geometry.size.width * clearProgress)
+            }
+        }
 
         Group {
             if #available(iOS 26, *), isActive {
                 content
-                    .glassEffect(.regular.tint(.accent.opacity(0.5)).interactive(), in: .rect(cornerRadius: 16))
+                    .clipShape(.rect(cornerRadius: 16))
+                    .glassEffect(.regular.tint(tint.opacity(0.5)).interactive(), in: .rect(cornerRadius: 16))
                     .glassEffectID("activeTab", in: glassNamespace)
             } else {
                 content
-                    .background(isActive ? .accent.opacity(0.5) : .clear)
+                    .background(isActive ? tint.opacity(0.5) : .clear)
                     .clipShape(.rect(cornerRadius: 16))
             }
         }
+        .animation(.interactiveSpring, value: isClear)
         .contentShape(.rect(cornerRadius: 16))
         .padding(.horizontal, 8.0)
         .animation(.interactiveSpring, value: isActive)
