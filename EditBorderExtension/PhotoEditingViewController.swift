@@ -24,6 +24,8 @@ final class PhotoEditingViewController: UIViewController, PHContentEditingContro
     private var filename: String?
     private var format = ExportFormat.jpeg
     private var startingSettings = BorderSettings()
+    /// Set by `canHandle(_:)`, which Photos calls on a background queue, and read when editing starts.
+    private nonisolated let hasOtherEdits = OSAllocatedUnfairLock(initialState: false)
     /// Reads the photo and makes the preview; Done waits for it.
     private var loading: Task<Void, Never>?
     private var work: Task<Void, Never>?
@@ -44,14 +46,16 @@ final class PhotoEditingViewController: UIViewController, PHContentEditingContro
 
     /// Asked only when the photo already has an edit. A border of ours gets the original photo back
     /// to redraw; anything else (a crop or filter in Photos, say) comes with its edits applied.
-    func canHandle(_ adjustmentData: PHAdjustmentData) -> Bool {
+    /// Photos calls this off the main thread, despite the protocol's main-actor annotation.
+    nonisolated func canHandle(_ adjustmentData: PHAdjustmentData) -> Bool {
         let canHandle = PhotoEditing.canHandle(adjustmentData)
-        session.hasOtherEdits = !canHandle
+        hasOtherEdits.withLock { $0 = !canHandle }
         return canHandle
     }
 
     func startContentEditing(with contentEditingInput: PHContentEditingInput, placeholderImage: UIImage) {
         input = contentEditingInput
+        session.hasOtherEdits = hasOtherEdits.withLock { $0 }
         let defaultType = PHContentEditingOutput(contentEditingInput: contentEditingInput).defaultRenderedContentType
         format = PhotoEditing.outputFormat(defaultType: defaultType)
         // A re-edit brings back the photo's own border; a first edit starts from the app's last-used settings.
