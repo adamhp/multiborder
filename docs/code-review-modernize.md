@@ -77,14 +77,17 @@ Builds and passes its unit tests on the iOS 26.5 simulator (HDR tests skipped) a
 
 Builds and passes its unit tests on the iOS 26.5 simulator, including when the sheet is due and leaving Edit and Export when the photos run out. The sheet, the tips, "Show me", "Turn Off Tips" and swiping without photos were checked on the iPhone 16 Pro.
 
+- **Photo Editing Extension (`EditBorderExtension/`):** in Photos, Edit → ⋯ → multiborder opens the app's Edit page for that one photo, with every border, fill, corner, shadow and caption option. Done hands Photos the bordered photo at full size (the canvas grows around the photo's own pixels; the app's export width and format don't apply), as HEIC when Photos asks for it and JPEG otherwise, so HDR is kept. The border's settings are saved with the edit (`PHAdjustmentData`, format `com.adamhp.multiborder.border` version 1, in `Shared/PhotoEditing.swift`), so editing again brings that border back and redraws it on the original, and Revert removes it. A first edit starts from the app's last-used settings; nothing is written back to them. A photo whose latest edit isn't ours (a crop in Photos after the border, say) gets a note that the border goes on top. Cancel asks first only after a change.
+  - The Edit page is shared: `EditView`, its controls, `BorderedPreview`, the colors and `Font.spaceMono` are in `EditingUI/`, compiled by the app and the extension. The settings live in `BorderEditor`, which `DataModel` saves to the App Group and the extension doesn't save at all. `EditView` takes its preview as a parameter (the card stack in the app, the one photo in the extension). Tips don't show in the extension, since it never calls `Tips.configure()`.
+  - `ImageComposer.maxCanvasBytes` gives this extension the app's 400 MB budget; the share-sheet entries keep 40 MB.
+  - Two launch crashes found on the device: PhotosUI has to be linked explicitly (nothing in Swift references a symbol from it, so the linker dropped it and Photos' editing context class was missing), and Photos calls `canHandle(_:)` off the main thread despite the protocol's main-actor annotation, so it's `nonisolated`.
+
+Builds and passes its unit tests on the iOS 26.5 simulator (adjustment data round trip, other versions and unreadable data, full size and the app's format ignored, the canvas budget, a rotated photo coming back upright). Checked on the iPhone 16 Pro: a 48 MP photo saved at full size, a portrait photo, re-editing and Revert, Cancel, a photo cropped after its border, an HDR photo, the caption's filename, and the app's Edit page unchanged.
+
 Tried and dropped:
 
 - Blurring the cards behind the front one in `CardStack`, meant to make overlapping photos of different shapes less distracting.
 - A row of border color swatches sampled from the current photo's most common colors.
-
-## iOS features worth adopting
-
-- **Photo Editing Extension:** this is also in your TODO. The compositor can be reused unchanged, and it lets people add a border from inside Photos. `Shared/`, the App Group and the extension memory limit from the share extension carry over.
 
 ## Feature ideas
 
