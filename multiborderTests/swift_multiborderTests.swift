@@ -590,6 +590,54 @@ nonisolated private let readsGainMaps: Bool = {
     return image.contentHeadroom > 1
 }()
 
+@Suite struct PhotoEditingTests {
+
+    @Test func settingsRoundTripThroughAdjustmentData() throws {
+        var settings = BorderSettings()
+        settings.aspectRatio = .square
+        settings.isPerSide = true
+        settings.sides = BorderInsets(uniform: 0.07)
+        let data = try PhotoEditing.adjustmentData(for: settings)
+        #expect(data.formatIdentifier == "com.adamhp.multiborder.border")
+        #expect(data.formatVersion == "1")
+        #expect(PhotoEditing.canHandle(data))
+        #expect(PhotoEditing.settings(from: data) == settings)
+    }
+
+    @Test func otherAdjustmentsAreNotOurs() {
+        let other = PHAdjustmentData(formatIdentifier: "com.apple.photo", formatVersion: "1", data: Data())
+        let future = PHAdjustmentData(formatIdentifier: PhotoEditing.formatIdentifier, formatVersion: "2", data: Data())
+        let garbled = PHAdjustmentData(formatIdentifier: PhotoEditing.formatIdentifier, formatVersion: "1", data: Data("x".utf8))
+        #expect(!PhotoEditing.canHandle(other))
+        #expect(!PhotoEditing.canHandle(future))
+        #expect(PhotoEditing.settings(from: other) == nil)
+        #expect(PhotoEditing.settings(from: future) == nil)
+        #expect(PhotoEditing.settings(from: garbled) == nil)
+        #expect(PhotoEditing.settings(from: nil) == nil)
+    }
+
+    @Test func editingIgnoresTheAppsExportWidthAndFormat() {
+        var app = BorderSettings()
+        app.exportWidth = 1080
+        app.exportFormat = .png
+        let editing = PhotoEditing.editingSettings(app, format: PhotoEditing.outputFormat(defaultType: .heic))
+        #expect(editing.exportWidth == 0)
+        #expect(editing.exportFormat == .heic)
+        #expect(editing.aspectRatio == app.aspectRatio)
+        #expect(PhotoEditing.outputFormat(defaultType: .jpeg) == .jpeg)
+        #expect(PhotoEditing.outputFormat(defaultType: nil) == .jpeg)
+    }
+
+    @Test func onlyTheShareSheetGetsTheSmallCanvas() {
+        func ext(_ point: String) -> [String: Any] { ["NSExtension": ["NSExtensionPointIdentifier": point]] }
+        #expect(!ImageComposer.usesSmallCanvas(nil))
+        #expect(!ImageComposer.usesSmallCanvas([:]))
+        #expect(ImageComposer.usesSmallCanvas(ext("com.apple.share-services")))
+        #expect(ImageComposer.usesSmallCanvas(ext("com.apple.ui-services")))
+        #expect(!ImageComposer.usesSmallCanvas(ext("com.apple.photo-editing")))
+    }
+}
+
 @Suite struct ImageIOTests {
 
     /// A solid-color Display P3 image (JPEG unless `type` says otherwise), optionally tagged with an EXIF orientation.
@@ -619,6 +667,19 @@ nonisolated private let readsGainMaps: Bool = {
         let name = orientation == 1 ? "hdr-gradient" : "hdr-gradient-orientation\(orientation)"
         let url = try #require(Bundle(for: TestBundle.self).url(forResource: name, withExtension: "jpg"))
         return try Data(contentsOf: url)
+    }
+
+    @Test func fullSizeRenderOfARotatedPhotoIsUpright() async throws {
+        // Stored 400×300 with EXIF orientation 6, so it shows 300×400, like a portrait iPhone photo.
+        let source = try makeImage(width: 400, height: 300, orientation: 6)
+        let settings = PhotoEditing.editingSettings(BorderSettings(), format: .jpeg)
+        let output = try await ImageComposer.render(source, settings: settings)
+        let image = try #require(CGImageSourceCreateWithData(output as CFData, nil))
+        let properties = try #require(CGImageSourceCopyPropertiesAtIndex(image, 0, nil) as? [CFString: Any])
+        #expect((properties[kCGImagePropertyOrientation] as? Int ?? 1) == 1)
+        let expected = ImageComposer.layout(sourceSize: CGSize(width: 300, height: 400), settings: settings).canvasSize
+        #expect(properties[kCGImagePropertyPixelWidth] as? Int == Int(expected.width))
+        #expect(properties[kCGImagePropertyPixelHeight] as? Int == Int(expected.height))
     }
 
     @available(iOS 18, *)
