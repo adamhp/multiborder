@@ -9,6 +9,7 @@
 import SwiftUI
 import ImageIO
 import CoreImage
+import CoreVideo
 import UniformTypeIdentifiers
 
 /// Canvas shapes, described in portrait; `BorderSettings.isLandscape` turns them sideways.
@@ -188,6 +189,8 @@ nonisolated struct BorderSettings: Codable, Equatable, Sendable {
     /// Whether saved photos are dated when they were taken rather than when they were saved,
     /// so they sort next to the original instead of at the top of Recents.
     var keepsOriginalDate = false
+    /// Whether HDR photos keep their bright highlights in HEIC and JPEG exports (see `ImageComposer.GainMap`).
+    var keepsHDR = true
 
     /// Canvas width divided by height after orientation; `nil` keeps the photo's own ratio.
     var canvasWidthOverHeight: Double? {
@@ -304,6 +307,7 @@ nonisolated extension BorderSettings {
         albumName = try container.decodeIfPresent(String.self, forKey: .albumName) ?? fallback.albumName
         albumID = try container.decodeIfPresent(String.self, forKey: .albumID) ?? fallback.albumID
         keepsOriginalDate = try container.decodeIfPresent(Bool.self, forKey: .keepsOriginalDate) ?? fallback.keepsOriginalDate
+        keepsHDR = try container.decodeIfPresent(Bool.self, forKey: .keepsHDR) ?? fallback.keepsHDR
     }
 }
 
@@ -313,10 +317,18 @@ nonisolated enum ImageComposer {
         var canvasSize: CGSize
         /// Where the photo sits inside the canvas (top-left origin).
         var imageRect: CGRect
+
+        /// `imageRect` in Core Graphics' bottom-left-origin coordinates.
+        var drawRect: CGRect {
+            CGRect(x: imageRect.minX, y: canvasSize.height - imageRect.maxY, width: imageRect.width, height: imageRect.height)
+        }
     }
 
     struct Thumbnail: Sendable {
+        /// The SDR photo, as exports draw it.
         let image: UIImage
+        /// The photo with its HDR highlights, when it has a gain map exports can keep (see `GainMap`).
+        let hdrImage: UIImage?
         /// Upright pixel size of the full-resolution photo.
         let pixelSize: CGSize
         /// Every detail the photo records, for `BorderSettings.showsCaption`.
@@ -417,7 +429,9 @@ nonisolated enum ImageComposer {
             throw ComposeError.unreadable
         }
         let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any] ?? [:]
-        return Thumbnail(image: UIImage(cgImage: image), pixelSize: pixelSize, captionItems: PhotoCaption.photoItems(
+        let hdrImage = GainMap.isPresent(in: source) ? downsample(source, maxPixelSize: maxPixelSize, hdr: true) : nil
+        return Thumbnail(image: UIImage(cgImage: image), hdrImage: hdrImage.map(UIImage.init), pixelSize: pixelSize,
+                         captionItems: PhotoCaption.photoItems(
             from: properties, metadata: CGImageSourceCopyMetadataAtIndex(source, 0, nil), filename: filename))
     }
 
@@ -425,9 +439,11 @@ nonisolated enum ImageComposer {
     /// and metadata minus location. Encodes as `format`, or `settings.exportFormat` when it's `nil`,
     /// falling back to JPEG if that format can't be written.
     ///
-    /// HDR photos are exported as their SDR rendition. The border is plain SDR color, and
-    /// re-encoding with a gain map tone-maps the whole canvas, which shifts both the photo's
-    /// exposure and the border color.
+    /// The canvas is always the photo's SDR rendition, drawn exactly as on an SDR screen. When `settings.keepsHDR`
+    /// is on and the photo has an ISO gain map, HEIC and JPEG exports also carry a gain map laid out like the
+    /// canvas (see `GainMap`), so the photo keeps its HDR highlights and everything else stays at SDR brightness.
+    /// Letting ImageIO derive a gain map from an HDR canvas instead tone-maps the whole canvas, which shifts
+    /// both the photo's exposure and the border color.
     ///
     /// Renders run one at a time, whoever calls (a Download, or the share sheet loading
     /// several photos at once), so only one canvas of up to `maxCanvasBytes` exists at a time.
@@ -451,6 +467,8 @@ nonisolated enum ImageComposer {
         let layout = layout(sourceSize: pixelSize, settings: settings,
                             maxPixels: maxCanvasPixels(bitsPerComponent: deep ? 16 : 8))
         let longestSide = Int(max(layout.imageRect.width, layout.imageRect.height).rounded(.up))
+        let orientation = properties?[kCGImagePropertyOrientation] as? Int ?? 1
+        let gainMap = settings.keepsHDR ? GainMap(source, orientation: orientation) : nil
         // Scoped so the decoded photo is freed before encoding.
         let canvas = try {
             guard let image = downsample(source, maxPixelSize: longestSide) else {
@@ -467,10 +485,11 @@ nonisolated enum ImageComposer {
                                  backdrop: backdrop, allowDeep: deep)
         }()
 
+        let gainInfo = gainMap.flatMap { $0.auxiliaryInfo(layout: layout, settings: settings) }
         let metadata = exportMetadata(source)
         let sourceType = CGImageSourceGetType(source).flatMap { UTType($0 as String) }
         for type in format.encodingTypes(source: sourceType) {
-            if let encoded = encode(canvas, as: type, metadata: metadata) {
+            if let encoded = encode(canvas, as: type, metadata: metadata, gainMap: gainInfo) {
                 return encoded
             }
         }
@@ -490,14 +509,17 @@ nonisolated enum ImageComposer {
         return orientation >= 5 ? CGSize(width: height, height: width) : CGSize(width: width, height: height)
     }
 
-    /// Decodes the SDR rendition (an HDR photo's gain map is ignored).
-    private static func downsample(_ source: CGImageSource, maxPixelSize: Int) -> CGImage? {
-        let options: [CFString: Any] = [
+    /// Decodes the SDR rendition, or with `hdr` the photo with its gain map applied.
+    private static func downsample(_ source: CGImageSource, maxPixelSize: Int, hdr: Bool = false) -> CGImage? {
+        var options: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceCreateThumbnailWithTransform: true,
             kCGImageSourceShouldCacheImmediately: true,
             kCGImageSourceThumbnailMaxPixelSize: max(maxPixelSize, 1),
         ]
+        if hdr {
+            options[kCGImageSourceDecodeRequest] = kCGImageSourceDecodeToHDR
+        }
         return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
     }
 
@@ -556,9 +578,7 @@ nonisolated enum ImageComposer {
             context.setFillColor(settings.borderColor.cgColor)
             context.fill(CGRect(origin: .zero, size: layout.canvasSize))
         }
-        // Core Graphics has a bottom-left origin.
-        var drawRect = layout.imageRect
-        drawRect.origin.y = layout.canvasSize.height - layout.imageRect.maxY
+        let drawRect = layout.drawRect
         let radius = settings.cornerRadius(canvasSize: layout.canvasSize, photoSize: drawRect.size)
         let photoShape = CGPath(roundedRect: drawRect, cornerWidth: radius, cornerHeight: radius, transform: nil)
         let shadowBlur = settings.shadowBlur(canvasSize: layout.canvasSize)
@@ -628,13 +648,135 @@ nonisolated enum ImageComposer {
         return metadata
     }
 
-    private static func encode(_ image: CGImage, as type: UTType, metadata: [CFString: Any]) -> Data? {
+    /// Encodes `image`, adding `gainMap` (auxiliary data info from `GainMap`) to the formats that can hold one.
+    private static func encode(_ image: CGImage, as type: UTType, metadata: [CFString: Any], gainMap: [CFString: Any]?) -> Data? {
         let output = NSMutableData()
         guard let destination = CGImageDestinationCreateWithData(output, type.identifier as CFString, 1, nil) else {
             return nil
         }
         CGImageDestinationAddImage(destination, image, metadata as CFDictionary)
+        if let gainMap, [.heic, .jpeg].contains(type), #available(iOS 18, *) {
+            CGImageDestinationAddAuxiliaryDataInfo(destination, kCGImageAuxiliaryDataTypeISOGainMap, gainMap as CFDictionary)
+        }
         return CGImageDestinationFinalize(destination) ? output as Data : nil
+    }
+}
+
+nonisolated extension ImageComposer {
+
+    /// An HDR photo's ISO 21496-1 gain map: how much brighter than the SDR photo each spot is shown on an HDR screen.
+    ///
+    /// Exports draw it on a small canvas of its own with the photo's layout, filled with `noBoost` everywhere else,
+    /// so the border, blurred fill, captions and shadow stay exactly as on an SDR screen while the photo keeps its
+    /// own highlights. Only single-channel gain maps over an SDR base are kept, which is what iPhone photos have;
+    /// anything else exports as SDR, as do photos with only Apple's older gain map, whose brightness is recorded
+    /// in maker notes that exports remove.
+    struct GainMap {
+        /// Upright 8-bit gain values. Device gray on both sides of every draw, so they're never color converted.
+        let image: CGImage
+        /// The source's auxiliary data info; its metadata (the gain range and headroom) is written back unchanged.
+        let info: [CFString: Any]
+        /// The value (0–1) at which a pixel is shown at its SDR brightness.
+        let noBoost: Double
+
+        private static let gray = CGColorSpaceCreateDeviceGray()
+
+        static func isPresent(in source: CGImageSource) -> Bool {
+            guard #available(iOS 18, *) else { return false }
+            return CGImageSourceCopyAuxiliaryDataInfoAtIndex(source, 0, kCGImageAuxiliaryDataTypeISOGainMap) != nil
+        }
+
+        /// The photo's gain map turned upright for EXIF `orientation`, or `nil` if it has none that can be kept.
+        init?(_ source: CGImageSource, orientation: Int) {
+            guard #available(iOS 18, *),
+                  let info = CGImageSourceCopyAuxiliaryDataInfoAtIndex(source, 0, kCGImageAuxiliaryDataTypeISOGainMap)
+                    as? [CFString: Any],
+                  let data = info[kCGImageAuxiliaryDataInfoData] as? Data,
+                  let description = info[kCGImageAuxiliaryDataInfoDataDescription] as? [CFString: Any],
+                  (description[kCGImagePropertyPixelFormat] as? NSNumber)?.uint32Value == kCVPixelFormatType_OneComponent8,
+                  let width = description[kCGImagePropertyWidth] as? Int,
+                  let height = description[kCGImagePropertyHeight] as? Int,
+                  let bytesPerRow = description[kCGImagePropertyBytesPerRow] as? Int,
+                  width > 0, height > 0, bytesPerRow >= width, data.count >= bytesPerRow * height,
+                  let rawMetadata = info[kCGImageAuxiliaryDataInfoMetadata],
+                  CFGetTypeID(rawMetadata as CFTypeRef) == CGImageMetadataGetTypeID() else {
+                return nil
+            }
+            let metadata = rawMetadata as! CGImageMetadata
+            func number(_ path: String) -> Double? {
+                (CGImageMetadataCopyStringValueWithPath(metadata, nil, path as CFString) as String?).flatMap(Double.init)
+            }
+            // Headroom is in stops; the alternate (HDR) rendition must be the brighter one, i.e. the base is SDR.
+            // Encoded values map to log2 gains between GainMapMin and GainMapMax, after a gamma curve.
+            guard let alternate = number("HDRToneMap:AlternateHeadroom"), alternate > (number("HDRToneMap:BaseHeadroom") ?? 0),
+                  let low = number("HDRToneMap:ChannelMetadata[0].GainMapMin"),
+                  let high = number("HDRToneMap:ChannelMetadata[0].GainMapMax"), high > low,
+                  let stored = CGImage(width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 8, bytesPerRow: bytesPerRow,
+                                       space: Self.gray, bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue),
+                                       provider: CGDataProvider(data: data as CFData)!, decode: nil,
+                                       shouldInterpolate: true, intent: .defaultIntent),
+                  let upright = Self.upright(stored, orientation: orientation) else {
+                return nil
+            }
+            let gamma = number("HDRToneMap:ChannelMetadata[0].Gamma") ?? 1
+            // A log2 gain of 0 leaves the pixel as it is; if the range excludes 0, the closest end is used.
+            self.noBoost = pow(min(max(-low / (high - low), 0), 1), gamma)
+            self.image = upright
+            self.info = info
+        }
+
+        /// `image` (stored as the camera took it) rotated or flipped for EXIF `orientation`.
+        private static func upright(_ image: CGImage, orientation: Int) -> CGImage? {
+            guard orientation != 1, let exif = CGImagePropertyOrientation(rawValue: UInt32(orientation)) else {
+                return image
+            }
+            // No color management in or out, so the gain values pass through unchanged.
+            let oriented = CIImage(cgImage: image, options: [.colorSpace: NSNull()]).oriented(exif)
+            let extent = oriented.extent.integral
+            let width = Int(extent.width), height = Int(extent.height)
+            var bytes = Data(count: width * height)
+            bytes.withUnsafeMutableBytes { buffer in
+                CIContext(options: [.workingColorSpace: NSNull(), .cacheIntermediates: false])
+                    .render(oriented, toBitmap: buffer.baseAddress!, rowBytes: width, bounds: extent, format: .L8, colorSpace: nil)
+            }
+            return CGImage(width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 8, bytesPerRow: width,
+                           space: gray, bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue),
+                           provider: CGDataProvider(data: bytes as CFData)!, decode: nil,
+                           shouldInterpolate: true, intent: .defaultIntent)
+        }
+
+        /// Auxiliary data info for a canvas laid out by `layout`: the gain map drawn where the photo is (with the same
+        /// rounded corners), at no more than its own resolution, and `noBoost` everywhere else.
+        func auxiliaryInfo(layout: Layout, settings: BorderSettings) -> [CFString: Any]? {
+            guard layout.imageRect.width > 0, layout.imageRect.height > 0 else { return nil }
+            let scale = min(Double(image.width) / layout.imageRect.width, 1)
+            let width = max(Int((layout.canvasSize.width * scale).rounded()), 1)
+            let height = max(Int((layout.canvasSize.height * scale).rounded()), 1)
+            let scaleX = Double(width) / layout.canvasSize.width, scaleY = Double(height) / layout.canvasSize.height
+            guard let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+                                          space: Self.gray, bitmapInfo: CGImageAlphaInfo.none.rawValue) else {
+                return nil
+            }
+            context.setFillColor(gray: noBoost, alpha: 1)
+            context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+            context.interpolationQuality = .high
+            let rect = layout.drawRect.applying(CGAffineTransform(scaleX: scaleX, y: scaleY))
+            let radius = settings.cornerRadius(canvasSize: layout.canvasSize, photoSize: layout.imageRect.size) * min(scaleX, scaleY)
+            if radius > 0 {
+                context.addPath(CGPath(roundedRect: rect, cornerWidth: radius, cornerHeight: radius, transform: nil))
+                context.clip()
+            }
+            context.draw(image, in: rect)
+            guard let canvas = context.makeImage(), let data = canvas.dataProvider?.data else { return nil }
+            var info = info
+            var description = info[kCGImageAuxiliaryDataInfoDataDescription] as? [CFString: Any] ?? [:]
+            description[kCGImagePropertyWidth] = canvas.width
+            description[kCGImagePropertyHeight] = canvas.height
+            description[kCGImagePropertyBytesPerRow] = canvas.bytesPerRow
+            info[kCGImageAuxiliaryDataInfoDataDescription] = description
+            info[kCGImageAuxiliaryDataInfoData] = data as Data
+            return info
+        }
     }
 }
 

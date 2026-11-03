@@ -342,9 +342,10 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
         let defaults = makeDefaults()
         let stored = BorderSettings(aspectRatio: .square, roundsCorners: true, cornerFraction: 0.03, hasShadow: true,
                                     shadowFraction: 0.02, exportFormat: .png, savesToAlbum: true, albumName: "Trips",
-                                    albumID: "ABC/L0/040", keepsOriginalDate: true)
+                                    albumID: "ABC/L0/040", keepsOriginalDate: true, keepsHDR: false)
         var json = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(stored)) as? [String: Any])
-        for key in ["roundsCorners", "cornerFraction", "hasShadow", "shadowFraction", "exportFormat", "savesToAlbum", "albumName", "albumID", "keepsOriginalDate"] {
+        for key in ["roundsCorners", "cornerFraction", "hasShadow", "shadowFraction", "exportFormat", "savesToAlbum", "albumName", "albumID",
+                    "keepsOriginalDate", "keepsHDR"] {
             json.removeValue(forKey: key)
         }
         defaults.set(try JSONSerialization.data(withJSONObject: json), forKey: "borderSettings")
@@ -352,7 +353,7 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
         #expect(loaded.aspectRatio == .square)
         #expect(!loaded.roundsCorners && !loaded.hasShadow)
         #expect(loaded.cornerFraction == BorderSettings().cornerFraction && loaded.shadowFraction == BorderSettings().shadowFraction)
-        #expect(loaded.exportFormat == .original && !loaded.savesToAlbum && !loaded.keepsOriginalDate)
+        #expect(loaded.exportFormat == .original && !loaded.savesToAlbum && !loaded.keepsOriginalDate && loaded.keepsHDR)
         #expect(loaded.albumName == PhotoLibrary.defaultAlbumName && loaded.albumID == nil)
 
         stored.save(to: defaults)
@@ -505,6 +506,20 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
     }
 }
 
+/// Finds the test bundle's resources.
+nonisolated private final class TestBundle {}
+
+/// Whether this ImageIO applies gain maps. The Simulator's doesn't (it drops their metadata and decodes HDR
+/// photos as SDR), so exports there fall back to SDR, and the HDR tests only run on a device.
+nonisolated private let readsGainMaps: Bool = {
+    guard #available(iOS 18, *),
+          let url = Bundle(for: TestBundle.self).url(forResource: "hdr-gradient", withExtension: "jpg"),
+          let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+          let image = CGImageSourceCreateImageAtIndex(source, 0, [kCGImageSourceDecodeRequest: kCGImageSourceDecodeToHDR] as CFDictionary)
+    else { return false }
+    return image.contentHeadroom > 1
+}()
+
 @Suite struct ImageIOTests {
 
     /// A solid-color Display P3 image (JPEG unless `type` says otherwise), optionally tagged with an EXIF orientation.
@@ -525,6 +540,38 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
         CGImageDestinationAddImage(destination, image, properties as CFDictionary)
         #expect(CGImageDestinationFinalize(destination))
         return output as Data
+    }
+
+    /// A 400×300 gray gradient from black at the left edge to 4× SDR white at the right, as a JPEG with an ISO gain map
+    /// stored upright or with EXIF orientation 6. Made on a Mac by `scripts/make-hdr-fixtures.swift`, since the
+    /// Simulator can't encode gain maps.
+    private func hdrPhoto(orientation: Int = 1) throws -> Data {
+        let name = orientation == 1 ? "hdr-gradient" : "hdr-gradient-orientation\(orientation)"
+        let url = try #require(Bundle(for: TestBundle.self).url(forResource: name, withExtension: "jpg"))
+        return try Data(contentsOf: url)
+    }
+
+    @available(iOS 18, *)
+    private func hasGainMap(_ data: Data) throws -> Bool {
+        let source = try #require(CGImageSourceCreateWithData(data as CFData, nil))
+        return CGImageSourceCopyAuxiliaryDataInfoAtIndex(source, 0, kCGImageAuxiliaryDataTypeISOGainMap) != nil
+    }
+
+    /// The linear extended-sRGB red component of one pixel (top-left origin), decoded as on an SDR screen,
+    /// or with `hdr` as on an HDR screen with the gain map applied in full.
+    private func linearRed(of data: Data, x: Int, y: Int, hdr: Bool) throws -> Float {
+        let source = try #require(CGImageSourceCreateWithData(data as CFData, nil))
+        let options = hdr ? [kCGImageSourceDecodeRequest: kCGImageSourceDecodeToHDR] as CFDictionary : nil
+        let image = try #require(CGImageSourceCreateImageAtIndex(source, 0, options))
+        var components = [Float](repeating: 0, count: 4)
+        let context = try #require(CGContext(
+            data: &components, width: 1, height: 1, bitsPerComponent: 32, bytesPerRow: 16,
+            space: CGColorSpace(name: CGColorSpace.extendedLinearSRGB)!,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.floatComponents.rawValue
+                | CGBitmapInfo.byteOrder32Little.rawValue
+        ))
+        context.draw(image, in: CGRect(x: -x, y: y - image.height + 1, width: image.width, height: image.height))
+        return components[0]
     }
 
     private func decode(_ data: Data) throws -> (image: CGImage, type: UTType?) {
@@ -668,6 +715,70 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
         #expect(try decode(try await ImageComposer.render(jpeg, settings: BorderSettings(exportFormat: .png), format: .jpeg)).type == .jpeg)
         let heic = try await ImageComposer.render(jpeg, settings: BorderSettings(exportFormat: .heic))
         #expect(try [UTType.heic, .jpeg].contains(decode(heic).type))
+    }
+
+    // A 400×300 photo on a square canvas with a 0.1 border: 500×500, the photo at (50, 100).
+    @available(iOS 18, *)
+    @Test(.enabled(if: readsGainMaps, "This ImageIO doesn't apply gain maps"), arguments: [ExportFormat.jpeg, .heic])
+    func hdrPhotoKeepsItsHighlightsWhileTheBorderStaysSDR(format: ExportFormat) async throws {
+        let photo = try hdrPhoto()
+        let output = try await ImageComposer.render(photo, settings: BorderSettings(aspectRatio: .square, paddingFraction: 0.1,
+                                                                                    exportFormat: format))
+        try #require(decode(output).type == (format == .heic ? .heic : .jpeg), "\(format) encoding is unavailable here")
+        #expect(try hasGainMap(output))
+        #expect(try decode(output).image.width == 500)
+        // The white border is SDR white on both kinds of screen.
+        #expect(abs(try linearRed(of: output, x: 10, y: 10, hdr: false) - 1) < 0.02)
+        #expect(abs(try linearRed(of: output, x: 10, y: 10, hdr: true) - 1) < 0.02)
+        // The bright end of the photo goes past SDR white only on an HDR screen; the dark end stays dark.
+        #expect(try linearRed(of: output, x: 440, y: 250, hdr: false) <= 1.01)
+        #expect(try linearRed(of: output, x: 440, y: 250, hdr: true) > 2.5)
+        #expect(try linearRed(of: output, x: 60, y: 250, hdr: true) < 0.2)
+    }
+
+    @available(iOS 18, *)
+    @Test(.enabled(if: readsGainMaps, "This ImageIO doesn't apply gain maps"))
+    func hdrGainMapIsTurnedUprightWithThePhoto() async throws {
+        // EXIF orientation 6 turns the stored left-to-right gradient into top-to-bottom: on a square canvas
+        // the 300×400 photo sits at (100, 50), bright along its bottom edge from left to right.
+        let photo = try hdrPhoto(orientation: 6)
+        let output = try await ImageComposer.render(photo, settings: BorderSettings(aspectRatio: .square, paddingFraction: 0.1))
+        #expect(try linearRed(of: output, x: 110, y: 440, hdr: true) > 2.5)
+        #expect(try linearRed(of: output, x: 390, y: 440, hdr: true) > 2.5)
+        #expect(try linearRed(of: output, x: 250, y: 60, hdr: true) < 0.2)
+    }
+
+    @available(iOS 18, *)
+    @Test(.enabled(if: readsGainMaps, "This ImageIO doesn't apply gain maps"))
+    func roundedCornersOfAnHDRPhotoShowSDRBorder() async throws {
+        let photo = try hdrPhoto()
+        let settings = BorderSettings(aspectRatio: .square, paddingFraction: 0.1, roundsCorners: true, cornerFraction: 0.08)
+        let output = try await ImageComposer.render(photo, settings: settings)
+        // The photo's bright top-right corner pixel is cut away by the 40px radius, leaving white border unboosted.
+        #expect(abs(try linearRed(of: output, x: 449, y: 100, hdr: true) - 1) < 0.02)
+        #expect(try linearRed(of: output, x: 440, y: 250, hdr: true) > 2.5)
+    }
+
+    @available(iOS 18, *)
+    @Test(.enabled(if: readsGainMaps, "This ImageIO doesn't apply gain maps"))
+    func hdrIsDroppedWhenOffOrSavingPNG() async throws {
+        let photo = try hdrPhoto()
+        #expect(try !hasGainMap(try await ImageComposer.render(photo, settings: BorderSettings(keepsHDR: false))))
+        let png = try await ImageComposer.render(photo, settings: BorderSettings(exportFormat: .png))
+        #expect(try decode(png).type == .png && !hasGainMap(png))
+        // An SDR photo stays SDR.
+        #expect(try !hasGainMap(try await ImageComposer.render(makeImage(width: 40, height: 30), settings: BorderSettings())))
+    }
+
+    @available(iOS 18, *)
+    @Test(.enabled(if: readsGainMaps, "This ImageIO doesn't apply gain maps"))
+    func thumbnailHasAnHDRVersionOnlyForHDRPhotos() async throws {
+        let photo = try hdrPhoto()
+        let hdr = try await ImageComposer.thumbnail(from: photo, maxPixelSize: 100)
+        let image = try #require(hdr.hdrImage)
+        #expect(image.isHighDynamicRange)
+        #expect(image.cgImage?.width == 100)
+        #expect(try await ImageComposer.thumbnail(from: makeImage(width: 40, height: 30), maxPixelSize: 100).hdrImage == nil)
     }
 
     @Test func roundedCornersShowTheBorder() async throws {

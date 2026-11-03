@@ -59,6 +59,15 @@ The share extension was checked on the iPhone 16 Pro, including nine 47 MP photo
 
 Builds and passes its unit tests on the iOS 26.5 simulator. The tests cover settings saved before these fields existed, an unknown saved format, the corner radius cap, each format's file type, rounded corners, the shadow (and both staying off while their switch is), and capture dates with and without an offset. The Edit tab's toggle row, the corners and shadow, and the Settings tab's layout were checked on the iPhone 16 Pro. The photo-access prompt, saving to a new album under limited access, the album menu under full access, and the original dates in Photos were checked on the iPhone 16 Pro after a fresh install.
 
+- **HDR export (iOS 18+):** HDR photos keep their bright highlights in HEIC and JPEG exports (Download, Share, the Shortcuts action and the share-sheet entries), while the border, blurred fill, captions and shadow stay exactly as on an SDR screen. The canvas is still the photo's SDR rendition, drawn as before. Next to it, `ImageComposer.GainMap` writes the photo's own ISO 21496-1 gain map, turned upright and laid out like the canvas on a small canvas of its own (at most the gain map's resolution), clipped to the rounded corners, and filled everywhere else with the value that means "no boost". Its metadata is copied unchanged.
+  - The earlier attempt let ImageIO derive a gain map from an HDR canvas (`kCGImageDestinationEncodeToISOGainmap`), which tone-maps the whole canvas and shifted the photo's exposure and the border color. Copying the photo's gain map leaves every SDR pixel untouched.
+  - PNG, photos without an ISO gain map (including ones with only Apple's older gain map, whose brightness lives in the maker notes that exports remove), and iOS 17 export SDR as before.
+  - A "Keep HDR" switch in the Settings tab's Saving group (iOS 18+, on by default) turns it off (`BorderSettings.keepsHDR`). Its footnote says when PNG rules HDR out. The share extension's "Saves" row lists HDR when it applies.
+  - The Edit tab's preview shows the photo with its HDR highlights (`Thumbnail.hdrImage`, `.allowedDynamicRange(.high)`) whenever Download will keep them; the blurred fill stays SDR, as in the export.
+  - The Simulator's ImageIO doesn't apply gain maps (it drops their metadata and decodes HDR as SDR), so there exports fall back to SDR and the HDR unit tests skip themselves; they run on a device. Their test photos, `multiborderTests/hdr-gradient*.jpg`, are made on a Mac by `scripts/make-hdr-fixtures.swift`, since the Simulator can't encode gain maps either.
+
+Builds and passes its unit tests on the iOS 26.5 simulator (HDR tests skipped) and on the iPhone 16 Pro (iOS 27.0.1), where the HDR tests run: HEIC and JPEG keep the photo's highlights (above 2.5× SDR white) with the border at SDR white, the gain map turns upright with the photo, rounded corners cut it away, and it's dropped when off or saving PNG. A real iPhone 16 Pro HDR photo (4032×3024 HEIC, an ISO gain map of 2016×1512 with 2.59 stops of headroom) was also exported on the phone with a 0.1 border, as HEIC and JPEG, and compared with the original at a quarter size: the brightest highlight came out at 2.95× SDR white against the original's 2.97×, brightness differed from the original by 0.01 stops on average (HEIC; 0.02 for JPEG), the border stayed within 1% of SDR white on an HDR screen, and the SDR rendition matched the original. On the Mac, ImageIO doesn't return that photo's gain maps (at least inside Claude Code's sandbox), so checks with real photos need the phone. Still to check by eye: exported photos in Photos, the preview's HDR, and whether Instagram keeps HDR from Share.
+
 Tried and dropped:
 
 - Blurring the cards behind the front one in `CardStack`, meant to make overlapping photos of different shapes less distracting.
@@ -66,7 +75,6 @@ Tried and dropped:
 
 ## iOS features worth adopting
 
-- **HDR export (iOS 18+):** you deliberately export SDR today. ImageIO can now decode HDR (`kCGImageSourceDecodeRequest: kCGImageSourceDecodeToHDR`) and write ISO gain maps (`kCGImageDestinationEncodeRequest: kCGImageDestinationEncodeToISOGainmap`). If you fill the border at SDR reference white, the border's color stays put while the photo keeps its HDR highlights. That would set the app apart from similar ones.
 - **Photo Editing Extension:** this is also in your TODO. The compositor can be reused unchanged, and it lets people add a border from inside Photos. `Shared/`, the App Group and the extension memory limit from the share extension carry over.
 
 ## Feature ideas

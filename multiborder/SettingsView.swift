@@ -50,6 +50,12 @@ struct SettingsView: View {
                                footnote: data.settings.keepsOriginalDate
                                    ? "Downloads are dated when the photo was taken, next to the original."
                                    : "Downloads are dated now, at the top of Recents.")
+                        // Gain maps are only read and written from iOS 18.
+                        if #available(iOS 18, *) {
+                            toggle("Keep HDR", systemImage: "sun.max",
+                                   isOn: Bindable(data).settings.keepsHDR,
+                                   footnote: hdrFootnote)
+                        }
                     }
 
                     section("Share Sheet") {
@@ -73,6 +79,16 @@ struct SettingsView: View {
         case .jpeg: "Works everywhere."
         case .heic: "About half the size of JPEG, at the same quality."
         case .png: "Lossless, and much larger."
+        }
+    }
+
+    private var hdrFootnote: LocalizedStringKey {
+        if !data.settings.keepsHDR {
+            "HDR photos are saved at standard brightness."
+        } else if data.settings.exportFormat == .png {
+            "PNG can’t hold HDR, so photos are saved at standard brightness. Choose another format to keep it."
+        } else {
+            "HDR photos keep their bright highlights on HDR screens. The border stays at standard brightness."
         }
     }
 

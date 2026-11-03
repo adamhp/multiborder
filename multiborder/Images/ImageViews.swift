@@ -107,8 +107,11 @@ struct BorderedImage: View {
             }
             let photoSize = CGSize(width: layout.imageRect.width * scale, height: layout.imageRect.height * scale)
             let shadowBlur = settings.shadowBlur(canvasSize: canvasSize)
-            Image(uiImage: thumbnail.image)
+            // With its HDR highlights when Download keeps them (PNG can't); the border stays SDR either way.
+            let hdrImage = settings.keepsHDR && settings.exportFormat != .png ? thumbnail.hdrImage : nil
+            Image(uiImage: hdrImage ?? thumbnail.image)
                 .resizable()
+                .allowedDynamicRange(hdrImage != nil ? .high : .standard)
                 .frame(width: photoSize.width, height: photoSize.height)
                 .clipShape(.rect(cornerRadius: settings.cornerRadius(canvasSize: canvasSize, photoSize: photoSize)))
                 // SwiftUI's shadow radius is about half of Core Graphics' blur, which the export uses.
