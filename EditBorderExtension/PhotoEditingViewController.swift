@@ -24,6 +24,8 @@ final class PhotoEditingViewController: UIViewController, PHContentEditingContro
     private var filename: String?
     private var format = ExportFormat.jpeg
     private var startingSettings = BorderSettings()
+    /// Reads the photo and makes the preview; Done waits for it.
+    private var loading: Task<Void, Never>?
     private var work: Task<Void, Never>?
 
     private static let log = Logger(subsystem: "com.adamhp.multiborder", category: "EditBorderExtension")
@@ -65,7 +67,7 @@ final class PhotoEditingViewController: UIViewController, PHContentEditingContro
         let name = url.lastPathComponent
         filename = name.hasPrefix("FullSizeRender") ? nil : name
         Self.log.debug("Editing \(name, privacy: .public) as \(self.format.rawValue, privacy: .public)")
-        work = Task {
+        loading = Task {
             do {
                 let data = try await Self.read(url)
                 original = data
@@ -78,13 +80,19 @@ final class PhotoEditingViewController: UIViewController, PHContentEditingContro
     }
 
     func finishContentEditing(completionHandler: @escaping (PHContentEditingOutput?) -> Void) {
-        guard let input, let original, let settings = session.editor?.settings else {
+        guard let input, let settings = session.editor?.settings else {
             completionHandler(nil)
             return
         }
         session.isSaving = true
         let type: UTType = format == .heic ? .heic : .jpeg
         work = Task {
+            // Done can come before the photo has loaded.
+            await loading?.value
+            guard let original else {
+                completionHandler(nil)
+                return
+            }
             do {
                 let rendered = try await ImageComposer.render(original, filename: filename, settings: settings, format: format)
                 let output = PHContentEditingOutput(contentEditingInput: input)
@@ -101,6 +109,7 @@ final class PhotoEditingViewController: UIViewController, PHContentEditingContro
     }
 
     func cancelContentEditing() {
+        loading?.cancel()
         work?.cancel()
     }
 
