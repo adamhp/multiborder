@@ -33,7 +33,8 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
         && a.captionFont == b.captionFont && a.showsCaptionIcons == b.showsCaptionIcons && isClose(a.borderColor, b.borderColor)
         && a.roundsCorners == b.roundsCorners && a.cornerFraction == b.cornerFraction
         && a.hasShadow == b.hasShadow && a.shadowFraction == b.shadowFraction && a.exportFormat == b.exportFormat
-        && a.savesToAlbum == b.savesToAlbum && a.keepsOriginalDate == b.keepsOriginalDate
+        && a.savesToAlbum == b.savesToAlbum && a.albumName == b.albumName && a.albumID == b.albumID
+        && a.keepsOriginalDate == b.keepsOriginalDate
 }
 
 @Suite struct AspectRatioTests {
@@ -340,9 +341,10 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
     @Test func loadsSettingsSavedBeforeSaveOptionsExisted() throws {
         let defaults = makeDefaults()
         let stored = BorderSettings(aspectRatio: .square, roundsCorners: true, cornerFraction: 0.03, hasShadow: true,
-                                    shadowFraction: 0.02, exportFormat: .png, savesToAlbum: true, keepsOriginalDate: true)
+                                    shadowFraction: 0.02, exportFormat: .png, savesToAlbum: true, albumName: "Trips",
+                                    albumID: "ABC/L0/040", keepsOriginalDate: true)
         var json = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(stored)) as? [String: Any])
-        for key in ["roundsCorners", "cornerFraction", "hasShadow", "shadowFraction", "exportFormat", "savesToAlbum", "keepsOriginalDate"] {
+        for key in ["roundsCorners", "cornerFraction", "hasShadow", "shadowFraction", "exportFormat", "savesToAlbum", "albumName", "albumID", "keepsOriginalDate"] {
             json.removeValue(forKey: key)
         }
         defaults.set(try JSONSerialization.data(withJSONObject: json), forKey: "borderSettings")
@@ -351,6 +353,7 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
         #expect(!loaded.roundsCorners && !loaded.hasShadow)
         #expect(loaded.cornerFraction == BorderSettings().cornerFraction && loaded.shadowFraction == BorderSettings().shadowFraction)
         #expect(loaded.exportFormat == .original && !loaded.savesToAlbum && !loaded.keepsOriginalDate)
+        #expect(loaded.albumName == PhotoLibrary.defaultAlbumName && loaded.albumID == nil)
 
         stored.save(to: defaults)
         #expect(isClose(BorderSettings.load(from: defaults), stored))

@@ -71,13 +71,17 @@ extension BorderSettings {
 /// the share sheet skips its "Add borders with your last settings?" question.
 nonisolated let shareExtensionSkipsIntroKey = "shareExtensionSkipsIntro"
 
-/// Saves exports to the photo library, into the "multiborder" album and with the photo's own date
+/// Saves exports to the photo library, into the chosen album and with the photo's own date
 /// when the settings ask for them. The change blocks run on a Photos queue, so nothing here is main-actor isolated.
 nonisolated enum PhotoLibrary {
 
-    static let albumTitle = "multiborder"
-    /// The album's local identifier, so renaming it in Photos doesn't make a second one.
-    private static let albumIDKey = "albumIdentifier"
+    static let defaultAlbumName = "multiborder"
+
+    /// An album photos can be saved into.
+    struct Album: Identifiable, Hashable, Sendable {
+        let id: String
+        let title: String
+    }
 
     /// Asks for the access a save needs and returns whether photos can be added. Putting photos in the album
     /// needs full or limited access to the library; when that's refused, photos are still saved, just outside it.
@@ -102,7 +106,7 @@ nonisolated enum PhotoLibrary {
     static func save(_ output: Data, source: Data, settings: BorderSettings) async throws {
         // Without the photo's own date, exports go to the top of Recents rather than among the originals.
         let date = settings.keepsOriginalDate ? captureDate(of: source) ?? Date() : Date()
-        if settings.savesToAlbum, let album = try? await album() {
+        if settings.savesToAlbum, let album = try? await album(id: settings.albumID, name: settings.albumName) {
             do {
                 try await add(output, date: date, to: album)
                 return
@@ -124,30 +128,54 @@ nonisolated enum PhotoLibrary {
         }
     }
 
-    /// The "multiborder" album, created the first time. `nil` without the access to see albums.
-    private static func album() async throws -> PHAssetCollection? {
+    /// The user's own albums, by name; empty without access to see them. Under limited access iOS may list
+    /// none, so the Settings tab also offers to name a new album.
+    static func albums() -> [Album] {
+        guard canUseAlbum(PHPhotoLibrary.authorizationStatus(for: .readWrite)) else { return [] }
+        var albums = [Album]()
+        PHAssetCollection.fetchAssetCollections(with: .album, subtype: .albumRegular, options: nil)
+            .enumerateObjects { collection, _, _ in
+                // Shared and synced albums can't take new photos.
+                guard collection.canPerform(.addContent) else { return }
+                albums.append(Album(id: collection.localIdentifier, title: collection.localizedTitle ?? ""))
+            }
+        return albums.sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
+    }
+
+    /// The current name of the album `id`, which may have been renamed in Photos since it was chosen.
+    static func albumTitle(id: String) -> String? {
+        PHAssetCollection.fetchAssetCollections(withLocalIdentifiers: [id], options: nil).firstObject?.localizedTitle
+    }
+
+    /// The album called `name`, created if there isn't one.
+    static func findOrCreateAlbum(named name: String) async throws -> Album? {
+        guard let collection = try await collection(named: name) else { return nil }
+        return Album(id: collection.localIdentifier, title: collection.localizedTitle ?? name)
+    }
+
+    /// The album `id`, or, if it's gone (or none was chosen), the one called `name`, created if needed.
+    /// `nil` without the access to see albums.
+    private static func album(id: String?, name: String) async throws -> PHAssetCollection? {
         guard canUseAlbum(PHPhotoLibrary.authorizationStatus(for: .readWrite)) else { return nil }
-        // A fresh handle on the App Group, since `UserDefaults.appGroup` belongs to the main actor.
-        let defaults = UserDefaults(suiteName: appGroupID) ?? .standard
-        if let id = defaults.string(forKey: albumIDKey),
-           let album = PHAssetCollection.fetchAssetCollections(withLocalIdentifiers: [id], options: nil).firstObject {
+        if let id, let album = PHAssetCollection.fetchAssetCollections(withLocalIdentifiers: [id], options: nil).firstObject {
             return album
         }
+        return try await collection(named: name)
+    }
+
+    private static func collection(named name: String) async throws -> PHAssetCollection? {
         let options = PHFetchOptions()
-        options.predicate = NSPredicate(format: "title == %@", albumTitle)
+        options.predicate = NSPredicate(format: "title == %@", name)
         func existing() -> PHAssetCollection? {
             PHAssetCollection.fetchAssetCollections(with: .album, subtype: .albumRegular, options: options).firstObject
         }
-        if existing() == nil {
-            try await PHPhotoLibrary.shared().performChanges {
-                PHAssetCollectionChangeRequest.creationRequestForAssetCollection(withTitle: albumTitle)
-            }
+        if let album = existing() {
+            return album
         }
-        let album = existing()
-        if let album {
-            defaults.set(album.localIdentifier, forKey: albumIDKey)
+        try await PHPhotoLibrary.shared().performChanges {
+            PHAssetCollectionChangeRequest.creationRequestForAssetCollection(withTitle: name)
         }
-        return album
+        return existing()
     }
 
     /// When the photo in `data` was taken, from its EXIF capture date. EXIF dates are local times; the offset

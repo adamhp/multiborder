@@ -179,8 +179,12 @@ nonisolated struct BorderSettings: Codable, Equatable, Sendable {
     /// Maximum output width in pixels; 0 exports at the photo's full resolution.
     var exportWidth: Int = 0
     var exportFormat: ExportFormat = .original
-    /// Whether saved photos also go into the "multiborder" album (see `PhotoLibrary`).
+    /// Whether saved photos also go into the album `albumID`, or `albumName` (see `PhotoLibrary`).
     var savesToAlbum = false
+    /// The album's name, used to find or create it when `albumID` is unset or the album was deleted.
+    var albumName = PhotoLibrary.defaultAlbumName
+    /// The album's local identifier, so renaming it in Photos keeps saving to it.
+    var albumID: String?
     /// Whether saved photos are dated when they were taken rather than when they were saved,
     /// so they sort next to the original instead of at the top of Recents.
     var keepsOriginalDate = false
@@ -297,6 +301,8 @@ nonisolated extension BorderSettings {
         exportWidth = try container.decodeIfPresent(Int.self, forKey: .exportWidth) ?? fallback.exportWidth
         exportFormat = (try? container.decodeIfPresent(ExportFormat.self, forKey: .exportFormat)) ?? fallback.exportFormat
         savesToAlbum = try container.decodeIfPresent(Bool.self, forKey: .savesToAlbum) ?? fallback.savesToAlbum
+        albumName = try container.decodeIfPresent(String.self, forKey: .albumName) ?? fallback.albumName
+        albumID = try container.decodeIfPresent(String.self, forKey: .albumID) ?? fallback.albumID
         keepsOriginalDate = try container.decodeIfPresent(Bool.self, forKey: .keepsOriginalDate) ?? fallback.keepsOriginalDate
     }
 }

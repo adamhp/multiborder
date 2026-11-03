@@ -35,11 +35,16 @@ struct SettingsView: View {
                             .sensoryFeedback(.selection, trigger: data.settings.exportFormat)
                             footnote(formatFootnote)
                         }
-                        toggle("Save to “\(PhotoLibrary.albumTitle)” album", systemImage: "rectangle.stack",
+                        toggle("Save to album", systemImage: "rectangle.stack",
                                isOn: albumBinding,
                                footnote: albumAccessDenied
-                                   ? "Allow full or limited access to Photos in the Settings app to use the album."
-                                   : "Also adds each download to an album called “\(PhotoLibrary.albumTitle)”.")
+                                   ? "Allow full or limited access to Photos in the Settings app to use an album."
+                                   : "Also adds each download to “\(data.settings.albumName)”.")
+                        if data.settings.savesToAlbum {
+                            AlbumMenu()
+                                .padding(.leading, 40)
+                                .transition(.opacity)
+                        }
                         toggle("Keep original date", systemImage: "calendar",
                                isOn: Bindable(data).settings.keepsOriginalDate,
                                footnote: data.settings.keepsOriginalDate
@@ -83,7 +88,9 @@ struct SettingsView: View {
                 Task {
                     let allowed = await PhotoLibrary.requestAlbumAccess()
                     albumAccessDenied = !allowed
-                    data.settings.savesToAlbum = allowed
+                    withAnimation {
+                        data.settings.savesToAlbum = allowed
+                    }
                 }
             })
     }
@@ -119,5 +126,107 @@ struct SettingsView: View {
             .font(.spaceMono(12))
             .foregroundStyle(.stone400)
             .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// Chooses the album downloads go into: one of the user's albums, or a new one they name. Under limited
+/// access iOS may list no albums, which leaves naming a new one (or reusing one by typing its name).
+private struct AlbumMenu: View {
+
+    @Environment(DataModel.self) private var data
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var albums = [PhotoLibrary.Album]()
+    @State private var isNaming = false
+    @State private var newName = ""
+    @State private var creationFailed = false
+
+    var body: some View {
+        let settings = data.settings
+        VStack(alignment: .leading, spacing: 4) {
+            Menu {
+                ForEach(albums) { album in
+                    Button {
+                        choose(album)
+                    } label: {
+                        if isChosen(album) {
+                            Label(album.title, systemImage: "checkmark")
+                        } else {
+                            Text(album.title)
+                        }
+                    }
+                }
+                if !albums.isEmpty {
+                    Divider()
+                }
+                Button("New Album…", systemImage: "plus") {
+                    newName = ""
+                    isNaming = true
+                }
+            } label: {
+                HStack {
+                    Text(settings.albumName)
+                        .font(.spaceMono(16))
+                        .lineLimit(1)
+                    Spacer()
+                    Image(systemName: "chevron.up.chevron.down")
+                        .foregroundStyle(.stone400)
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 12)
+                .frame(minHeight: 44)
+                .background(.stone700, in: .rect(cornerRadius: 12))
+            }
+            .accessibilityLabel("Album")
+            .accessibilityValue(settings.albumName)
+            if creationFailed {
+                Text("Couldn't create that album.")
+                    .font(.spaceMono(12))
+                    .foregroundStyle(.orange)
+            }
+        }
+        .alert("New Album", isPresented: $isNaming) {
+            TextField("Name", text: $newName)
+            Button("Cancel", role: .cancel) {}
+            Button("Create") {
+                Task { await create() }
+            }
+        } message: {
+            Text("If you already have an album with this name, downloads go into it.")
+        }
+        .onAppear(perform: refresh)
+        // Picks up albums made or renamed in Photos while the app was in the background.
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { refresh() }
+        }
+    }
+
+    /// The chosen album by its identifier, or by name before one was chosen from the list.
+    private func isChosen(_ album: PhotoLibrary.Album) -> Bool {
+        data.settings.albumID.map { $0 == album.id } ?? (album.title == data.settings.albumName)
+    }
+
+    private func choose(_ album: PhotoLibrary.Album) {
+        creationFailed = false
+        data.settings.albumID = album.id
+        data.settings.albumName = album.title
+    }
+
+    private func create() async {
+        let name = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+        if let album = try? await PhotoLibrary.findOrCreateAlbum(named: name) {
+            choose(album)
+            refresh()
+        } else {
+            creationFailed = true
+        }
+    }
+
+    /// Reloads the list, and follows the chosen album if it was renamed in Photos.
+    private func refresh() {
+        albums = PhotoLibrary.albums()
+        if let id = data.settings.albumID, let title = PhotoLibrary.albumTitle(id: id), title != data.settings.albumName {
+            data.settings.albumName = title
+        }
     }
 }

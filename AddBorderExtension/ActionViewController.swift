@@ -302,7 +302,7 @@ private struct SettingsSummary: View {
     /// The format, and the album and date when they're on, e.g. "HEIC, in multiborder, original date".
     private func saving(_ settings: BorderSettings) -> String {
         var parts = [settings.exportFormat == .original ? String(localized: "Original format") : settings.exportFormat.title]
-        if settings.savesToAlbum { parts.append(String(localized: "in \(PhotoLibrary.albumTitle)")) }
+        if settings.savesToAlbum { parts.append(String(localized: "in \(settings.albumName)")) }
         if settings.keepsOriginalDate { parts.append(String(localized: "original date")) }
         return parts.joined(separator: ", ")
     }
