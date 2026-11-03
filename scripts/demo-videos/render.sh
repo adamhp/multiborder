@@ -1,0 +1,51 @@
+#!/bin/bash
+# Renders the App Store preview, the website hero demo and the two website spotlight loops
+# into build/demo-videos/. Run from a normal terminal after record.sh:
+#   ./scripts/demo-videos/render.sh
+# Needs Node 22+, ffmpeg and network access the first time (HyperFrames, its headless Chrome,
+# GSAP from jsDelivr).
+set -euo pipefail
+
+here="$(cd "$(dirname "$0")" && pwd)"
+repo="$(cd "$here/../.." && pwd)"
+out="$repo/build/demo-videos"
+hf="$here/hyperframes"
+hyperframes="npx --yes hyperframes@0.8.179"
+
+# 1. Cut the raw take down to the storyboard (build/demo-videos/cut.mp4).
+python3 "$here/cuts.py" "$out"
+
+# 2. Assets the compositions load (git-ignored copies).
+mkdir -p "$hf/assets"
+cp "$out/cut.mp4" "$hf/assets/cut.mp4"
+ffmpeg -v error -y -i "$hf/assets/cut.mp4" -frames:v 1 -q:v 2 "$hf/assets/cut-first.jpg"
+cp "$repo/Shared/SpaceMono.ttf" "$repo/Shared/DMMono-Regular.ttf" "$hf/assets/"
+cp "$repo/sample-photos/IMG_2066.JPG" "$repo/sample-photos/IMG_2072.JPG" "$hf/assets/"
+
+# 3. Render each composition at delivery quality. UI footage extracts as PNG to keep text crisp.
+cd "$hf"
+$hyperframes lint .
+for name in app-store-preview hero-demo border-styles camera-caption; do
+  $hyperframes render -c "compositions/$name.html" -o "renders/$name.mp4" \
+    --quality delivery --fps 30 --video-frame-format png --quiet
+done
+
+# 4. Finish each file for where it goes.
+# App Store: H.264 with a silent stereo AAC track, as App Store Connect expects an audio stream.
+ffmpeg -v error -y -i renders/app-store-preview.mp4 -f lavfi -i anullsrc=r=48000:cl=stereo -shortest \
+  -c:v copy -c:a aac -b:a 256k -movflags +faststart "$out/app-store-preview.mp4"
+# Website: small silent H.264 files that start playing before they finish downloading.
+ffmpeg -v error -y -i renders/hero-demo.mp4 -an -c:v libx264 -preset slow -crf 26 -pix_fmt yuv420p \
+  -movflags +faststart "$out/hero-demo.mp4"
+for name in border-styles camera-caption; do
+  ffmpeg -v error -y -i "renders/$name.mp4" -an -c:v libx264 -preset slow -crf 24 -pix_fmt yuv420p \
+    -movflags +faststart "$out/$name.mp4"
+  ffmpeg -v error -y -i "$out/$name.mp4" -frames:v 1 -q:v 3 "$out/$name.jpg"
+done
+
+# 5. Show what came out, to check against the limits in README.md.
+for f in app-store-preview hero-demo border-styles camera-caption; do
+  echo "== $f.mp4"
+  ffprobe -v error -show_entries stream=codec_type,codec_name,width,height,r_frame_rate,channels \
+    -show_entries format=duration,size -of compact "$out/$f.mp4"
+done
