@@ -63,6 +63,21 @@ struct SettingsView: View {
                                isOn: Binding(get: { !skipsShareIntro }, set: { skipsShareIntro = !$0 }),
                                footnote: "Ask before adding borders from the share sheet, with a summary of the settings that will be used.")
                     }
+
+                    section("About") {
+                        Button {
+                            data.showsWhatsNew = true
+                        } label: {
+                            Label {
+                                Text("What’s New in \(WhatsNew.release)").font(.spaceMono(16))
+                            } icon: {
+                                Image(systemName: "sparkles").frame(width: 32)
+                            }
+                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                            .contentShape(.rect)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 16)

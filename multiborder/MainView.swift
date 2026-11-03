@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import TipKit
 
 struct MainView: View {
 
@@ -16,12 +17,13 @@ struct MainView: View {
             TabView(selection: $data.selectedTab) {
                 SelectView()
                     .tag(TabbedItems.select)
-                EditView()
-                    .tag(TabbedItems.edit)
-                    .disabled(data.attachments.isEmpty)
-                ExportView()
-                    .tag(TabbedItems.export)
-                    .disabled(data.attachments.isEmpty)
+                // Left out until photos are picked, so no swipe or tap can reach them.
+                if !data.attachments.isEmpty {
+                    EditView()
+                        .tag(TabbedItems.edit)
+                    ExportView()
+                        .tag(TabbedItems.export)
+                }
                 SettingsView()
                     .tag(TabbedItems.settings)
             }
@@ -40,6 +42,9 @@ struct MainView: View {
             startPoint: .top,
             endPoint: .bottom
         ))
+        .sheet(isPresented: $data.showsWhatsNew, onDismiss: data.recordWhatsNewSeen) {
+            WhatsNewSheet(showsTips: FeatureTips.isEnabled)
+        }
         .environment(data)
     }
 }
@@ -110,6 +115,7 @@ struct TabBar: View {
                         }
                 }
                 .buttonStyle(.plain)
+                .featureTip(isClear ? FeatureTips.current(ClearTip()) : nil)
                 .simultaneousGesture(holdToClear, including: isClear ? .all : .subviews)
                 .accessibilityLabel(isClear ? "Clear" : item.title)
                 .accessibilityHint(isClear ? (data.selectedTab == .select ? "Removes this photo. Hold to remove all photos."
@@ -187,6 +193,7 @@ struct TabBar: View {
     }
 
     private func clearAll() {
+        ClearTip().invalidate(reason: .actionPerformed)
         data.clearSelection()
         data.selectedTab = .select
         clearCount += 1

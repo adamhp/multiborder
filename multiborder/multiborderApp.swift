@@ -16,6 +16,7 @@ struct multiborderApp: App {
         let version = info?["CFBundleShortVersionString"] as? String ?? "?"
         let build = info?["CFBundleVersion"] as? String ?? "?"
         UserDefaults.appGroup.set("\(version) (\(build))", forKey: "settingsBundleVersion")
+        FeatureTips.configure()
     }
 
     var body: some Scene {

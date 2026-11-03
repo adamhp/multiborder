@@ -437,6 +437,51 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
         #expect(!DataModel(defaults: defaults).isReviewRequestDue)
     }
 
+    @Test(arguments: [TabbedItems.edit, .export])
+    func losingTheLastPhotoLeavesEditAndExport(tab: TabbedItems) {
+        let model = DataModel(defaults: makeDefaults())
+        model.selection = [PhotosPickerItem(itemIdentifier: "a"), PhotosPickerItem(itemIdentifier: "b")]
+        model.selectedTab = tab
+        model.removeCurrent()
+        #expect(model.selectedTab == tab)
+        model.removeCurrent()
+        #expect(model.selectedTab == .select)
+
+        model.selection = [PhotosPickerItem(itemIdentifier: "c")]
+        model.selectedTab = .settings
+        model.clearSelection()
+        #expect(model.selectedTab == .settings)
+    }
+
+    @Test func whatsNewIsSkippedOnNewInstalls() {
+        let defaults = makeDefaults()
+        #expect(!DataModel(defaults: defaults).showsWhatsNew)
+        // Settings saved later, under this release, don't make it look like an update.
+        DataModel(defaults: defaults).settings.aspectRatio = .square
+        #expect(!DataModel(defaults: defaults).showsWhatsNew)
+    }
+
+    @Test(arguments: ["borderSettings", "desiredAspectRatio"])
+    func whatsNewShowsOnceAfterUpdatingFromBeforeItExisted(savedKey: String) {
+        let defaults = makeDefaults()
+        defaults.set(1.5, forKey: savedKey)
+        let model = DataModel(defaults: defaults)
+        #expect(model.showsWhatsNew)
+        // Still due until the sheet is closed.
+        #expect(DataModel(defaults: defaults).showsWhatsNew)
+
+        model.recordWhatsNewSeen()
+        #expect(!DataModel(defaults: defaults).showsWhatsNew)
+    }
+
+    @Test func whatsNewShowsAfterAnEarlierRelease() {
+        let defaults = makeDefaults()
+        defaults.set("2.9", forKey: "whatsNewVersion")
+        #expect(DataModel(defaults: defaults).showsWhatsNew)
+        defaults.set(WhatsNew.release, forKey: "whatsNewVersion")
+        #expect(!DataModel(defaults: defaults).showsWhatsNew)
+    }
+
     @Test func modelsWithSeparateDefaultsAreIsolated() {
         let model = DataModel(defaults: makeDefaults())
         model.settings.aspectRatio = .square

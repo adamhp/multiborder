@@ -135,7 +135,14 @@ enum TabbedItems: Int, CaseIterable {
         }
     }
 
-    private(set) var attachments = [ImageAttachment]()
+    private(set) var attachments = [ImageAttachment]() {
+        didSet {
+            // Edit and Export leave the page view without photos, so don't stay on one of them.
+            if attachments.isEmpty && selectedTab.needsPhotos {
+                selectedTab = .select
+            }
+        }
+    }
 
     @ObservationIgnored private let defaults: UserDefaults
     /// The running export, if any; cleared when it finishes.
@@ -147,6 +154,7 @@ enum TabbedItems: Int, CaseIterable {
     init(defaults: UserDefaults = .appGroup) {
         self.defaults = defaults
         self.settings = BorderSettings.load(from: defaults)
+        self.showsWhatsNew = Self.isWhatsNewDue(in: defaults)
     }
 
     func resetSaveStatus() {
@@ -200,6 +208,32 @@ enum TabbedItems: Int, CaseIterable {
             await export()
             exportTask = nil
         }
+    }
+
+    // MARK: - What's New
+
+    static let whatsNewVersionKey = "whatsNewVersion"
+
+    /// Whether the What's New sheet is showing. Starts true once for people updating from before
+    /// `WhatsNew.release`; the Settings tab can show it again.
+    var showsWhatsNew = false
+
+    /// Call when the sheet closes, so it isn't shown again for this release.
+    func recordWhatsNewSeen() {
+        defaults.set(WhatsNew.release, forKey: Self.whatsNewVersionKey)
+    }
+
+    /// Due when the last sheet seen was for an earlier release. Before 3.0 nothing was recorded, so
+    /// then saved settings mark someone updating; a new install has none, and skips this release's sheet.
+    private static func isWhatsNewDue(in defaults: UserDefaults) -> Bool {
+        if let seen = defaults.string(forKey: whatsNewVersionKey) {
+            return seen.compare(WhatsNew.release, options: .numeric) == .orderedAscending
+        }
+        guard BorderSettings.isSaved(in: defaults) else {
+            defaults.set(WhatsNew.release, forKey: whatsNewVersionKey)
+            return false
+        }
+        return true
     }
 
     // MARK: - Review request

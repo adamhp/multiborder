@@ -40,6 +40,13 @@ extension BorderSettings {
         }
     }
 
+    /// Whether settings were ever saved in `defaults`, now or in the keys used before 2.0.1.
+    /// Settings are saved when first changed, so this tells someone who used the app from a new install.
+    static func isSaved(in defaults: UserDefaults) -> Bool {
+        [storageKey, "desiredAspectRatio", "desiredPadding", "desiredSize", "colorStored"]
+            .contains { defaults.object(forKey: $0) != nil }
+    }
+
     /// Loads saved settings, migrating the keys used before 2.0.1.
     static func load(from defaults: UserDefaults) -> BorderSettings {
         if let data = defaults.data(forKey: storageKey),

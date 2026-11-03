@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import TipKit
 
 struct EditView: View {
 
@@ -80,24 +81,26 @@ struct EditToggles: View {
         let settings = data.settings
         GridRow {
             HStack(spacing: 0) {
-                EditToggle("Separate Border for Each Side", systemImage: "square.dashed", isOn: settings.isPerSide) {
+                EditToggle("Separate Border for Each Side", systemImage: "square.dashed", isOn: settings.isPerSide,
+                           tip: PerSideTip()) {
                     if !settings.isPerSide && settings.sides == nil {
                         // The first time, each side starts at the current width so nothing jumps.
                         data.settings.sides = BorderInsets(uniform: settings.paddingFraction)
                     }
                     data.settings.isPerSide.toggle()
                 }
-                EditToggle("Rounded Corners", systemImage: "app", isOn: settings.roundsCorners) {
+                EditToggle("Rounded Corners", systemImage: "app", isOn: settings.roundsCorners, tip: CornersTip()) {
                     data.settings.roundsCorners.toggle()
                 }
-                EditToggle("Shadow", systemImage: "shadow", isOn: settings.hasShadow) {
+                EditToggle("Shadow", systemImage: "shadow", isOn: settings.hasShadow, tip: ShadowTip()) {
                     data.settings.hasShadow.toggle()
                 }
-                EditToggle("Camera Settings Caption", systemImage: "text.below.photo", isOn: settings.showsCaption) {
+                EditToggle("Camera Settings Caption", systemImage: "text.below.photo", isOn: settings.showsCaption,
+                           tip: CaptionTip()) {
                     data.settings.showsCaption.toggle()
                 }
                 EditToggle("Blurred Photo Border", systemImage: settings.fill == .blur ? "drop.halffull" : "drop",
-                           isOn: settings.fill == .blur) {
+                           isOn: settings.fill == .blur, tip: BlurTip()) {
                     data.settings.fill = settings.fill == .blur ? .color : .blur
                 }
             }
@@ -113,17 +116,22 @@ private struct EditToggle: View {
     let title: LocalizedStringKey
     let systemImage: String
     let isOn: Bool
+    /// Points the switch out until it's closed or the switch is used.
+    let tip: (any Tip)?
     let action: () -> Void
 
-    init(_ title: LocalizedStringKey, systemImage: String, isOn: Bool, action: @escaping () -> Void) {
+    init(_ title: LocalizedStringKey, systemImage: String, isOn: Bool, tip: (any Tip)? = nil,
+         action: @escaping () -> Void) {
         self.title = title
         self.systemImage = systemImage
         self.isOn = isOn
+        self.tip = tip
         self.action = action
     }
 
     var body: some View {
         Button {
+            tip?.invalidate(reason: .actionPerformed)
             withAnimation { action() }
         } label: {
             Image(systemName: systemImage)
@@ -133,6 +141,7 @@ private struct EditToggle: View {
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)
+        .featureTip(tip.flatMap { FeatureTips.current($0) })
         .accessibilityLabel(title)
         .accessibilityAddTraits(isOn ? .isSelected : [])
         .sensoryFeedback(.selection, trigger: isOn)
@@ -447,6 +456,7 @@ struct CaptionFieldsRow: View {
                 }
             }
             .frame(maxWidth: .infinity)
+            .featureTip(FeatureTips.current(CaptionOrderTip()))
             .onGeometryChange(for: Double.self) { $0.size.width } action: { width = $0 }
             .coordinateSpace(.named(Self.coordinateSpace))
             Button {
@@ -576,6 +586,7 @@ struct CaptionFieldsRow: View {
             .onChanged { value in
                 let settings = data.settings
                 if dragged == nil {
+                    CaptionOrderTip().invalidate(reason: .actionPerformed)
                     dragStart = center(of: field, in: settings)
                     dragCenter = dragStart
                     withAnimation(.snappy) { dragged = field }
