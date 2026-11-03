@@ -120,7 +120,6 @@ enum TabbedItems: Int, CaseIterable {
     /// Fraction of the current export that is finished, 0...1.
     private(set) var exportProgress: Double = 0
 
-    var helpTextShown = false
     var selectedTab: TabbedItems = .select
     var currentIndex = 0
 

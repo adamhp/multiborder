@@ -37,41 +37,24 @@ private struct PickerPage: View {
 
     var body: some View {
         @Bindable var data = data
-        VStack(spacing: 16) {
-            PhotosPicker(
-                selection: $data.selection,
-                // Drag-to-select only works with this mode: it didn't with .continuousAndOrdered, with the
-                // top bar showing or hidden, or with .ordered and the top bar hidden (iPhone 16 Pro, iOS 26–27).
-                // So the app only learns the selection when the check mark hands it over, and can't clear it before.
-                selectionBehavior: .default,
-                matching: .images,
-                preferredItemEncoding: .current,
-                photoLibrary: .shared()
-            ) {
-                EmptyView()
-            }
-            .photosPickerStyle(.inline)
-            // The top bar holds the picker's check mark, so it stays visible. Disabling the
-            // selection actions hides its cancel X, which does nothing in an embedded picker,
-            // and keeps the check mark (as in Apple's inline picker sample).
-            .photosPickerDisabledCapabilities([.selectionActions, .stagingArea])
-            .ignoresSafeArea(edges: .top)
-
-            // Below the picker rather than over it, so it's readable.
-            if data.helpTextShown {
-                Text("Select some photos first!")
-                    .font(.spaceMono(16))
-                    .foregroundStyle(.accent)
-                    .frame(height: 48)
-                    .transition(.opacity)
-            }
+        PhotosPicker(
+            selection: $data.selection,
+            // Drag-to-select only works with this mode: it didn't with .continuousAndOrdered, with the
+            // top bar showing or hidden, or with .ordered and the top bar hidden (iPhone 16 Pro, iOS 26–27).
+            // So the app only learns the selection when the check mark hands it over, and can't clear it before.
+            selectionBehavior: .default,
+            matching: .images,
+            preferredItemEncoding: .current,
+            photoLibrary: .shared()
+        ) {
+            EmptyView()
         }
-        .animation(.easeInOut(duration: 0.3), value: data.helpTextShown)
-        .task(id: data.helpTextShown) {
-            guard data.helpTextShown else { return }
-            do { try await Task.sleep(for: .seconds(2)) } catch { return }
-            data.helpTextShown = false
-        }
+        .photosPickerStyle(.inline)
+        // The top bar holds the picker's check mark, so it stays visible. Disabling the
+        // selection actions hides its cancel X, which does nothing in an embedded picker,
+        // and keeps the check mark (as in Apple's inline picker sample).
+        .photosPickerDisabledCapabilities([.selectionActions, .stagingArea])
+        .ignoresSafeArea(edges: .top)
     }
 }
 

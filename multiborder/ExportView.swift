@@ -127,7 +127,6 @@ struct ExportView: View {
                         }
                         Button(role: .destructive) {
                             data.clearSelection()
-                            data.helpTextShown = false
                             data.selectedTab = .select
                         } label: {
                             Text("Start Over")

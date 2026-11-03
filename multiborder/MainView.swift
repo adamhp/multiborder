@@ -60,7 +60,10 @@ struct TabBar: View {
     static let clearHoldTicks = 20
 
     @Environment(DataModel.self) private var data
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Namespace private var glassNamespace
+    /// Bumped when Edit or Export is tapped before photos are picked: the Select tab shakes its head.
+    @State private var nudgeCount = 0
     /// True while the Clear tab is held; resets on its own if the hold is abandoned or cancelled.
     @GestureState private var isHoldingClear = false
     /// How full the Clear tab is, 0...1.
@@ -85,14 +88,26 @@ struct TabBar: View {
                     } else if !item.needsPhotos || !data.attachments.isEmpty {
                         data.selectedTab = item
                     } else {
-                        withAnimation {
-                            data.helpTextShown = true
-                        }
+                        nudgeCount += 1
                         AccessibilityNotification.Announcement("Select some photos first").post()
                     }
                 } label: {
                     TabItem(item: item, isActive: data.selectedTab == item, isClear: isClear,
                             clearProgress: isClear ? clearProgress : 0, glassNamespace: glassNamespace)
+                        .keyframeAnimator(initialValue: Shake(), trigger: item == .select && !reduceMotion ? nudgeCount : 0) { tab, shake in
+                            tab.offset(x: shake.offset).rotationEffect(.degrees(shake.angle))
+                        } keyframes: { _ in
+                            KeyframeTrack(\.offset) {
+                                for offset in [-9.0, 8, -6, 4, -2, 0] {
+                                    SpringKeyframe(offset, duration: 0.07, spring: .snappy)
+                                }
+                            }
+                            KeyframeTrack(\.angle) {
+                                for angle in [-5.0, 4, -3, 2, -1, 0] {
+                                    SpringKeyframe(angle, duration: 0.07, spring: .snappy)
+                                }
+                            }
+                        }
                 }
                 .buttonStyle(.plain)
                 .simultaneousGesture(holdToClear, including: isClear ? .all : .subviews)
@@ -149,6 +164,13 @@ struct TabBar: View {
         }
         .sensoryFeedback(.impact(weight: .heavy), trigger: clearCount)
         .sensoryFeedback(.success, trigger: removeCount)
+        .sensoryFeedback(.error, trigger: nudgeCount)
+    }
+
+    /// One frame of the Select tab's head shake.
+    private struct Shake {
+        var offset = 0.0
+        var angle = 0.0
     }
 
     private var holdToClear: some Gesture {
