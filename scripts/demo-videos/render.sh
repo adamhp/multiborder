@@ -37,8 +37,9 @@ ffmpeg -v error -y -i renders/app-store-preview.mp4 -f lavfi -i anullsrc=r=48000
   -c:v libx264 -profile:v high -level:v 4.0 -b:v 11M -maxrate 12M -bufsize 22M -pix_fmt yuv420p -r 30 \
   -c:a aac -b:a 256k -ar 48000 -movflags +faststart "$out/app-store-preview.mp4"
 # Website: small silent H.264 files that start playing before they finish downloading.
-ffmpeg -v error -y -i renders/hero-demo.mp4 -an -c:v libx264 -preset slow -crf 26 -pix_fmt yuv420p \
-  -movflags +faststart "$out/hero-demo.mp4"
+# The hero demo plays 25% faster than the App Store preview; it loops in the background of the page.
+ffmpeg -v error -y -i renders/hero-demo.mp4 -an -vf "setpts=PTS/1.25" -r 30 -c:v libx264 -preset slow -crf 26 \
+  -pix_fmt yuv420p -movflags +faststart "$out/hero-demo.mp4"
 for name in border-styles camera-caption; do
   ffmpeg -v error -y -i "renders/$name.mp4" -an -c:v libx264 -preset slow -crf 24 -pix_fmt yuv420p \
     -movflags +faststart "$out/$name.mp4"
