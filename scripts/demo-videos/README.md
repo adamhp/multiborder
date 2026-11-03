@@ -17,7 +17,7 @@ It does the following:
 3. Records the screen while the `DemoRecording` scheme plays the storyboard in
    `multiborderUITests/DemoRecordingUITests.swift`.
 4. Writes `build/demo-videos/raw.mov`. The file is about 90 seconds long. The first 30 seconds
-   or so are the home screen while the app installs; the HyperFrames compositions cut that out.
+   or so are the home screen while the app installs; `cuts.py` cuts that out.
 
 The storyboard test is skipped under the normal `multiborder` scheme. The `DemoRecording`
 scheme sets `DEMO_RECORDING=1`, and the app's `-demoRecording` launch argument hides What's
@@ -29,15 +29,22 @@ New and tips and resets the border settings.
 ./scripts/demo-videos/render.sh
 ```
 
-This uses the HyperFrames compositions in `hyperframes/` to turn `raw.mov` and the sample
-photos into:
+`cuts.py` first trims `raw.mov` to the storyboard's active moments at 1.18× speed (`cut.mp4`).
+Then the HyperFrames compositions in `hyperframes/` turn that and the sample photos into:
 
 | File | Use |
 |---|---|
-| `app-store-preview.mp4` | App Store Connect (886×1920, 30 fps, 15–30s, silent stereo AAC) |
+| `app-store-preview.mp4` | App Store Connect (886×1920, 30 fps, 15–30s, H.264 High Profile Level 4.0 at about 11 Mbps, silent 256 kbps stereo AAC) |
 | `hero-demo.mp4` | The website's phone mockup (`public/demo.mp4`) |
 | `border-styles.mp4/.jpg` | The website's "Borders your way" spotlight and its poster |
 | `camera-caption.mp4/.jpg` | The website's "Camera settings caption" spotlight and its poster |
 
-If the app's UI changes, record again first. The cut points in
-`hyperframes/compositions/app-store-preview.html` may then need moving.
+If the app's UI changes, record again first. A new take has different timings, so `cuts.py`
+refuses to run until you update it:
+
+1. List the frame times with `ffprobe -select_streams v:0 -show_entries frame=pts_time build/demo-videos/raw.mov`.
+   The recording only writes a frame when the screen changes, so gaps are where nothing happens.
+2. Update `SEGMENTS` (and `TAKE_DURATION`) in `cuts.py` to the new active spans.
+3. Run `python3 scripts/demo-videos/cuts.py`, and copy the beat starts it prints into the captions'
+   `data-start`/`data-duration` and the `beats` list in `hyperframes/compositions/app-store-preview.html`,
+   plus the total into both compositions' `data-duration`.
