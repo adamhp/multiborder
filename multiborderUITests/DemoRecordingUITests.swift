@@ -43,19 +43,20 @@ nonisolated final class DemoRecordingUITests: XCTestCase {
         // 4–10s: size and aspect ratio, every photo updating together.
         app.buttons["Edit"].tap()
         hold(1)
-        drag(app.sliders["Border Width"], from: 0.2, to: 0.55)
+        drag(app.sliders["Border Width"], to: 0.4)
         hold(0.6)
-        app.buttons["Aspect Ratio 4:5"].tap()
+        // 4:5 is the default, so square the photos up.
+        app.buttons["Aspect Ratio 1:1"].tap()
         hold(1)
 
         // 10–16s: rounded corners and a shadow.
         app.buttons["Rounded Corners"].tap()
         hold(0.6)
-        drag(app.sliders["Corner Radius"], from: 0.1, to: 0.45)
+        drag(app.sliders["Corner Radius"], to: 0.45)
         hold(0.4)
         app.buttons["Shadow"].tap()
         hold(0.6)
-        drag(app.sliders["Shadow"], from: 0.2, to: 0.7)
+        drag(app.sliders["Shadow"], to: 0.7)
         hold(1)
 
         // 16–21s: the camera settings caption, then a different font.
@@ -86,11 +87,14 @@ nonisolated final class DemoRecordingUITests: XCTestCase {
         Thread.sleep(forTimeInterval: seconds)
     }
 
-    /// Drags a slider's thumb slowly enough to see it move.
-    @MainActor private func drag(_ slider: XCUIElement, from start: CGFloat, to end: CGFloat) {
+    /// Drags a slider's thumb slowly enough to see it move. The drag starts on the thumb, since
+    /// pressing elsewhere on the track doesn't move it.
+    @MainActor private func drag(_ slider: XCUIElement, to end: CGFloat) {
         XCTAssertTrue(slider.waitForExistence(timeout: 5), "Missing slider \(slider)")
+        let start = min(max(slider.normalizedSliderPosition, 0.03), 0.97)
         let from = slider.coordinate(withNormalizedOffset: CGVector(dx: start, dy: 0.5))
         let to = slider.coordinate(withNormalizedOffset: CGVector(dx: end, dy: 0.5))
         from.press(forDuration: 0.15, thenDragTo: to, withVelocity: .slow, thenHoldForDuration: 0.3)
+        XCTAssertGreaterThan(abs(slider.normalizedSliderPosition - start), 0.1, "\(slider) didn't move")
     }
 }
