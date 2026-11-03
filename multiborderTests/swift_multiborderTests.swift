@@ -422,6 +422,24 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
         #expect(isClose(DataModel(defaults: defaults).settings, model.settings))
     }
 
+    @Test func editorWithoutDefaultsNeverSaves() {
+        let defaults = makeDefaults()
+        let editor = BorderEditor(settings: BorderSettings.load(from: defaults), savingTo: nil)
+        editor.settings.aspectRatio = .square
+        #expect(editor.settings.aspectRatio == .square)
+        #expect(BorderSettings.load(from: defaults).aspectRatio == BorderSettings().aspectRatio)
+        #expect(!BorderSettings.isSaved(in: defaults))
+    }
+
+    @Test func editingThroughTheEditorSavesAndResetsTheModel() {
+        let defaults = makeDefaults()
+        let model = DataModel(defaults: defaults)
+        model.editor.settings.aspectRatio = .square
+        #expect(model.settings.aspectRatio == .square)
+        #expect(DataModel(defaults: defaults).settings.aspectRatio == .square)
+        #expect(model.saveStatus == .unsaved)
+    }
+
     @Test func reviewIsRequestedAfterEnoughExportsOncePerVersion() {
         let defaults = makeDefaults()
         let model = DataModel(defaults: defaults)

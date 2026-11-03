@@ -106,14 +106,12 @@ enum TabbedItems: Int, CaseIterable {
         }
     }
 
+    /// The Edit page's settings, saved to `defaults` on every change.
+    let editor: BorderEditor
+
     var settings: BorderSettings {
-        didSet {
-            guard settings != oldValue else { return }
-            settings.save(to: defaults)
-            // Saved copies used the old settings, so the next export saves everything again.
-            savedIDs.removeAll()
-            resetSaveStatus()
-        }
+        get { editor.settings }
+        set { editor.settings = newValue }
     }
 
     private(set) var saveStatus: SaveStatus = .unsaved
@@ -153,8 +151,13 @@ enum TabbedItems: Int, CaseIterable {
 
     init(defaults: UserDefaults = .appGroup) {
         self.defaults = defaults
-        self.settings = BorderSettings.load(from: defaults)
+        self.editor = BorderEditor(settings: BorderSettings.load(from: defaults), savingTo: defaults)
         self.showsWhatsNew = Self.isWhatsNewDue(in: defaults)
+        editor.onChange = { [weak self] in
+            // Saved copies used the old settings, so the next export saves everything again.
+            self?.savedIDs.removeAll()
+            self?.resetSaveStatus()
+        }
     }
 
     func resetSaveStatus() {

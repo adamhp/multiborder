@@ -13,10 +13,10 @@ struct EditView: View {
     /// Every row of controls below the preview gets this much height, so the rows are evenly spaced.
     static let controlRowHeight = 44.0
 
-    @Environment(DataModel.self) private var data
+    @Environment(BorderEditor.self) private var editor
 
     var body: some View {
-        let isPerSide = data.settings.isPerSide
+        let isPerSide = editor.settings.isPerSide
         DefaultPage {
             VStack(spacing: 0) {
                 Spacer()
@@ -40,20 +40,20 @@ struct EditView: View {
                     }
                 }
                 Spacer()
-                if data.settings.showsCaption {
+                if editor.settings.showsCaption {
                     CaptionFieldsRow()
                         .transition(.opacity)
                 }
                 Grid(horizontalSpacing: 16, verticalSpacing: 0) {
                     EditToggles()
-                    if data.settings.roundsCorners {
+                    if editor.settings.roundsCorners {
                         // Shows 1–64, on the border width's scale.
                         let cornerMax = BorderSettings.cornerRange.upperBound
                         EditOptionSlider(title: "Corner Radius", systemImage: "app", keyPath: \.cornerFraction,
                                          range: BorderSettings.cornerRange, step: cornerMax / 64,
                                          displayScale: 64 / cornerMax)
                     }
-                    if data.settings.hasShadow {
+                    if editor.settings.hasShadow {
                         // Shows 5–100% in steps of 5.
                         let shadowMax = BorderSettings.shadowRange.upperBound
                         EditOptionSlider(title: "Shadow", systemImage: "shadow", keyPath: \.shadowFraction,
@@ -75,33 +75,33 @@ struct EditView: View {
 /// the shadow, the caption and the blurred fill. Corners and shadow add a slider row while on.
 struct EditToggles: View {
 
-    @Environment(DataModel.self) private var data
+    @Environment(BorderEditor.self) private var editor
 
     var body: some View {
-        let settings = data.settings
+        let settings = editor.settings
         GridRow {
             HStack(spacing: 0) {
                 EditToggle("Separate Border for Each Side", systemImage: "square.dashed", isOn: settings.isPerSide,
                            tip: PerSideTip()) {
                     if !settings.isPerSide && settings.sides == nil {
                         // The first time, each side starts at the current width so nothing jumps.
-                        data.settings.sides = BorderInsets(uniform: settings.paddingFraction)
+                        editor.settings.sides = BorderInsets(uniform: settings.paddingFraction)
                     }
-                    data.settings.isPerSide.toggle()
+                    editor.settings.isPerSide.toggle()
                 }
                 EditToggle("Rounded Corners", systemImage: "app", isOn: settings.roundsCorners, tip: CornersTip()) {
-                    data.settings.roundsCorners.toggle()
+                    editor.settings.roundsCorners.toggle()
                 }
                 EditToggle("Shadow", systemImage: "shadow", isOn: settings.hasShadow, tip: ShadowTip()) {
-                    data.settings.hasShadow.toggle()
+                    editor.settings.hasShadow.toggle()
                 }
                 EditToggle("Camera Settings Caption", systemImage: "text.below.photo", isOn: settings.showsCaption,
                            tip: CaptionTip()) {
-                    data.settings.showsCaption.toggle()
+                    editor.settings.showsCaption.toggle()
                 }
                 EditToggle("Blurred Photo Border", systemImage: settings.fill == .blur ? "drop.halffull" : "drop",
                            isOn: settings.fill == .blur, tip: BlurTip()) {
-                    data.settings.fill = settings.fill == .blur ? .color : .blur
+                    editor.settings.fill = settings.fill == .blur ? .color : .blur
                 }
             }
             .gridCellColumns(2)
@@ -151,7 +151,7 @@ private struct EditToggle: View {
 /// The strength of an option switched on in `EditToggles`, with the option's icon at the start of the row.
 struct EditOptionSlider: View {
 
-    @Environment(DataModel.self) private var data
+    @Environment(BorderEditor.self) private var editor
     let title: LocalizedStringKey
     let systemImage: String
     let keyPath: WritableKeyPath<BorderSettings, Double>
@@ -168,10 +168,10 @@ struct EditOptionSlider: View {
                 .accessibilityHidden(true)
             LabeledSlider(title,
                           value: Binding(
-                            get: { data.settings[keyPath: keyPath] },
+                            get: { editor.settings[keyPath: keyPath] },
                             set: { newVal in
                                 withAnimation {
-                                    data.settings[keyPath: keyPath] = newVal
+                                    editor.settings[keyPath: keyPath] = newVal
                                 }
                             }),
                           in: range, step: step, displayScale: displayScale, suffix: suffix)
@@ -183,11 +183,11 @@ struct EditOptionSlider: View {
 
 struct DesiredPaddingSlider: View {
 
-    @Environment(DataModel.self) private var data
+    @Environment(BorderEditor.self) private var editor
 
     var body: some View {
         GridRow {
-            let isPerSide = data.settings.isPerSide
+            let isPerSide = editor.settings.isPerSide
             Image(systemName: "rectangle.inset.filled")
                 .foregroundStyle(.stone400)
                 .frame(width: 32, height: 40)
@@ -197,10 +197,10 @@ struct DesiredPaddingSlider: View {
                 let paddingMax = BorderSettings.paddingRange.upperBound
                 LabeledSlider("Border Width",
                               value: Binding(
-                                get: { data.settings.paddingFraction },
+                                get: { editor.settings.paddingFraction },
                                 set: { newVal in
                                     withAnimation {
-                                        data.settings.paddingFraction = newVal
+                                        editor.settings.paddingFraction = newVal
                                     }
                                 }),
                               in: BorderSettings.paddingRange, step: paddingMax / 64, displayScale: 64 / paddingMax,
@@ -208,17 +208,17 @@ struct DesiredPaddingSlider: View {
                 // The sliders around the preview set the width while each side is separate.
                 .disabled(isPerSide)
                 .opacity(isPerSide ? 0.4 : 1)
-                if data.settings.fill == .blur {
+                if editor.settings.fill == .blur {
                     // Shows 5–100% in steps of 5.
-                    LabeledSlider("Blur Strength", value: Bindable(data).settings.blurFraction,
+                    LabeledSlider("Blur Strength", value: Bindable(editor).settings.blurFraction,
                                   in: BorderSettings.blurRange, step: 0.005, displayScale: 1000, suffix: "%")
                     .frame(width: 96)
                     .transition(.opacity)
                 } else {
                     ColorPicker("Border Color",
                         selection: Binding(
-                            get: { Color(data.settings.borderColor) },
-                            set: { newVal in data.settings.borderColor = newVal.resolve(in: EnvironmentValues()) }
+                            get: { Color(editor.settings.borderColor) },
+                            set: { newVal in editor.settings.borderColor = newVal.resolve(in: EnvironmentValues()) }
                         ),
                         supportsOpacity: false)
                     .labelsHidden()
@@ -243,7 +243,7 @@ struct EdgeSlider: View {
     private static let labelRoom = 24.0
     private static let sideLift = 84.0
 
-    @Environment(DataModel.self) private var data
+    @Environment(BorderEditor.self) private var editor
     @State private var isEditing = false
     let edge: Edge
 
@@ -274,12 +274,12 @@ struct EdgeSlider: View {
         let step = range.upperBound / 64
         let displayScale = 64 / range.upperBound
         let value = Binding(
-            get: { data.settings.insets[keyPath: side] },
+            get: { editor.settings.insets[keyPath: side] },
             set: { newVal in
                 withAnimation {
-                    var sides = data.settings.insets
+                    var sides = editor.settings.insets
                     sides[keyPath: side] = newVal
-                    data.settings.sides = sides
+                    editor.settings.sides = sides
                 }
             })
         Group {
@@ -423,7 +423,7 @@ struct CaptionFieldsRow: View {
     private static let rowHeight = EditView.controlRowHeight
     private static let coordinateSpace = "captionFields"
 
-    @Environment(DataModel.self) private var data
+    @Environment(BorderEditor.self) private var editor
     /// Width of the area the pills are centered in.
     @State private var width = 0.0
     @State private var dragged: CaptionField?
@@ -436,7 +436,7 @@ struct CaptionFieldsRow: View {
     @State private var isEditingStyle = false
 
     var body: some View {
-        let settings = data.settings
+        let settings = editor.settings
         // Laid out like the grid below: the same margin, column width and spacing, so the buttons
         // at the start of every row line up.
         HStack(spacing: 16) {
@@ -485,9 +485,9 @@ struct CaptionFieldsRow: View {
         return Button {
             withAnimation(.snappy) {
                 if row == .above {
-                    data.settings.captionAlignmentAbove = alignment.next
+                    editor.settings.captionAlignmentAbove = alignment.next
                 } else {
-                    data.settings.captionAlignmentBelow = alignment.next
+                    editor.settings.captionAlignmentBelow = alignment.next
                 }
             }
         } label: {
@@ -575,7 +575,7 @@ struct CaptionFieldsRow: View {
 
     private func move(_ field: CaptionField, to row: CaptionRow, at index: Int) {
         withAnimation(.snappy) {
-            data.settings.moveCaptionField(field, to: row, at: index)
+            editor.settings.moveCaptionField(field, to: row, at: index)
         }
     }
 
@@ -584,7 +584,7 @@ struct CaptionFieldsRow: View {
         // shift with every swap and make the pills fight.
         DragGesture(minimumDistance: 6, coordinateSpace: .named(Self.coordinateSpace))
             .onChanged { value in
-                let settings = data.settings
+                let settings = editor.settings
                 if dragged == nil {
                     CaptionOrderTip().invalidate(reason: .actionPerformed)
                     dragStart = center(of: field, in: settings)
@@ -641,13 +641,13 @@ private struct PillLabel: View {
 private struct ShowFieldToggle: View {
 
     let field: CaptionField
-    @Environment(DataModel.self) private var data
+    @Environment(BorderEditor.self) private var editor
 
     var body: some View {
         Toggle("Show", isOn: Binding(
-            get: { data.settings.captionFields.contains(field) },
+            get: { editor.settings.captionFields.contains(field) },
             set: { isOn in
-                if isOn { data.settings.captionFields.insert(field) } else { data.settings.captionFields.remove(field) }
+                if isOn { editor.settings.captionFields.insert(field) } else { editor.settings.captionFields.remove(field) }
             }))
             .font(.spaceMono(15))
     }
@@ -658,27 +658,27 @@ private struct ShowFieldToggle: View {
 private struct FieldEditor: View {
 
     let field: CaptionField
-    @Environment(DataModel.self) private var data
+    @Environment(BorderEditor.self) private var editor
 
     var body: some View {
-        @Bindable var data = data
+        @Bindable var editor = editor
         VStack(alignment: .leading, spacing: 14) {
             if field == .camera {
-                Toggle("Make", isOn: $data.settings.cameraShowsMake)
-                Toggle("Model", isOn: $data.settings.cameraShowsModel)
+                Toggle("Make", isOn: $editor.settings.cameraShowsMake)
+                Toggle("Model", isOn: $editor.settings.cameraShowsModel)
             }
             if field.icon != nil {
                 Toggle("Icon", isOn: Binding(
-                    get: { !data.settings.captionHiddenIcons.contains(field) },
+                    get: { !editor.settings.captionHiddenIcons.contains(field) },
                     set: { shows in
                         if shows {
-                            data.settings.captionHiddenIcons.remove(field)
+                            editor.settings.captionHiddenIcons.remove(field)
                         } else {
-                            data.settings.captionHiddenIcons.insert(field)
+                            editor.settings.captionHiddenIcons.insert(field)
                         }
                     }))
                     // Overruled while every icon is turned off in the caption's style.
-                    .disabled(!data.settings.showsCaptionIcons)
+                    .disabled(!editor.settings.showsCaptionIcons)
             }
             if field == .camera || field.icon != nil {
                 Divider()
@@ -694,14 +694,14 @@ private struct FieldEditor: View {
 /// The caption's look as a whole: its font, and whether icons are printed at all.
 private struct CaptionStyleEditor: View {
 
-    @Environment(DataModel.self) private var data
+    @Environment(BorderEditor.self) private var editor
 
     var body: some View {
-        @Bindable var data = data
+        @Bindable var editor = editor
         VStack(alignment: .leading, spacing: 14) {
             ForEach(CaptionFont.allCases, id: \.self) { font in
                 Button {
-                    data.settings.captionFont = font
+                    editor.settings.captionFont = font
                 } label: {
                     HStack {
                         // Each name in its own font, as a preview.
@@ -710,7 +710,7 @@ private struct CaptionStyleEditor: View {
                             .lineLimit(1)
                             .minimumScaleFactor(0.7)
                         Spacer()
-                        if data.settings.captionFont == font {
+                        if editor.settings.captionFont == font {
                             Image(systemName: "checkmark")
                                 .foregroundStyle(.accent)
                         }
@@ -718,28 +718,28 @@ private struct CaptionStyleEditor: View {
                     .contentShape(.rect)
                 }
                 .buttonStyle(.plain)
-                .accessibilityAddTraits(data.settings.captionFont == font ? .isSelected : [])
+                .accessibilityAddTraits(editor.settings.captionFont == font ? .isSelected : [])
             }
             Divider()
-            Toggle("Icons", isOn: $data.settings.showsCaptionIcons)
+            Toggle("Icons", isOn: $editor.settings.showsCaptionIcons)
                 .font(.spaceMono(15))
         }
         .padding(16)
         .frame(width: 260)
-        .sensoryFeedback(.selection, trigger: data.settings.captionFont)
+        .sensoryFeedback(.selection, trigger: editor.settings.captionFont)
     }
 }
 
 /// Edits the handle printed by the caption: its text, its icon, and whether it's shown.
 private struct HandleEditor: View {
 
-    @Environment(DataModel.self) private var data
+    @Environment(BorderEditor.self) private var editor
     @FocusState private var isFocused: Bool
 
     var body: some View {
-        @Bindable var data = data
+        @Bindable var editor = editor
         VStack(alignment: .leading, spacing: 14) {
-            TextField("yourname", text: $data.settings.handle)
+            TextField("yourname", text: $editor.settings.handle)
                 .font(.spaceMono(16))
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
@@ -752,9 +752,9 @@ private struct HandleEditor: View {
                 .accessibilityLabel("Handle")
             HStack(spacing: 6) {
                 ForEach(HandleStyle.allCases, id: \.self) { style in
-                    let isSelected = data.settings.handleStyle == style
+                    let isSelected = editor.settings.handleStyle == style
                     Button {
-                        data.settings.handleStyle = style
+                        editor.settings.handleStyle = style
                     } label: {
                         Group {
                             if let icon = style.controlIcon {
@@ -777,24 +777,24 @@ private struct HandleEditor: View {
         }
         .padding(16)
         .frame(width: 260)
-        .sensoryFeedback(.selection, trigger: data.settings.handleStyle)
-        .onAppear { isFocused = data.settings.handle.isEmpty }
+        .sensoryFeedback(.selection, trigger: editor.settings.handleStyle)
+        .onAppear { isFocused = editor.settings.handle.isEmpty }
         // Typing a handle means wanting it shown.
-        .onChange(of: data.settings.handle.isEmpty) { _, isEmpty in
-            if !isEmpty { data.settings.captionFields.insert(.handle) }
+        .onChange(of: editor.settings.handle.isEmpty) { _, isEmpty in
+            if !isEmpty { editor.settings.captionFields.insert(.handle) }
         }
     }
 }
 
 struct DesiredAspectRatioChooser: View {
     
-    @Environment(DataModel.self) private var data
+    @Environment(BorderEditor.self) private var editor
     
     var body: some View {
-        let settings = data.settings
+        let settings = editor.settings
         GridRow {
             Button {
-                data.settings.isLandscape.toggle()
+                editor.settings.isLandscape.toggle()
             } label: {
                 Image(systemName: settings.isLandscape ? "rectangle.landscape.rotate" : "rectangle.portrait.rotate")
                     .contentTransition(.symbolEffect(.replace))
@@ -812,7 +812,7 @@ struct DesiredAspectRatioChooser: View {
                 ForEach(AspectRatio.allCases) { ratio in
                     let title = ratio.title(landscape: settings.isLandscape)
                     Button {
-                        data.settings.aspectRatio = ratio
+                        editor.settings.aspectRatio = ratio
                     } label: {
                         if ratio == .original {
                             Image(systemName: "photo.artframe")

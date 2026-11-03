@@ -46,6 +46,7 @@ struct MainView: View {
             WhatsNewSheet(showsTips: FeatureTips.isEnabled)
         }
         .environment(data)
+        .environment(data.editor)
     }
 }
 
