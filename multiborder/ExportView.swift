@@ -269,8 +269,17 @@ struct ShareButton: View {
         let photos = data.attachments.enumerated().map { index, attachment in
             BorderedPhoto(item: attachment.item, settings: settings, number: index + 1)
         }
+        // Without an image the share sheet's header falls back to "Plain Text" and a generic icon. The thumbnails
+        // are already in memory; photos whose thumbnail isn't loaded (far from the current card) get a photo symbol.
+        let previews = data.attachments.map { attachment -> Image in
+            if case .loaded(let thumbnail) = attachment.thumbnail {
+                Image(uiImage: thumbnail.image)
+            } else {
+                Image(systemName: "photo")
+            }
+        }
         ShareLink(items: photos) { photo in
-            SharePreview("Photo \(photo.number)")
+            SharePreview("Photo \(photo.number)", image: previews[photo.number - 1])
         } label: {
             Image(systemName: "square.and.arrow.up")
                 .font(.system(size: 18, weight: .medium))
