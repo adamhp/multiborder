@@ -85,7 +85,7 @@ struct SettingsView: View {
     private var hdrFootnote: LocalizedStringKey {
         if !data.settings.keepsHDR {
             "HDR photos are saved at standard brightness."
-        } else if data.settings.exportFormat == .png {
+        } else if !data.settings.savesHDR {
             "PNG can’t hold HDR, so photos are saved at standard brightness. Choose another format to keep it."
         } else {
             "HDR photos keep their bright highlights on HDR screens. The border stays at standard brightness."

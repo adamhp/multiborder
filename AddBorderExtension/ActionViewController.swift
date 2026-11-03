@@ -302,7 +302,7 @@ private struct SettingsSummary: View {
     /// The format, and HDR, the album and date when they're on, e.g. "HEIC, HDR, in multiborder, original date".
     private func saving(_ settings: BorderSettings) -> String {
         var parts = [settings.exportFormat == .original ? String(localized: "Original format") : settings.exportFormat.title]
-        if #available(iOS 18, *), settings.keepsHDR, settings.exportFormat != .png { parts.append(String(localized: "HDR")) }
+        if #available(iOS 18, *), settings.savesHDR { parts.append(String(localized: "HDR")) }
         if settings.savesToAlbum { parts.append(String(localized: "in \(settings.albumName)")) }
         if settings.keepsOriginalDate { parts.append(String(localized: "original date")) }
         return parts.joined(separator: ", ")

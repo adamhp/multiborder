@@ -69,6 +69,12 @@ struct ImageContainerView: View {
             case .loaded(let thumbnail):
                 GeometryReader { geo in
                     BorderedImage(thumbnail: thumbnail, settings: data.settings, containerSize: geo.size)
+                        .overlay(alignment: .topTrailing) {
+                            if thumbnail.hdrImage != nil {
+                                HDRBadge(saved: data.settings.savesHDR, settings: data.settings)
+                                    .padding(6)
+                            }
+                        }
                         .position(x: geo.size.width / 2, y: geo.size.height / 2)
                 }
             case .failed:
@@ -76,6 +82,31 @@ struct ImageContainerView: View {
                     .accessibilityLabel("Photo couldn't be loaded")
             }
         }
+    }
+}
+
+/// Marks an HDR photo: bright when Download keeps its highlights, dimmed when Keep HDR or PNG rules them out.
+struct HDRBadge: View {
+
+    let saved: Bool
+    let settings: BorderSettings
+
+    var body: some View {
+        Text(saved ? "HDR" : "HDR off")
+            .font(.spaceMono(11).bold())
+            .foregroundStyle(.white)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(.black.opacity(0.55), in: .capsule)
+            .opacity(saved ? 1 : 0.6)
+            .animation(.default, value: saved)
+            .accessibilityLabel(accessibilityLabel)
+    }
+
+    private var accessibilityLabel: String {
+        if saved { String(localized: "HDR photo, saved with its highlights") }
+        else if !settings.keepsHDR { String(localized: "HDR photo, saved at standard brightness because Keep HDR is off") }
+        else { String(localized: "HDR photo, saved at standard brightness because PNG can’t hold HDR") }
     }
 }
 
@@ -108,7 +139,7 @@ struct BorderedImage: View {
             let photoSize = CGSize(width: layout.imageRect.width * scale, height: layout.imageRect.height * scale)
             let shadowBlur = settings.shadowBlur(canvasSize: canvasSize)
             // With its HDR highlights when Download keeps them (PNG can't); the border stays SDR either way.
-            let hdrImage = settings.keepsHDR && settings.exportFormat != .png ? thumbnail.hdrImage : nil
+            let hdrImage = settings.savesHDR ? thumbnail.hdrImage : nil
             Image(uiImage: hdrImage ?? thumbnail.image)
                 .resizable()
                 .allowedDynamicRange(hdrImage != nil ? .high : .standard)

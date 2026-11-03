@@ -360,6 +360,13 @@ private func isClose(_ a: BorderSettings, _ b: BorderSettings) -> Bool {
         #expect(isClose(BorderSettings.load(from: defaults), stored))
     }
 
+    @Test func hdrIsSavedUnlessOffOrPNG() {
+        #expect(BorderSettings().savesHDR)
+        #expect(BorderSettings(exportFormat: .heic).savesHDR && BorderSettings(exportFormat: .jpeg).savesHDR)
+        #expect(!BorderSettings(exportFormat: .png).savesHDR)
+        #expect(!BorderSettings(keepsHDR: false).savesHDR)
+    }
+
     @Test func unknownExportFormatFallsBackToOriginal() throws {
         let defaults = makeDefaults()
         var json = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(BorderSettings(aspectRatio: .square))) as? [String: Any])

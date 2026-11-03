@@ -192,6 +192,10 @@ nonisolated struct BorderSettings: Codable, Equatable, Sendable {
     /// Whether HDR photos keep their bright highlights in HEIC and JPEG exports (see `ImageComposer.GainMap`).
     var keepsHDR = true
 
+    /// Whether Download keeps an HDR photo's highlights: PNG can't hold a gain map.
+    /// Share and the Shortcuts action always save JPEG, so they keep them whenever `keepsHDR` is on.
+    var savesHDR: Bool { keepsHDR && exportFormat != .png }
+
     /// Canvas width divided by height after orientation; `nil` keeps the photo's own ratio.
     var canvasWidthOverHeight: Double? {
         aspectRatio.widthOverHeight.map { isLandscape ? 1 / $0 : $0 }
