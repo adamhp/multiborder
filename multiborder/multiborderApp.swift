@@ -24,8 +24,18 @@ struct multiborderApp: App {
             // An earlier release rather than none, so the sheet is due even on an install with no saved settings.
             UserDefaults.appGroup.set("0", forKey: DataModel.whatsNewVersionKey)
         }
+        // Launch with -demoRecording for App Store and website footage: no What's New, no tips, default border settings.
+        // Runs after -resetFeatureIntro so it wins when both are passed.
+        let isDemoRecording = ProcessInfo.processInfo.arguments.contains("-demoRecording")
+        if isDemoRecording {
+            UserDefaults.appGroup.set(WhatsNew.release, forKey: DataModel.whatsNewVersionKey)
+            BorderSettings().save(to: .appGroup)
+        }
         #endif
         FeatureTips.configure()
+        #if DEBUG
+        if isDemoRecording { FeatureTips.isEnabled = false }
+        #endif
     }
 
     var body: some Scene {

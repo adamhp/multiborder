@@ -22,6 +22,15 @@ nonisolated final class multiborderUITests: XCTestCase {
         }
     }
 
+    /// -demoRecording wins over -resetFeatureIntro, so demo takes never show What's New.
+    @MainActor func testDemoRecordingLaunchIsClean() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-resetFeatureIntro", "-demoRecording"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Select"].waitForExistence(timeout: 5), "Missing Select tab")
+        XCTAssertFalse(app.staticTexts["What’s New"].waitForExistence(timeout: 2), "What's New showed during a demo launch")
+    }
+
     @MainActor func testLaunchPerformance() throws {
         measure(metrics: [XCTApplicationLaunchMetric()]) {
             XCUIApplication().launch()
