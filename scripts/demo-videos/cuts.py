@@ -46,7 +46,10 @@ def main() -> None:
     # 1320x2868 scales to 886x1925; crop the 5 spare rows to reach Apple's 886x1920.
     graph = ";".join(parts) + f";{joined}concat=n={len(SEGMENTS)}:v=1:a=0,scale=886:-2,crop=886:1920,format=yuv420p[out]"
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(raw), "-filter_complex", graph, "-map", "[out]",
-                    "-c:v", "libx264", "-crf", "16", "-preset", "slow", "-r", "30", str(cut)], check=True)
+                    # A keyframe every second: HyperFrames seeks the footage frame by frame, and sparse
+                    # keyframes make those seeks freeze.
+                    "-c:v", "libx264", "-crf", "16", "-preset", "slow", "-r", "30", "-g", "30", "-keyint_min", "30",
+                    str(cut)], check=True)
 
     t, seen = 0.0, set()
     for beat, start, end in SEGMENTS:
