@@ -134,6 +134,11 @@
 			path = Shared;
 			sourceTree = "<group>";
 		};
+		AE00000000000000000000A1 /* EditingUI */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = EditingUI;
+			sourceTree = "<group>";
+		};
 		AB00000000000000000000A6 /* AddBorderExtension */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -198,6 +203,7 @@
 			children = (
 				660EB6C22C1C6E8900033C60 /* multiborder */,
 				AB00000000000000000000A5 /* Shared */,
+				AE00000000000000000000A1 /* EditingUI */,
 				AB00000000000000000000A6 /* AddBorderExtension */,
 				AC00000000000000000000A5 /* AddBorderAction */,
 				660EB6D32C1C6E8A00033C60 /* multiborderTests */,
@@ -248,6 +254,7 @@
 			fileSystemSynchronizedGroups = (
 				660EB6C22C1C6E8900033C60 /* multiborder */,
 				AB00000000000000000000A5 /* Shared */,
+				AE00000000000000000000A1 /* EditingUI */,
 			);
 			name = multiborder;
 			productName = "swift-multiborder";

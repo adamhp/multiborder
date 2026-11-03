@@ -68,13 +68,6 @@ nonisolated enum FeatureTips {
     @Parameter static var isEnabled: Bool = true
 
     @MainActor static func configure() {
-        #if DEBUG
-        // Launch with -resetFeatureIntro to see the What's New sheet and every tip again.
-        if ProcessInfo.processInfo.arguments.contains("-resetFeatureIntro") {
-            try? Tips.resetDatastore()
-            UserDefaults.appGroup.removeObject(forKey: DataModel.whatsNewVersionKey)
-        }
-        #endif
         try? Tips.configure()
     }
 

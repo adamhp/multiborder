@@ -19,7 +19,7 @@ struct MainView: View {
                     .tag(TabbedItems.select)
                 // Left out until photos are picked, so no swipe or tap can reach them.
                 if !data.attachments.isEmpty {
-                    EditView()
+                    EditView { ImageStack() }
                         .tag(TabbedItems.edit)
                     ExportView()
                         .tag(TabbedItems.export)

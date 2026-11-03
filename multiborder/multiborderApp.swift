@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import TipKit
 
 @main
 struct multiborderApp: App {
@@ -16,6 +17,13 @@ struct multiborderApp: App {
         let version = info?["CFBundleShortVersionString"] as? String ?? "?"
         let build = info?["CFBundleVersion"] as? String ?? "?"
         UserDefaults.appGroup.set("\(version) (\(build))", forKey: "settingsBundleVersion")
+        #if DEBUG
+        // Launch with -resetFeatureIntro to see the What's New sheet and every tip again.
+        if ProcessInfo.processInfo.arguments.contains("-resetFeatureIntro") {
+            try? Tips.resetDatastore()
+            UserDefaults.appGroup.removeObject(forKey: DataModel.whatsNewVersionKey)
+        }
+        #endif
         FeatureTips.configure()
     }
 
@@ -23,12 +31,5 @@ struct multiborderApp: App {
         WindowGroup {
             MainView().environment(\.font, .spaceMono(14))
         }
-    }
-}
-
-extension Font {
-    /// The app's typeface. Scales with Dynamic Type relative to `.body`, like `Font.custom(_:size:)`.
-    static func spaceMono(_ size: CGFloat) -> Font {
-        .custom("SpaceMono-Regular", size: size)
     }
 }

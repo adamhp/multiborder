@@ -14,6 +14,12 @@ struct EditView: View {
     static let controlRowHeight = 44.0
 
     @Environment(BorderEditor.self) private var editor
+    /// The bordered photo the controls change: the app's card stack, or the extension's one photo.
+    private let preview: AnyView
+
+    init(@ViewBuilder preview: () -> some View) {
+        self.preview = AnyView(preview())
+    }
 
     var body: some View {
         let isPerSide = editor.settings.isPerSide
@@ -21,7 +27,7 @@ struct EditView: View {
             VStack(spacing: 0) {
                 Spacer()
                 // The sliders take space from the preview, which shrinks to make room.
-                // `ImageStack` keeps its place in the hierarchy either way, so its state survives the toggle.
+                // The preview keeps its place in the hierarchy either way, so its state survives the toggle.
                 VStack(spacing: 0) {
                     if isPerSide {
                         EdgeSlider(.top).padding(.horizontal, EdgeSlider.thickness)
@@ -30,7 +36,7 @@ struct EditView: View {
                         if isPerSide {
                             EdgeSlider(.leading)
                         }
-                        ImageStack()
+                        preview
                         if isPerSide {
                             EdgeSlider(.trailing)
                         }
