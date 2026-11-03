@@ -60,6 +60,8 @@ struct EditingScreen: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(LinearGradient(colors: [Color(.stone800), Color(.stone900)], startPoint: .top, endPoint: .bottom))
         .preferredColorScheme(.dark)
+        // The app gets its orange accent from its asset catalog; the extension needs it set.
+        .tint(.accent)
         .environment(\.font, .spaceMono(14))
     }
 }

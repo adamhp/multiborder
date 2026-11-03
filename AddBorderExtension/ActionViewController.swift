@@ -21,6 +21,10 @@ final class ActionViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        // The sharing app (often light) hosts this, and SwiftUI's .preferredColorScheme can't change the
+        // host's appearance from inside an extension, so set it here: otherwise primary-coloured text and
+        // icons turn black on the dark background.
+        overrideUserInterfaceStyle = .dark
         let providers = (extensionContext?.inputItems as? [NSExtensionItem] ?? [])
             .flatMap { $0.attachments ?? [] }
             .filter { $0.hasItemConformingToTypeIdentifier(UTType.image.identifier) }

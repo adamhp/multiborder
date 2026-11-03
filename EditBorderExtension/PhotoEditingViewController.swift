@@ -34,6 +34,10 @@ final class PhotoEditingViewController: UIViewController, PHContentEditingContro
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        // Photos (usually light) hosts this, and SwiftUI's .preferredColorScheme can't change the host's
+        // appearance from inside an extension, so set it here: otherwise primary-coloured text and icons
+        // turn black on the app's dark background.
+        overrideUserInterfaceStyle = .dark
         let host = UIHostingController(rootView: EditingScreen(session: session))
         addChild(host)
         host.view.frame = view.bounds
