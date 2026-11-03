@@ -1,6 +1,7 @@
 #!/bin/bash
-# Renders the App Store preview, the website hero demo and the two website spotlight loops
-# into build/demo-videos/. Run from a normal terminal after record.sh:
+# Renders the App Store preview, the website hero demo, the two website spotlight loops and (after
+# screenshots.sh) the ten App Store screenshots into build/demo-videos/. Run from a normal terminal
+# after record.sh:
 #   ./scripts/demo-videos/render.sh
 # Needs Node 22+, ffmpeg and network access the first time (HyperFrames, its headless Chrome,
 # GSAP from jsDelivr).
@@ -48,9 +49,30 @@ for name in border-styles camera-caption; do
   ffmpeg -v error -y -ss 5.8 -i "$out/$name.mp4" -frames:v 1 -q:v 3 "$out/$name.jpg"
 done
 
+# App Store screenshots: frame each raw screenshot under its headline, one per second at 1 fps,
+# then flatten to opaque RGB PNGs (App Store Connect rejects transparency) named like the raw ones.
+if compgen -G "$out/shots-raw/[01][0-9]-*.png" >/dev/null; then
+  mkdir -p "$hf/assets/shots" renders/shots "$out/screenshots"
+  rm -f "$hf"/assets/shots/*.png renders/shots/*.png "$out"/screenshots/*.png
+  cp "$out"/shots-raw/[01][0-9]-*.png "$hf/assets/shots/"
+  $hyperframes render -c compositions/app-store-screenshots.html -o renders/shots \
+    --format png-sequence --fps 1 --quiet
+  frames=(renders/shots/*.png)
+  i=0
+  for shot in "$out"/shots-raw/[01][0-9]-*.png; do
+    ffmpeg -v error -y -i "${frames[$i]}" -pix_fmt rgb24 "$out/screenshots/$(basename "$shot")"
+    i=$((i + 1))
+  done
+else
+  echo "No raw screenshots in $out/shots-raw; run screenshots.sh to make the App Store screenshots."
+fi
+
 # 5. Show what came out, to check against the limits in README.md.
 for f in app-store-preview hero-demo border-styles camera-caption; do
   echo "== $f.mp4"
   ffprobe -v error -show_entries stream=codec_type,codec_name,profile,level,width,height,r_frame_rate,bit_rate,channels \
     -show_entries format=duration,size -of compact "$out/$f.mp4"
+done
+for f in "$out"/screenshots/*.png; do
+  [ -e "$f" ] && echo "== screenshots/$(basename "$f") $(ffprobe -v error -show_entries stream=width,height,pix_fmt -of csv=p=0 "$f")"
 done

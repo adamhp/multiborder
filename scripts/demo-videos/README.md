@@ -23,7 +23,18 @@ The storyboard test is skipped under the normal `multiborder` scheme. The `DemoR
 scheme sets `DEMO_RECORDING=1`, and the app's `-demoRecording` launch argument hides What's
 New and tips and resets the border settings.
 
-## 2. Render the videos (`render.sh`)
+## 2. Capture the App Store screenshots (`screenshots.sh`)
+
+```sh
+./scripts/demo-videos/screenshots.sh
+```
+
+On a freshly erased demo Simulator (set up by `prepare-simulator.sh`, shared with `record.sh`), the
+`AppStoreScreenshots` scheme runs `DemoRecordingUITests.testScreenshots`. It drives the app to each
+of the ten screens, including editing a photo with the extension inside the Photos app, and
+`build/demo-videos/shots-raw/NN-name.png` collects them at 1320×2868. `render.sh` then frames them.
+
+## 3. Render the videos and screenshots (`render.sh`)
 
 ```sh
 ./scripts/demo-videos/render.sh
@@ -38,6 +49,7 @@ Then the HyperFrames compositions in `hyperframes/` turn that and the sample pho
 | `hero-demo.mp4` | The website's phone mockup (`public/demo.mp4`) |
 | `border-styles.mp4/.jpg` | The website's "Borders your way" spotlight and its poster |
 | `camera-caption.mp4/.jpg` | The website's "Camera settings caption" spotlight and its poster |
+| `screenshots/NN-name.png` | App Store Connect, 6.9" iPhone screenshots (1320×2868, opaque RGB), each under its headline from `hyperframes/compositions/app-store-screenshots.html` |
 
 If the app's UI changes, record again first. A new take has different timings, so `cuts.py`
 refuses to run until you update it:
