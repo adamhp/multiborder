@@ -23,3 +23,6 @@ xcrun simctl addmedia "$udid" "$repo"/sample-photos/*.JPG
 xcrun simctl privacy "$udid" grant photos-add com.adamhp.multiborder
 xcrun simctl status_bar "$udid" override --time 9:41 --batteryState charged --batteryLevel 100 \
   --cellularBars 4 --wifiBars 3
+# Dark appearance, so Photos draws its own chrome around the Multiborder extension (its "multiborder"
+# title and buttons) to match the app, as it does for anyone using dark mode.
+xcrun simctl ui "$udid" appearance dark
