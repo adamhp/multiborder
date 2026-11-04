@@ -6,22 +6,38 @@
 //
 
 import SwiftUI
+import StoreKit
+
+/// The export width presets offered as buttons below the slider.
+enum ExportSize: Int, CaseIterable, Identifiable {
+    case original = 0
+    case small = 1024
+    case medium = 2048
+    case large = 4096
+
+    var id: Self { self }
+
+    /// Pixel width; 0 keeps the photo's own width.
+    var width: Int { rawValue }
+
+    var title: String {
+        switch self {
+        case .original: "Orig."
+        case .small: "Sm."
+        case .medium: "Med."
+        case .large: "Lg."
+        }
+    }
+
+    var subtitle: LocalizedStringKey { self == .original ? "~" : "\(width)px" }
+
+    var accessibilityLabel: LocalizedStringKey { self == .original ? "Original Size" : "\(width) Pixels Wide" }
+}
 
 struct ExportView: View {
     
-    @EnvironmentObject private var data: DataModel
-    
-    func reset() {
-        data.error = nil
-        data.saveStatus = .unsaved
-    }
-    
-    let sizes = [
-        ("Orig.", 0),
-        ("Sm.", 1024),
-        ("Med.", 2048),
-        ("Lg.", 4096)
-    ]
+    @Environment(DataModel.self) private var data
+    @Environment(\.openURL) private var openURL
     
     var body: some View {
         DefaultPage {
@@ -30,78 +46,91 @@ struct ExportView: View {
                 Spacer(minLength: 128)
                 
                 VStack(spacing: 16) {
-                    Text(data.desiredSize == 0 ? "Original" : "\(Int(data.desiredSize))px").font(Font.custom("SpaceMono-Regular", size: 16))
-                        .contentTransition(.numericText(value: Double(data.desiredSize)))
+                    Text(data.settings.exportWidth == 0 ? "Original" : "\(data.settings.exportWidth)px").font(.spaceMono(16))
+                        .contentTransition(.numericText(value: Double(data.settings.exportWidth)))
                         .fixedSize()
                         .frame(width: 64, height: 32)
-                        .gesture(DragGesture())
                     
                     Slider(
                         value: Binding(
-                            get: { CGFloat(data.desiredSize) },
+                            get: { Double(data.settings.exportWidth) },
                             set: { newVal in
                                 withAnimation {
-                                    data.setDesiredSize(Int(newVal))
+                                    data.settings.exportWidth = Int(newVal)
                                 }
                             }),
                         in: 0...8192,
                         step: 128
                     ) {
+                        Text("Export Width")
                     } minimumValueLabel: {
-                        Text("Orig.").font(Font.custom("SpaceMono-Regular", size: 16))
+                        Text("Orig.").font(.spaceMono(16))
                     } maximumValueLabel: {
-                        Text("8192px").font(Font.custom("SpaceMono-Regular", size: 16))
+                        Text("8192px").font(.spaceMono(16))
                     }
-                    .sensoryFeedback(.selection, trigger: data.desiredSize)
+                    .accessibilityValue(data.settings.exportWidth == 0 ? "Original" : "\(data.settings.exportWidth) pixels")
+                    .sensoryFeedback(.selection, trigger: data.settings.exportWidth)
                     .frame(height: 32)
                     
                     HStack(spacing: 8) {
-                        ForEach(sizes, id: \.self.0, content: { size in
-                            VStack {
-                                Text("\(size.0)").font(Font.custom("SpaceMono-Regular", size: 16)).foregroundColor(.stone200)
-                                Text(size.0 == "Orig." ? "~" : "\(size.1)px").font(Font.custom("SpaceMono-Regular", size: 14)).foregroundColor(.stone400)
+                        ForEach(ExportSize.allCases) { size in
+                            let isChosen = data.settings.exportWidth == size.width
+                            Button {
+                                data.settings.exportWidth = size.width
+                            } label: {
+                                VStack {
+                                    Text(size.title).font(.spaceMono(16)).foregroundStyle(isChosen ? .white : .stone200)
+                                    Text(size.subtitle).font(.spaceMono(14)).foregroundStyle(isChosen ? .stone200 : .stone400)
+                                }
+                                .padding(.vertical, 4)
+                                .frame(minWidth: 80, minHeight: 48)
+                                // The chosen size is tinted like the active tab.
+                                .actionBackground(tint: isChosen ? .accent.opacity(0.5) : .stone700)
                             }
-                            .onTapGesture {
-                                data.setDesiredSize(size.1)
-                            }
-                            .frame(width: 80, height: 48)
-                            .foregroundColor(.stone400)
-                            .background(.stone700)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                        })
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(size.accessibilityLabel)
+                            .accessibilityAddTraits(isChosen ? .isSelected : [])
+                            .animation(.interactiveSpring, value: isChosen)
+                        }
                     }
-                    .gesture(DragGesture())
+                    .glassGroup()
                 }
-                .gesture(DragGesture())
+                // Keeps the paged TabView from swiping while the slider and buttons are in use.
+                .blocksSwipe(true)
                 .padding(.horizontal, 48)
                 
                 Spacer()
                 VStack {
                     VStack {
-                        if data.processed > -1 {
-                            ProgressView(value: Float(data.processed), total: Float(data.attachments.count)).padding(.horizontal, 32).tint(.accent).animation(.easeIn(duration: 1), value: data.processed)
+                        if data.saveStatus == .saving {
+                            ProgressView(value: data.exportProgress).padding(.horizontal, 32).tint(.accent).animation(.easeIn(duration: 1), value: data.exportProgress)
                         }
                     }.frame(height: 32).padding(.horizontal, 32)
-                    DownloadButton()
-                }.frame(height: 84)
+                    HStack(spacing: 12) {
+                        DownloadButton()
+                        ShareButton()
+                    }
+                    .glassGroup()
+                }.frame(minHeight: 84)
                 Spacer()
                 
                 VStack(spacing: 32) {
                     KofiButton()
-                    if data.hasError {
-                        Text(data.error!.localizedDescription)
-                    } else if data.selection.count > 0 {
+                    if case .failed(let message) = data.saveStatus {
+                        Text(message).foregroundStyle(.orange)
+                    }
+                    if !data.attachments.isEmpty {
                         Button {
-                            UIApplication.shared.open(URL(string: "photos-redirect://")!)
-                            reset()
+                            // Undocumented scheme: best effort, openURL simply fails if it is unavailable.
+                            if let url = URL(string: "photos-redirect://") {
+                                openURL(url)
+                            }
+                            data.resetSaveStatus()
                         } label: {
                             Text("Open Photos Library")
                         }
                         Button(role: .destructive) {
                             data.clearSelection()
-                            reset()
-                            data.helpTextShown = false
-                            data.selectedTab = 0
                         } label: {
                             Text("Start Over")
                         }
@@ -112,36 +141,23 @@ struct ExportView: View {
     }
 }
 
-struct LinearProgressView<Shape: SwiftUI.Shape>: View {
-    var value: Double
-    var shape: Shape
-    
-    var body: some View {
-        shape.fill(.foreground.quaternary)
-            .overlay(alignment: .leading) {
-                GeometryReader { proxy in
-                    shape.fill(.tint)
-                        .frame(width: proxy.size.width * value)
-                }
-            }
-    }
-}
-
 struct KofiButton: View {
-    @State var isAnimating = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isAnimating = false
     var body: some View {
         Link(destination: URL(string: "https://ko-fi.com/adamhp")!, label: {
             HStack(spacing: 2) {
                 Image(.kofi)
                     .resizable()
                     .frame(width: 40, height: 40)
+                    .accessibilityHidden(true)
                 VStack(spacing: 4) {
                     Text("Support me on Ko-fi!")
-                        .font(Font.custom("SpaceMono-Regular", size: 16))
-                        .foregroundColor(.stone200)
+                        .font(.spaceMono(16))
+                        .foregroundStyle(.stone200)
                     Text("and consider leaving a review")
-                        .font(Font.custom("SpaceMono-Regular", size: 11))
-                        .foregroundColor(.stone200)
+                        .font(.spaceMono(11))
+                        .foregroundStyle(.stone200)
                 }
                 
             }
@@ -153,143 +169,145 @@ struct KofiButton: View {
                     .default,
             value: isAnimating
         )
-        .onAppear {
-            isAnimating = true
+        .onChange(of: reduceMotion, initial: true) {
+            isAnimating = !reduceMotion
         }
     }
 }
 
 struct DownloadButton: View {
     
-    @EnvironmentObject var data: DataModel
-    @Environment(\.displayScale) var displayScale
+    @Environment(DataModel.self) private var data
+    @Environment(\.requestReview) private var requestReview
     
     var body: some View {
-        ZStack {
+        Button {
             switch data.saveStatus {
-                case .unsaved:
-                    VStack {
-                        HStack(spacing: 8) {
-                            Text("Download").font(Font.custom("SpaceMono-Regular", size: 18))
-                            Image(systemName: "arrow.down")
-                                .resizable()
-                                .scaledToFit()
-                        }
-                        .padding(20)
-                    }
-                    .frame(width: 200, height: 52)
-                    .foregroundColor(.stone100)
-                    .background(.stone700)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.accent.opacity(0.5), lineWidth: 4)
-                    )
-                case .saving:
-                    VStack {
-                        HStack(spacing: 8)  {
-                            Text("Downloading").font(Font.custom("SpaceMono-Regular", size: 18))
-                            ProgressView()
-                                .scaledToFit()
-                        }
-                        .padding(20)
-                        
-                    }
-                    .frame(width: 200, height: 52)
-                    .foregroundColor(.stone400)
-                    .background(.stone700)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                case .success:
-                    VStack {
-                        HStack(spacing: 8)  {
-                            Text("Saved").font(Font.custom("SpaceMono-Regular", size: 18)).foregroundColor(.green)
-                            Image(systemName: "checkmark")
-                                .resizable()
-                                .scaledToFit()
-                                .foregroundColor(.green)
-                        }.onAppear {
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                                data.resetSaveStatus()
-                                data.error = nil
-                            }
-                        }
-                        .padding(20)
-                    }
-                    .frame(width: 200, height: 52)
-                    .foregroundColor(.green)
-                    .background(.green.opacity(0.5))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                case .failed:
-                    VStack {
-                        HStack(spacing: 8)  {
-                            Text("Failed").font(Font.custom("SpaceMono-Regular", size: 18)).foregroundColor(.green)
-                            Image(systemName: "exclamationmark.triangle")
-                                .resizable()
-                                .scaledToFit()
-                                .foregroundColor(.orange)
-                        }
-                        .padding(20)
-                    }
-                    .frame(width: 200, height: 52)
-                    .foregroundColor(.orange)
-                    .background(.orange.opacity(0.5))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-            }
-        }
-        .onChange(of: data.processed, {
-            if data.processed == data.attachments.count {
-                let failures = data.attachments.filter({ $0.status.savingStatus.isFailed })
-                if failures.count > 0 {
-                    data.saveStatus = .failed("Failed to save images")
-                } else {
-                    data.saveStatus = .success
-                }
-            }
-        })
-        .onTapGesture {
-            switch data.saveStatus {
-                case .unsaved:
-                    data.saveStatus = .saving
-                    data.processed = 0
+                case .unsaved, .failed:
+                    data.startExport()
                 default:
                     return
             }
+        } label: {
+            label
         }
-        .sensoryFeedback(.success, trigger: data.saveStatus.isSuccess)
+        .buttonStyle(.plain)
+        .sensoryFeedback(.success, trigger: data.saveStatus == .success)
         .sensoryFeedback(.warning, trigger: data.saveStatus.isFailed)
-        .sensoryFeedback(.impact, trigger: data.saveStatus.isSaving)
+        .sensoryFeedback(.impact, trigger: data.saveStatus == .saving)
+        .onChange(of: data.saveStatus) { _, status in
+            // The result is only shown briefly, so tell VoiceOver users too.
+            switch status {
+            case .success: AccessibilityNotification.Announcement("Saved to Photos").post()
+            case .failed(let message): AccessibilityNotification.Announcement(message).post()
+            case .unsaved, .saving: break
+            }
+        }
+    }
+
+    @ViewBuilder private var label: some View {
+        switch data.saveStatus {
+            case .unsaved:
+                sized {
+                    Text("Download")
+                    Image(systemName: "arrow.down")
+                }
+                .foregroundStyle(.stone100)
+                .actionBackground()
+            case .saving:
+                sized {
+                    Text("Downloading")
+                    ProgressView()
+                }
+                .foregroundStyle(.stone400)
+                .actionBackground()
+            case .success:
+                sized {
+                    Text("Saved")
+                    Image(systemName: "checkmark")
+                }
+                .foregroundStyle(.green)
+                .actionBackground(tint: .green.opacity(0.5))
+                .task {
+                    do { try await Task.sleep(for: .seconds(2)) } catch { return }
+                    data.resetSaveStatus()
+                    // Ask once the confirmation is gone, so the prompt doesn't cover it.
+                    if data.isReviewRequestDue {
+                        data.recordReviewRequest()
+                        requestReview()
+                    }
+                }
+            case .failed:
+                sized {
+                    Text("Failed")
+                    Image(systemName: "exclamationmark.triangle")
+                }
+                .foregroundStyle(.orange)
+                .actionBackground(tint: .orange.opacity(0.5))
+        }
+    }
+
+    /// Grows with Dynamic Type instead of clipping at a fixed size.
+    private func sized(@ViewBuilder _ content: () -> some View) -> some View {
+        HStack(spacing: 8, content: content)
+            .font(.spaceMono(18))
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+            .frame(minWidth: 200, minHeight: 52)
     }
 }
 
+/// Opens the share sheet with every photo in the batch. Each photo is rendered when
+/// the chosen destination asks for it, so nothing is rendered just by opening the sheet.
+struct ShareButton: View {
 
-//struct ShareButton: View {
-//    
-//    let size: ExportSize
-//    
-//    @EnvironmentObject private var data: DataModel
-//    
-//    init(_ size: ExportSize) {
-//        self.size = size
-//    }
-//    
-//    var body: some View {
-//        ShareLink(items: data.rendered, subject: nil, message: nil, preview: { _ in
-//            SharePreview("Test", image: data.rendered.first ?? Image(systemName: "square.and.arrow.up"))
-//        }, label: {
-////            Button {
-////                data.render(size: size)
-////            } label: {
-//                VStack {
-//                    Image(systemName: "square.and.arrow.up")
-//                        .resizable()
-//                        .scaledToFit()
-//                        .padding(24)
-//                }
-//                .frame(width: 64, height: 64)
-//                .foregroundColor(.stone400)
-//                .background(.stone700)
-//                .clipShape(RoundedRectangle(cornerRadius: 12))
-////            }
-//        })
-//    }
-//}
+    @Environment(DataModel.self) private var data
+
+    var body: some View {
+        let settings = data.settings
+        let photos = data.attachments.enumerated().map { index, attachment in
+            BorderedPhoto(item: attachment.item, settings: settings, number: index + 1)
+        }
+        // Without an image the share sheet's header falls back to "Plain Text" and a generic icon. The thumbnails
+        // are already in memory; photos whose thumbnail isn't loaded (far from the current card) get a photo symbol.
+        let previews = data.attachments.map { attachment -> Image in
+            if case .loaded(let thumbnail) = attachment.thumbnail {
+                Image(uiImage: thumbnail.image)
+            } else {
+                Image(systemName: "photo")
+            }
+        }
+        ShareLink(items: photos) { photo in
+            SharePreview("Photo \(photo.number)", image: previews[photo.number - 1])
+        } label: {
+            Image(systemName: "square.and.arrow.up")
+                .font(.system(size: 18, weight: .medium))
+                .foregroundStyle(.stone100)
+                .frame(minWidth: 52, minHeight: 52)
+                .actionBackground()
+        }
+        .buttonStyle(.plain)
+        .disabled(photos.isEmpty)
+        .accessibilityLabel(photos.count == 1 ? "Share Photo" : "Share Photos")
+    }
+}
+
+private extension View {
+    /// The raised background of the export page's buttons: Liquid Glass tinted `tint` on iOS 26, a flat fill before.
+    @ViewBuilder func actionBackground(tint: Color = .stone700) -> some View {
+        if #available(iOS 26, *) {
+            glassEffect(.regular.tint(tint).interactive(), in: .rect(cornerRadius: 12))
+        } else {
+            background(tint, in: .rect(cornerRadius: 12))
+        }
+    }
+
+    /// Groups neighbouring glass buttons so they render and blend as one set on iOS 26.
+    @ViewBuilder func glassGroup() -> some View {
+        if #available(iOS 26, *) {
+            GlassEffectContainer { self }
+        } else {
+            self
+        }
+    }
+}

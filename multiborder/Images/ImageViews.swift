@@ -8,75 +8,60 @@
 import SwiftUI
 
 struct ImageStack: View {
-    
-    @EnvironmentObject private var data: DataModel
-    
+
+    @Environment(DataModel.self) private var data
+
     var body: some View {
-        if data.attachments.isEmpty {
-            Image(systemName: "photo")
-                .resizable()
-                .scaledToFit()
-                .padding(96)
-                .opacity(0.1)
-                .foregroundColor(.accent)
-        } else {
-            CardStack(data.attachments, currentIndex: $data.currentIndex) { imageAttachment in
-                ImageContainerView(imageAttachment: imageAttachment)
+        @Bindable var data = data
+        Group {
+            if data.attachments.isEmpty {
+                Image(systemName: "photo")
+                    .resizable()
+                    .scaledToFit()
+                    .padding(96)
+                    .opacity(0.1)
+                    .foregroundStyle(.accent)
+            } else {
+                CardStack(data.attachments, currentIndex: $data.currentIndex) { imageAttachment in
+                    ImageContainerView(imageAttachment: imageAttachment)
+                }
+                .padding(8)
+                .accessibilityLabel("Photo")
+                .accessibilityValue(accessibilityValue)
+                // Re-run when the visible card or the number of cards changes.
+                .task(id: [data.currentIndex, data.attachments.count]) {
+                    await data.loadThumbnails(around: data.currentIndex)
+                }
             }
-            .padding(8)
-            .task {
+        }
+        // A new selection starts at the first photo. Only a change resets it, so switching
+        // between the Select and Edit pages keeps the current card.
+        .onChange(of: data.attachments.isEmpty) { _, isEmpty in
+            if !isEmpty {
                 data.currentIndex = 0
             }
+        }
+    }
+
+    private var accessibilityValue: String {
+        let position = "\(data.currentIndex + 1) of \(data.attachments.count)"
+        guard data.attachments.indices.contains(data.currentIndex) else { return position }
+        switch data.attachments[data.currentIndex].thumbnail {
+        case .failed: return position + ", couldn't be loaded"
+        case .unloaded, .loading: return position + ", loading"
+        case .loaded: return position
         }
     }
 }
 
 struct ImageContainerView: View {
-    
-    @EnvironmentObject private var data: DataModel
-    @ObservedObject var imageAttachment: DataModel.ImageAttachment
-    
+
+    @Environment(DataModel.self) private var data
+    let imageAttachment: ImageAttachment
+
     var body: some View {
         ZStack {
-            switch imageAttachment.status.thumbnailStatus {
-                case .unloaded:
-                    EmptyView()
-                case .loading:
-                    ProgressView()
-                case .finished(_):
-                    GeometryReader { geo in
-                        Rectangle()
-                            .foregroundColor(data.desiredBorderColor)
-                            .aspectRatio(data.desiredAspectRatio == -1 ? (imageAttachment.originalImageWidth! / imageAttachment.originalImageHeight!) : data.desiredAspectRatio, contentMode: .fit)
-                            .overlay(ImageAttachmentView(imageAttachment: imageAttachment))
-                            .position(x: geo.frame(in: .local).midX, y: geo.frame(in: .local).midY)
-                            .onAppear {
-                                if data.originalContainerWidth == 0 {
-                                    data.originalContainerWidth = geo.size.width
-                                }
-                            }
-                    }
-                case .failed:
-                    Image(systemName: "exclamationmark.triangle.fill")
-            }
-        }
-    }
-       
-}
-
-struct ImageAttachmentView: View {
-    
-    @EnvironmentObject private var data: DataModel
-    @ObservedObject var imageAttachment: DataModel.ImageAttachment
-    
-    var body: some View {
-        if let thumbnail = imageAttachment.imageThumbnail {
-            thumbnail
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .padding(data.desiredPadding)
-        } else {
-            EmptyView()
+            ThumbnailPreview(state: imageAttachment.thumbnail, settings: data.settings)
         }
     }
 }
