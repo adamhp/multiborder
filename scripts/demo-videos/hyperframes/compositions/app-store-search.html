@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=3840, height=2560" />
+    <!-- App Store search result creative asset (iOS 27+): 3:2 at 3840x2560, a muted 5–30s loop. Apple's
+         guidance for search: make the purpose obvious at a glance and show the firsthand experience, so
+         the real app plays in a phone (the cut footage, as on the website) next to one short phrase and
+         two finished prints. The last 0.8s fades back to the first frame so the loop is seamless. -->
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      /* The app's own font (copied from Shared/SpaceMono.ttf by render.sh). */
+      @font-face { font-family: "Space Mono"; src: url("../assets/SpaceMono.ttf") format("truetype"); font-display: block; }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 3840px; height: 2560px; overflow: hidden; background: #1c1917; }
+      #root {
+        position: relative;
+        width: 3840px;
+        height: 2560px;
+        background:
+          radial-gradient(ellipse 65% 70% at 30% 50%, rgba(217, 119, 6, 0.24), transparent 70%),
+          #1c1917;
+        font-family: "Space Mono", ui-monospace, Menlo, monospace;
+      }
+      /* A plain phone: dark bezel around the real screen recording. */
+      #phone {
+        position: absolute;
+        left: 560px;
+        top: 246px;
+        width: 991px;
+        height: 2068px;
+        padding: 34px;
+        border-radius: 150px;
+        background: #0c0a09;
+        box-shadow: 0 0 0 6px #44403c, 0 80px 200px rgba(0, 0, 0, 0.6);
+      }
+      #phone .screen {
+        position: absolute;
+        left: 34px;
+        top: 34px;
+        width: 923px;
+        height: 2000px;
+        border-radius: 118px;
+        overflow: hidden;
+        background: #000;
+      }
+      #phone video, #phone img { position: absolute; inset: 0; width: 923px; height: 2000px; object-fit: cover; }
+      #first { opacity: 0; }
+      #copy {
+        position: absolute;
+        left: 1820px;
+        top: 520px;
+        width: 1500px;
+      }
+      h1 {
+        color: #f5f5f4;
+        font-weight: 400;
+        font-size: 170px;
+        line-height: 1.12;
+        letter-spacing: -0.02em;
+      }
+      .prints { position: relative; margin-top: 170px; height: 900px; }
+      .print { position: absolute; background: #ffffff; box-shadow: 0 50px 140px rgba(0, 0, 0, 0.55); }
+      .print img { display: block; object-fit: cover; }
+      #classic { left: 0; top: 40px; padding: 56px; transform: rotate(-3deg); }
+      #classic img { width: 700px; height: 466px; }
+      #caption { left: 720px; top: 0; padding: 120px 56px 140px; transform: rotate(2.5deg); }
+      #caption img { width: 700px; height: 466px; }
+      .line { position: absolute; left: 0; right: 0; text-align: center; color: #44403c; white-space: nowrap; }
+      #caption .date { top: 52px; font-size: 28px; }
+      #caption .details { bottom: 62px; font-size: 25px; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="app-store-search" data-start="0" data-duration="18.77" data-width="3840" data-height="2560">
+      <div id="phone">
+        <div class="screen">
+          <video id="footage" class="clip" src="../assets/cut.mp4" muted playsinline data-start="0" data-duration="18.77" data-track-index="0"></video>
+          <img id="first" class="clip" src="../assets/cut-first.jpg" alt="" data-start="17.97" data-duration="0.8" data-track-index="1" />
+        </div>
+      </div>
+      <div id="copy">
+        <h1>Borders for all your photos</h1>
+        <div class="prints">
+          <div id="classic" class="print"><img src="../assets/IMG_2070.JPG" alt="" /></div>
+          <div id="caption" class="print">
+            <div class="line date">Sep 30, 2025</div>
+            <img src="../assets/IMG_2072.JPG" alt="" />
+            <div class="line details">LEICA Q3 43 · 43mm · ƒ/8 · 1/200s · ISO 100</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+      const tl = gsap.timeline({ paused: true });
+      tl.to("#first", { opacity: 1, duration: 0.6, ease: "power1.inOut" }, 18.07);
+      window.__timelines = window.__timelines || {};
+      window.__timelines["app-store-search"] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>

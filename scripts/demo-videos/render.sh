@@ -38,8 +38,7 @@ ffmpeg -v error -y -i renders/app-store-preview.mp4 -f lavfi -i anullsrc=r=48000
   -c:v libx264 -profile:v high -level:v 4.0 -b:v 11M -maxrate 12M -bufsize 22M -pix_fmt yuv420p -r 30 \
   -c:a aac -b:a 256k -ar 48000 -movflags +faststart "$out/app-store-preview.mp4"
 # Website: small silent H.264 files that start playing before they finish downloading.
-# The hero demo plays 25% faster than the App Store preview; it loops in the background of the page.
-ffmpeg -v error -y -i renders/hero-demo.mp4 -an -vf "setpts=PTS/1.25" -r 30 -c:v libx264 -preset slow -crf 26 \
+ffmpeg -v error -y -i renders/hero-demo.mp4 -an -c:v libx264 -preset slow -crf 26 \
   -pix_fmt yuv420p -movflags +faststart "$out/hero-demo.mp4"
 for name in border-styles camera-caption; do
   ffmpeg -v error -y -i "renders/$name.mp4" -an -c:v libx264 -preset slow -crf 24 -pix_fmt yuv420p \
@@ -75,6 +74,13 @@ else
   echo "No raw screenshots in $out/shots-raw; run screenshots.sh to make the App Store screenshots."
 fi
 
+# App Store search result creative asset (iOS 27+): a 3:2 loop at 3840x2560, 30 fps. Search results
+# are always muted, so no audio track.
+$hyperframes render -c compositions/app-store-search.html -o renders/app-store-search.mp4 \
+  --quality delivery --fps 30 --video-frame-format png --quiet
+ffmpeg -v error -y -i renders/app-store-search.mp4 -an -c:v libx264 -preset slow -crf 18 -pix_fmt yuv420p \
+  -movflags +faststart "$out/app-store-search.mp4"
+
 # App Store creative asset (iOS 27+): one universal 16:9 image, 5244x2950 PNG without alpha, which App
 # Store Connect crops for both the product page header (21:9) and search results (3:2).
 mkdir -p renders/header
@@ -83,7 +89,7 @@ $hyperframes render -c compositions/app-store-header.html -o renders/header --fo
 ffmpeg -v error -y -i "$(ls renders/header/*.png | head -1)" -pix_fmt rgb24 "$out/app-store-header.png"
 
 # 5. Show what came out, to check against the limits in README.md.
-for f in app-store-preview hero-demo border-styles camera-caption; do
+for f in app-store-preview hero-demo border-styles camera-caption app-store-search; do
   echo "== $f.mp4"
   ffprobe -v error -show_entries stream=codec_type,codec_name,profile,level,width,height,r_frame_rate,bit_rate,channels \
     -show_entries format=duration,size -of compact "$out/$f.mp4"

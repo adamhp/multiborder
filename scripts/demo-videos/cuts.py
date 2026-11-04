@@ -32,10 +32,10 @@ SEGMENTS = [
     ("styles", 56.90, 58.30, 0),   # shadow on
     ("styles", 59.00, 61.60, 0),   # shadow strength
     ("caption", 62.60, 64.40, 1.0),  # camera settings caption on (ends before the font popover)
-    ("save", 70.10, 75.00, 0),     # Export, Download, Saved
+    ("save", 70.10, 75.00, 0.8),   # Export, Download, Saved (held so it ends on Saved)
 ]
-# Every interaction plays this much faster than it was recorded.
-SPEED = 1.18
+# Every interaction plays this much faster than it was recorded (1.18x, then 25% faster again).
+SPEED = 1.475
 
 
 def duration(path: Path) -> float:

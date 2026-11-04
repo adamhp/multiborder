@@ -40,7 +40,7 @@ of the ten screens, including editing a photo with the extension inside the Phot
 ./scripts/demo-videos/render.sh
 ```
 
-`cuts.py` first trims `raw.mov` to the storyboard's active moments at 1.18× speed (`cut.mp4`).
+`cuts.py` first trims `raw.mov` to the storyboard's active moments at 1.475× speed (`cut.mp4`).
 Then the HyperFrames compositions in `hyperframes/` turn that and the sample photos into:
 
 | File | Use |
@@ -51,6 +51,7 @@ Then the HyperFrames compositions in `hyperframes/` turn that and the sample pho
 | `camera-caption.mp4/.jpg` | The website's "Camera settings caption" spotlight and its poster |
 | `screenshots/NN-name.png` | App Store Connect, iPhone with Dynamic Island (large display) screenshots (1320×2868, opaque RGB), each under its headline from `hyperframes/compositions/app-store-screenshots.html` |
 | `screenshots-medium/NN-name.png` | The same set for iPhone with Dynamic Island (medium display), 1206×2622, which App Store Connect requires |
+| `app-store-search.mp4` | App Store search result creative asset for iOS 27+: a muted 3:2 loop (3840×2560, 30 fps) with the real app playing in a phone, from `hyperframes/compositions/app-store-search.html` |
 | `app-store-header.png` | App Store creative asset for iOS 27+: one universal 16:9 image (5244×2950 PNG) that App Store Connect crops for the product page header (21:9) and search results (3:2), from `hyperframes/compositions/app-store-header.html` |
 
 If the app's UI changes, record again first. A new take has different timings, so `cuts.py`
