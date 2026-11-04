@@ -97,8 +97,16 @@ for name in event-card event-details; do
   ffmpeg -v error -y -i "$(ls "renders/$name"/*.png | head -1)" -pix_fmt rgb24 "$out/app-store-$name.png"
 done
 
+# The same event placements as looping videos (Apple: 15–30s, 30 or 60 fps), with the real app playing.
+for name in event-card-video event-details-video; do
+  $hyperframes render -c "compositions/app-store-$name.html" -o "renders/app-store-$name.mp4" \
+    --quality delivery --fps 30 --video-frame-format png --quiet
+  ffmpeg -v error -y -i "renders/app-store-$name.mp4" -an -c:v libx264 -preset slow -crf 18 -pix_fmt yuv420p \
+    -movflags +faststart "$out/app-store-$name.mp4"
+done
+
 # 5. Show what came out, to check against the limits in README.md.
-for f in app-store-preview hero-demo border-styles camera-caption app-store-search; do
+for f in app-store-preview hero-demo border-styles camera-caption app-store-search app-store-event-card-video app-store-event-details-video; do
   echo "== $f.mp4"
   ffprobe -v error -show_entries stream=codec_type,codec_name,profile,level,width,height,r_frame_rate,bit_rate,channels \
     -show_entries format=duration,size -of compact "$out/$f.mp4"
