@@ -52,6 +52,7 @@ Then the HyperFrames compositions in `hyperframes/` turn that and the sample pho
 | `screenshots/NN-name.png` | App Store Connect, iPhone with Dynamic Island (large display) screenshots (1320×2868, opaque RGB), each under its headline from `hyperframes/compositions/app-store-screenshots.html` |
 | `screenshots-medium/NN-name.png` | The same set for iPhone with Dynamic Island (medium display), 1206×2622, which App Store Connect requires |
 | `app-store-search.mp4` | App Store search result creative asset for iOS 27+: a muted 3:2 loop (3840×2560, 30 fps) with the real app playing in a phone, from `hyperframes/compositions/app-store-search.html` |
+| `app-store-event-card.png`, `app-store-event-details.png` | In-App Event media for the 3.0 Major Update: a 16:9 card (3840×2160) and a 9:16 details image (2160×3840), with no text, as Apple's event guidelines ask |
 | `app-store-header.png` | App Store creative asset for iOS 27+: one universal 16:9 image (5244×2950 PNG) that App Store Connect crops for the product page header (21:9) and search results (3:2), from `hyperframes/compositions/app-store-header.html` |
 
 If the app's UI changes, record again first. A new take has different timings, so `cuts.py`

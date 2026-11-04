@@ -88,12 +88,21 @@ rm -f renders/header/*.png
 $hyperframes render -c compositions/app-store-header.html -o renders/header --format png-sequence --fps 1 --quiet
 ffmpeg -v error -y -i "$(ls renders/header/*.png | head -1)" -pix_fmt rgb24 "$out/app-store-header.png"
 
+# In-App Event media for the 3.0 Major Update: a 16:9 card (3840x2160) and a 9:16 details image
+# (2160x3840), opaque PNGs with no text, as Apple's event guidelines ask.
+for name in event-card event-details; do
+  mkdir -p "renders/$name"
+  rm -f "renders/$name"/*.png
+  $hyperframes render -c "compositions/app-store-$name.html" -o "renders/$name" --format png-sequence --fps 1 --quiet
+  ffmpeg -v error -y -i "$(ls "renders/$name"/*.png | head -1)" -pix_fmt rgb24 "$out/app-store-$name.png"
+done
+
 # 5. Show what came out, to check against the limits in README.md.
 for f in app-store-preview hero-demo border-styles camera-caption app-store-search; do
   echo "== $f.mp4"
   ffprobe -v error -show_entries stream=codec_type,codec_name,profile,level,width,height,r_frame_rate,bit_rate,channels \
     -show_entries format=duration,size -of compact "$out/$f.mp4"
 done
-for f in "$out"/screenshots/*.png "$out"/screenshots-medium/*.png "$out/app-store-header.png"; do
+for f in "$out"/screenshots/*.png "$out"/screenshots-medium/*.png "$out"/app-store-*.png; do
   [ -e "$f" ] && echo "== $(basename "$(dirname "$f")")/$(basename "$f") $(ffprobe -v error -show_entries stream=width,height,pix_fmt -of csv=p=0 "$f")"
 done
