@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=2160, height=3840" />
+    <!-- In-App Event details video (9:16, 2160x3840, 15–30s loop) for the 3.0 Major Update: the real app
+         playing in a large phone with two finished prints behind it. Kept above the bottom, where the App
+         Store lays the event text over the media. The last 0.8s fades back to the first frame. -->
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      @font-face { font-family: "Space Mono"; src: url("../assets/SpaceMono.ttf") format("truetype"); font-display: block; }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 2160px; height: 3840px; overflow: hidden; background: #1c1917; }
+      #root {
+        position: relative;
+        width: 2160px;
+        height: 3840px;
+        background:
+          radial-gradient(ellipse 85% 50% at 50% 42%, rgba(217, 119, 6, 0.24), transparent 70%),
+          #1c1917;
+        font-family: "Space Mono", ui-monospace, Menlo, monospace;
+      }
+      #phone {
+        position: absolute;
+        left: 600px;
+        top: 420px;
+        width: 960px;
+        height: 1990px;
+        border-radius: 145px;
+        background: #0c0a09;
+        box-shadow: 0 0 0 5px #44403c, 0 80px 200px rgba(0, 0, 0, 0.65);
+        z-index: 2;
+      }
+      #phone .screen {
+        position: absolute;
+        left: 32px;
+        top: 32px;
+        width: 896px;
+        height: 1926px;
+        border-radius: 114px;
+        overflow: hidden;
+        background: #000;
+      }
+      #phone video, #phone img { position: absolute; inset: 0; width: 896px; height: 1926px; object-fit: cover; }
+      #first { opacity: 0; }
+      .print { position: absolute; background: #ffffff; box-shadow: 0 50px 140px rgba(0, 0, 0, 0.55); z-index: 1; }
+      .print img { display: block; object-fit: cover; }
+      #classic { left: 150px; top: 760px; padding: 50px; transform: rotate(-6deg); }
+      #classic img { width: 640px; height: 426px; }
+      #deep { left: 1330px; top: 1500px; padding: 50px 50px 190px; transform: rotate(5deg); }
+      #deep img { width: 520px; height: 781px; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="app-store-event-details-video" data-start="0" data-duration="18.77" data-width="2160" data-height="3840">
+      <div id="classic" class="print"><img src="../assets/IMG_2070.JPG" alt="" /></div>
+      <div id="deep" class="print"><img src="../assets/IMG_2069.JPG" alt="" /></div>
+      <div id="phone">
+        <div class="screen">
+          <video id="footage" class="clip" src="../assets/cut.mp4" muted playsinline data-start="0" data-duration="18.77" data-track-index="0"></video>
+          <img id="first" class="clip" src="../assets/cut-first.jpg" alt="" data-start="17.97" data-duration="0.8" data-track-index="1" />
+        </div>
+      </div>
+    </div>
+    <script>
+      const tl = gsap.timeline({ paused: true });
+      tl.to("#first", { opacity: 1, duration: 0.6, ease: "power1.inOut" }, 18.07);
+      window.__timelines = window.__timelines || {};
+      window.__timelines["app-store-event-details-video"] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>

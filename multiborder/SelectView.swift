@@ -9,91 +9,75 @@ import SwiftUI
 import PhotosUI
 
 struct SelectView: View {
-    
-    @EnvironmentObject private var data: DataModel
-    
+
+    @Environment(DataModel.self) private var data
+
     var body: some View {
         DefaultPage {
-            VStack(spacing: 0) {
-                Spacer()
-                ImageStack()
-                Spacer()
-                if data.attachments.isEmpty {
-                    PhotosPicker(
-                        selection: $data.selection,
-                        matching: .images,
-                        preferredItemEncoding: .current,
-                        photoLibrary: .shared()
-                    ) {
-                        ZStack {
-                            if data.helpTextShown {
-                                Text("Select some photos first!")
-                                    .kerning(0)
-                                    .animation(.easeInOut(duration:1), value: data.helpTextShown)
-                                    .font(Font.custom("SpaceMono-Regular", size: 16))
-                                    .foregroundColor(.accent)
-                                    .padding(.bottom, 128)
-                            }
-                            SelectButton().animation(.easeInOut(duration: 0.5), value: data.selection.isEmpty)
-                        }
-                    }
-                    .frame(height: 64)
-                } else {
-                    ClearButton(data: data)
-                        .frame(height: 64)
-                }
+            // The picker shows until it hands over a batch, and again once the batch is cleared.
+            if data.attachments.isEmpty {
+                PickerPage()
+            } else {
+                StackPage()
             }
-            .sensoryFeedback(.success, trigger: !data.selection.isEmpty)
-            .onChange(of: data.helpTextShown, {
-                if data.helpTextShown {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                        withAnimation {
-                            data.helpTextShown = false
-                        }
-                    }
-                }
-            })
+        }
+        .animation(.default, value: data.attachments.isEmpty)
+        .sensoryFeedback(.success, trigger: data.attachments.isEmpty) { wasEmpty, isEmpty in
+            wasEmpty && !isEmpty
         }
     }
 }
 
-struct SelectButton: View {
+/// The system photo picker embedded in the page. People select photos by tapping or by
+/// dragging across them, then confirm with the picker's own check mark, which hands the
+/// batch over in one go.
+private struct PickerPage: View {
+
+    @Environment(DataModel.self) private var data
+
     var body: some View {
-        ZStack {
-            Circle()
-                .fill(.accent.opacity(0.2))
-                .frame(width: 64, height: 64)
-            Image(systemName: "plus")
-                .foregroundColor(.accent)
-                .font(.system(size: 32, weight: .semibold))
+        @Bindable var data = data
+        PhotosPicker(
+            selection: $data.selection,
+            // Drag-to-select only works with this mode: it didn't with .continuousAndOrdered, with the
+            // top bar showing or hidden, or with .ordered and the top bar hidden (iPhone 16 Pro, iOS 26–27).
+            // So the app only learns the selection when the check mark hands it over, and can't clear it before.
+            selectionBehavior: .default,
+            matching: .images,
+            preferredItemEncoding: .current,
+            photoLibrary: .shared()
+        ) {
+            EmptyView()
         }
+        .photosPickerStyle(.inline)
+        // The top bar holds the picker's check mark, so it stays visible. Disabling the
+        // selection actions hides its cancel X, which does nothing in an embedded picker,
+        // and keeps the check mark (as in Apple's inline picker sample).
+        .photosPickerDisabledCapabilities([.selectionActions, .stagingArea])
+        .ignoresSafeArea(edges: .top)
     }
 }
 
-struct ClearButton: View {
-    
-    let data: DataModel
-    
-    @State var tap = false
-    
+/// The picked photos as a card stack. The tab bar's Clear tab removes them.
+private struct StackPage: View {
+
+    @Environment(DataModel.self) private var data
+
     var body: some View {
-        ZStack {
-            Circle()
-                .foregroundColor(.gray.opacity(0.25))
-                .frame(width: 64, height: 64)
-            Image(systemName: "xmark")
-                .foregroundColor(.gray.opacity(0.5))
-                .font(.system(size: 32, weight: .semibold))
+        VStack(spacing: 0) {
+            Spacer()
+            Text("\(data.currentIndex+1) of \(data.attachments.count)")
+                .contentTransition(.numericText(value: Double(data.currentIndex)))
+                .font(.spaceMono(14))
+                .foregroundStyle(.accent)
+                .padding(.top, 16)
+            Text("(Preview Resolution)")
+                .font(.spaceMono(12))
+                .foregroundStyle(.stone500)
+                .padding(.top, 16)
+            Spacer()
+            ImageStack()
+            Spacer()
         }
-        .onTapGesture {
-            data.removeCurrent()
-            tap = true
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                tap = false
-            }
-        }
-        .scaleEffect(tap ? 1.2 : 1)
-        .animation(.spring(response: 0.4, dampingFraction: 0.6), value: tap)
-        .sensoryFeedback(.success, trigger: tap)
     }
 }

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSExtension</key>
+	<dict>
+		<key>NSExtensionAttributes</key>
+		<dict>
+			<key>PHSupportedMediaTypes</key>
+			<array>
+				<string>Image</string>
+			</array>
+		</dict>
+		<key>NSExtensionPointIdentifier</key>
+		<string>com.apple.photo-editing</string>
+		<key>NSExtensionPrincipalClass</key>
+		<string>$(PRODUCT_MODULE_NAME).PhotoEditingViewController</string>
+	</dict>
+	<key>UIAppFonts</key>
+	<array>
+		<string>SpaceMono.ttf</string>
+		<string>IBMPlexMono-Regular.ttf</string>
+		<string>JetBrainsMono-Regular.ttf</string>
+		<string>DMMono-Regular.ttf</string>
+		<string>Inter-Regular.ttf</string>
+		<string>DMSans-Regular.ttf</string>
+		<string>SpaceGrotesk-Regular.ttf</string>
+	</array>
+</dict>
+</plist>

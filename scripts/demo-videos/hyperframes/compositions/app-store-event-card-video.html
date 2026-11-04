@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=3840, height=2160" />
+    <!-- In-App Event card video (16:9, 3840x2160, 15–30s loop) for the 3.0 Major Update: the real app
+         playing in a phone beside two finished prints. No added text or logos (the App Store adds the
+         event name and badge); the last 0.8s fades back to the first frame for a seamless loop. -->
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      @font-face { font-family: "Space Mono"; src: url("../assets/SpaceMono.ttf") format("truetype"); font-display: block; }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 3840px; height: 2160px; overflow: hidden; background: #1c1917; }
+      #root {
+        position: relative;
+        width: 3840px;
+        height: 2160px;
+        background:
+          radial-gradient(ellipse 70% 75% at 50% 50%, rgba(217, 119, 6, 0.22), transparent 70%),
+          #1c1917;
+        font-family: "Space Mono", ui-monospace, Menlo, monospace;
+      }
+      #phone {
+        position: absolute;
+        left: 820px;
+        top: 183px;
+        width: 860px;
+        height: 1793px;
+        border-radius: 130px;
+        background: #0c0a09;
+        box-shadow: 0 0 0 5px #44403c, 0 70px 180px rgba(0, 0, 0, 0.6);
+      }
+      #phone .screen {
+        position: absolute;
+        left: 30px;
+        top: 30px;
+        width: 800px;
+        height: 1733px;
+        border-radius: 102px;
+        overflow: hidden;
+        background: #000;
+      }
+      /* The screen has the footage's own 886:1920 shape, so nothing is cropped. */
+      #phone video, #phone img { position: absolute; inset: 0; width: 800px; height: 1733px; object-fit: cover; }
+      #first { opacity: 0; }
+      .print { position: absolute; background: #ffffff; box-shadow: 0 50px 140px rgba(0, 0, 0, 0.55); }
+      .print img { display: block; object-fit: cover; }
+      #classic { left: 1950px; top: 470px; padding: 56px; transform: rotate(-3deg); }
+      #classic img { width: 760px; height: 506px; }
+      #caption { left: 2160px; top: 1120px; padding: 120px 56px 140px; transform: rotate(2.5deg); }
+      #caption img { width: 760px; height: 506px; }
+      .line { position: absolute; left: 0; right: 0; text-align: center; color: #44403c; white-space: nowrap; }
+      #caption .date { top: 52px; font-size: 28px; }
+      #caption .details { bottom: 62px; font-size: 26px; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="app-store-event-card-video" data-start="0" data-duration="18.77" data-width="3840" data-height="2160">
+      <div id="phone">
+        <div class="screen">
+          <video id="footage" class="clip" src="../assets/cut.mp4" muted playsinline data-start="0" data-duration="18.77" data-track-index="0"></video>
+          <img id="first" class="clip" src="../assets/cut-first.jpg" alt="" data-start="17.97" data-duration="0.8" data-track-index="1" />
+        </div>
+      </div>
+      <div id="classic" class="print"><img src="../assets/IMG_2070.JPG" alt="" /></div>
+      <div id="caption" class="print">
+        <div class="line date">Sep 30, 2025</div>
+        <img src="../assets/IMG_2072.JPG" alt="" />
+        <div class="line details">LEICA Q3 43 · 43mm · ƒ/8 · 1/200s · ISO 100</div>
+      </div>
+    </div>
+    <script>
+      const tl = gsap.timeline({ paused: true });
+      tl.to("#first", { opacity: 1, duration: 0.6, ease: "power1.inOut" }, 18.07);
+      window.__timelines = window.__timelines || {};
+      window.__timelines["app-store-event-card-video"] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>

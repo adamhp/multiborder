@@ -1,1 +1,8 @@
-DerivedData
+.DS_Store
+DerivedData/
+xcuserdata/
+*.xcuserstate
+.derived-data-log-*
+build/
+.playwright-mcp/
+__pycache__/

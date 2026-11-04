@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1440, height=1080" />
+    <!-- Website spotlight "Camera settings caption": IMG_2072's real camera data types in under the
+         photo with the date above, switches from Space Mono to DM Mono, then clears for a seamless loop.
+         Values read from the file's EXIF: LEICA Q3 43, 43mm, f/8, 1/200s, ISO 100, 30 Sep 2025. -->
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      /* Two of the app's caption fonts (copied from Shared/ by render.sh). */
+      @font-face { font-family: "Space Mono"; src: url("../assets/SpaceMono.ttf") format("truetype"); font-display: block; }
+      @font-face { font-family: "DM Mono"; src: url("../assets/DMMono-Regular.ttf") format("truetype"); font-display: block; }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1440px; height: 1080px; overflow: hidden; background: #262626; }
+      #root { width: 1440px; height: 1080px; display: flex; align-items: center; justify-content: center; }
+      #card {
+        position: relative;
+        background: #ffffff;
+        padding: 56px;
+        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+      }
+      #photo { display: block; width: 1000px; height: 666px; object-fit: cover; }
+      .row {
+        position: absolute;
+        left: 56px;
+        right: 56px;
+        display: grid;
+        color: #44403c;
+        font-size: 33px;
+        letter-spacing: 0.01em;
+        white-space: nowrap;
+      }
+      .row > span { grid-area: 1 / 1; justify-self: center; }
+      #date { top: 36px; font-size: 28px; opacity: 0; }
+      #details { bottom: 46px; clip-path: inset(0 100% 0 0); }
+      .space { font-family: "Space Mono", ui-monospace, monospace; }
+      .dm { font-family: "DM Mono", ui-monospace, monospace; opacity: 0; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="camera-caption" data-start="0" data-duration="9" data-width="1440" data-height="1080">
+      <div id="card" class="clip" data-start="0" data-duration="9" data-track-index="0">
+        <div id="date" class="row">
+          <span class="space">Sep 30, 2025</span>
+          <span class="dm">Sep 30, 2025</span>
+        </div>
+        <img id="photo" src="../assets/IMG_2072.JPG" alt="" />
+        <div id="details" class="row">
+          <span class="space">LEICA Q3 43 · 43mm · ƒ/8 · 1/200s · ISO 100</span>
+          <span class="dm">LEICA Q3 43 · 43mm · ƒ/8 · 1/200s · ISO 100</span>
+        </div>
+      </div>
+    </div>
+    <script>
+      const tl = gsap.timeline({ paused: true });
+      const ease = "power2.inOut";
+      tl.to("#card", { paddingTop: 108, paddingBottom: 138, duration: 0.8, ease }, 0.6);
+      // Typed in, character by character.
+      tl.to("#details", { clipPath: "inset(0 0% 0 0)", duration: 2.0, ease: "steps(42)" }, 1.4);
+      tl.to("#date", { opacity: 1, duration: 0.5, ease: "power1.out" }, 3.0);
+      // Font change: Space Mono → DM Mono.
+      tl.to(".space", { opacity: 0, duration: 0.5, ease }, 4.6);
+      tl.to(".dm", { opacity: 1, duration: 0.5, ease }, 4.6);
+      // Back to the first frame.
+      tl.to(["#date", "#details"], { opacity: 0, duration: 0.5, ease }, 7.0);
+      tl.to("#card", { paddingTop: 56, paddingBottom: 56, duration: 0.9, ease }, 7.4);
+      window.__timelines = window.__timelines || {};
+      window.__timelines["camera-caption"] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>
