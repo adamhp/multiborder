@@ -4,3 +4,5 @@ xcuserdata/
 *.xcuserstate
 .derived-data-log-*
 build/
+.playwright-mcp/
+__pycache__/
