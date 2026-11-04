@@ -49,7 +49,9 @@ Then the HyperFrames compositions in `hyperframes/` turn that and the sample pho
 | `hero-demo.mp4` | The website's phone mockup (`public/demo.mp4`) |
 | `border-styles.mp4/.jpg` | The website's "Borders your way" spotlight and its poster |
 | `camera-caption.mp4/.jpg` | The website's "Camera settings caption" spotlight and its poster |
-| `screenshots/NN-name.png` | App Store Connect, 6.9" iPhone screenshots (1320×2868, opaque RGB), each under its headline from `hyperframes/compositions/app-store-screenshots.html` |
+| `screenshots/NN-name.png` | App Store Connect, iPhone with Dynamic Island (large display) screenshots (1320×2868, opaque RGB), each under its headline from `hyperframes/compositions/app-store-screenshots.html` |
+| `screenshots-medium/NN-name.png` | The same set for iPhone with Dynamic Island (medium display), 1206×2622, which App Store Connect requires |
+| `app-store-header.png` | App Store creative asset for iOS 27+: one universal 16:9 image (5244×2950 PNG) that App Store Connect crops for the product page header (21:9) and search results (3:2), from `hyperframes/compositions/app-store-header.html` |
 
 If the app's UI changes, record again first. A new take has different timings, so `cuts.py`
 refuses to run until you update it:

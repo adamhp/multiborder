@@ -21,7 +21,7 @@ mkdir -p "$hf/assets"
 cp "$out/cut.mp4" "$hf/assets/cut.mp4"
 ffmpeg -v error -y -i "$hf/assets/cut.mp4" -frames:v 1 -q:v 2 "$hf/assets/cut-first.jpg"
 cp "$repo/Shared/SpaceMono.ttf" "$repo/Shared/DMMono-Regular.ttf" "$hf/assets/"
-cp "$repo/sample-photos/IMG_2066.JPG" "$repo/sample-photos/IMG_2072.JPG" "$hf/assets/"
+cp "$repo"/sample-photos/IMG_20{66,69,70,71,72}.JPG "$hf/assets/"
 
 # 3. Render each composition at delivery quality. UI footage extracts as PNG to keep text crisp.
 cd "$hf"
@@ -59,13 +59,28 @@ if compgen -G "$out/shots-raw/[01][0-9]-*.png" >/dev/null; then
     --format png-sequence --fps 1 --quiet
   frames=(renders/shots/*.png)
   i=0
+  # App Store Connect requires the medium Dynamic Island iPhone size too (1206x2622), and fills it in
+  # from the older Face ID size rather than from ours, so make that set as well. The two aspect ratios
+  # differ by under 0.1%, so scaling the finished image doesn't visibly stretch anything.
+  mkdir -p "$out/screenshots-medium"
+  rm -f "$out"/screenshots-medium/*.png
   for shot in "$out"/shots-raw/[01][0-9]-*.png; do
-    ffmpeg -v error -y -i "${frames[$i]}" -pix_fmt rgb24 "$out/screenshots/$(basename "$shot")"
+    name="$(basename "$shot")"
+    ffmpeg -v error -y -i "${frames[$i]}" -pix_fmt rgb24 "$out/screenshots/$name"
+    ffmpeg -v error -y -i "${frames[$i]}" -vf "scale=1206:2622:flags=lanczos" -pix_fmt rgb24 \
+      "$out/screenshots-medium/$name"
     i=$((i + 1))
   done
 else
   echo "No raw screenshots in $out/shots-raw; run screenshots.sh to make the App Store screenshots."
 fi
+
+# App Store creative asset (iOS 27+): one universal 16:9 image, 5244x2950 PNG without alpha, which App
+# Store Connect crops for both the product page header (21:9) and search results (3:2).
+mkdir -p renders/header
+rm -f renders/header/*.png
+$hyperframes render -c compositions/app-store-header.html -o renders/header --format png-sequence --fps 1 --quiet
+ffmpeg -v error -y -i "$(ls renders/header/*.png | head -1)" -pix_fmt rgb24 "$out/app-store-header.png"
 
 # 5. Show what came out, to check against the limits in README.md.
 for f in app-store-preview hero-demo border-styles camera-caption; do
@@ -73,6 +88,6 @@ for f in app-store-preview hero-demo border-styles camera-caption; do
   ffprobe -v error -show_entries stream=codec_type,codec_name,profile,level,width,height,r_frame_rate,bit_rate,channels \
     -show_entries format=duration,size -of compact "$out/$f.mp4"
 done
-for f in "$out"/screenshots/*.png; do
-  [ -e "$f" ] && echo "== screenshots/$(basename "$f") $(ffprobe -v error -show_entries stream=width,height,pix_fmt -of csv=p=0 "$f")"
+for f in "$out"/screenshots/*.png "$out"/screenshots-medium/*.png "$out/app-store-header.png"; do
+  [ -e "$f" ] && echo "== $(basename "$(dirname "$f")")/$(basename "$f") $(ffprobe -v error -show_entries stream=width,height,pix_fmt -of csv=p=0 "$f")"
 done

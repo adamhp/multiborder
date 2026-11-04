@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=5244, height=2950" />
+    <!-- App Store creative asset (iOS 27+): one 16:9 universal image, 5244x2950, used for both the
+         product page header (cropped to 21:9) and search results (cropped to 3:2). Everything that
+         matters sits inside the area both crops keep: about 4425x2247, centred. Four sample photos
+         as finished prints, one per border style; the camera caption uses IMG_2072's real data. -->
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      /* The app's own fonts (copied from Shared/ by render.sh). */
+      @font-face { font-family: "Space Mono"; src: url("../assets/SpaceMono.ttf") format("truetype"); font-display: block; }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 5244px; height: 2950px; overflow: hidden; background: #1c1917; }
+      #root {
+        position: relative;
+        width: 5244px;
+        height: 2950px;
+        background:
+          radial-gradient(ellipse 70% 60% at 50% 45%, rgba(217, 119, 6, 0.22), transparent 70%),
+          #1c1917;
+        font-family: "Space Mono", ui-monospace, Menlo, monospace;
+      }
+      h1 {
+        position: absolute;
+        top: 470px;
+        left: 0;
+        right: 0;
+        text-align: center;
+        color: #f5f5f4;
+        font-weight: 400;
+        font-size: 150px;
+        letter-spacing: -0.02em;
+      }
+      .row {
+        position: absolute;
+        top: 860px;
+        left: 0;
+        right: 0;
+        height: 1600px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 120px;
+      }
+      .print {
+        position: relative;
+        background: #ffffff;
+        box-shadow: 0 60px 160px rgba(0, 0, 0, 0.55);
+      }
+      .print img { display: block; object-fit: cover; }
+      /* Classic: an even border all round. */
+      #classic { padding: 70px; transform: rotate(-3deg); }
+      #classic img { width: 910px; height: 606px; }
+      /* Deep bottom border. */
+      #deep { padding: 70px 70px 260px; transform: rotate(2deg) translateY(-40px); }
+      #deep img { width: 680px; height: 1022px; }
+      /* Camera settings caption above and below the photo. */
+      #caption { padding: 160px 70px 180px; transform: rotate(-1.5deg) translateY(30px); }
+      #caption img { width: 910px; height: 606px; }
+      .line {
+        position: absolute;
+        left: 0;
+        right: 0;
+        text-align: center;
+        color: #44403c;
+        white-space: nowrap;
+      }
+      #caption .date { top: 72px; font-size: 34px; }
+      #caption .details { bottom: 84px; font-size: 32px; }
+      /* Blurred photo border: the border is a soft blur of the photo itself. */
+      #blur { width: 820px; height: 1180px; overflow: hidden; transform: rotate(3deg); background: #57534e; }
+      #blur .backdrop {
+        position: absolute;
+        inset: -120px;
+        width: calc(100% + 240px);
+        height: calc(100% + 240px);
+        filter: blur(120px) saturate(1.1);
+      }
+      #blur .photo {
+        position: absolute;
+        left: 110px;
+        top: 139px;
+        width: 600px;
+        height: 902px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="app-store-header" data-start="0" data-duration="1" data-width="5244" data-height="2950">
+      <div id="scene" class="clip" data-start="0" data-duration="1" data-track-index="0">
+        <h1>Borders for all your photos</h1>
+        <div class="row">
+          <div id="classic" class="print"><img src="../assets/IMG_2070.JPG" alt="" /></div>
+          <div id="deep" class="print"><img src="../assets/IMG_2069.JPG" alt="" /></div>
+          <div id="caption" class="print">
+            <div class="line date">Sep 30, 2025</div>
+            <img src="../assets/IMG_2072.JPG" alt="" />
+            <div class="line details">LEICA Q3 43 · 43mm · ƒ/8 · 1/200s · ISO 100</div>
+          </div>
+          <div id="blur" class="print">
+            <img class="backdrop" src="../assets/IMG_2071.JPG" alt="" />
+            <img class="photo" src="../assets/IMG_2071.JPG" alt="" />
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+      // A still image: rendered as a single frame.
+      const tl = gsap.timeline({ paused: true });
+      window.__timelines = window.__timelines || {};
+      window.__timelines["app-store-header"] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>
